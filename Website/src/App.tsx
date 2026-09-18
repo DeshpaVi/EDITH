@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { loadFiles, runMigration, type LoadedFile, type MigrationResult } from './migration/loadFiles'
+import { MigrationReport } from './components/MigrationReport'
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -388,34 +390,33 @@ const ivrSteps = [
 
 function IVRMigrationSection() {
   const [active, setActive] = useState(0)
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
-  const [fileError, setFileError] = useState('')
-  const [fileFormat, setFileFormat] = useState<'json' | 'file' | null>(null)
+  const [loaded, setLoaded] = useState<LoadedFile[]>([])
+  const [errors, setErrors] = useState<string[]>([])
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState<MigrationResult | null>(null)
   const step = ivrSteps[active]
 
-  const handleFile = async (file?: File) => {
-    if (!file) return
-    if (file.size > 50 * 1024 * 1024) {
-      setUploadedFile(null)
-      setFileFormat(null)
-      setFileError('This file is larger than the 50 MB limit.')
-      return
-    }
-
-    setFileError('')
-    setUploadedFile(file)
-
-    if (file.name.toLowerCase().endsWith('.json')) {
-      try {
-        JSON.parse(await file.text())
-        setFileFormat('json')
-      } catch {
-        setFileFormat('file')
-      }
-    } else {
-      setFileFormat('file')
+  // Files accumulate rather than replace, so a bot export can be added after the flow.
+  const handleFiles = async (list: FileList | null) => {
+    if (!list || list.length === 0) return
+    setBusy(true)
+    try {
+      const incoming = await loadFiles(Array.from(list))
+      const kept = incoming.filter(f => !f.error)
+      const merged = [...loaded.filter(f => !kept.some(k => k.name === f.name)), ...kept]
+      setLoaded(merged)
+      setErrors(incoming.filter(f => f.error).map(f => f.error!))
+      setResult(runMigration(merged))
+    } catch (err) {
+      setErrors([err instanceof Error ? err.message : 'Could not read those files.'])
+    } finally {
+      setBusy(false)
     }
   }
+
+  const reset = () => { setLoaded([]); setErrors([]); setResult(null) }
+  const hasFlow = loaded.some(f => f.kind === 'contact-flow')
+  const botCount = loaded.filter(f => f.kind === 'lex-bot').length
 
   return (
     <section id="ivr-migration" style={{ background: '#0a0a0a', padding: '96px 24px' }}>
@@ -463,36 +464,64 @@ function IVRMigrationSection() {
                 <input
                   id="ivr-file-upload"
                   type="file"
+                  multiple
+                  accept=".json,.zip,application/json,application/zip"
                   hidden
-                  onChange={event => handleFile(event.target.files?.[0])}
+                  onChange={event => { void handleFiles(event.target.files); event.target.value = '' }}
                 />
                 <label
                   htmlFor="ivr-file-upload"
                   onDragOver={event => event.preventDefault()}
-                  onDrop={event => {
-                    event.preventDefault()
-                    void handleFile(event.dataTransfer.files[0])
-                  }}
-                  style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 14, border: `1px dashed ${fileError ? '#ff375f' : uploadedFile ? '#30d158' : 'rgba(255,107,138,0.55)'}`, background: uploadedFile ? 'rgba(48,209,88,0.08)' : 'rgba(255,107,138,0.06)', cursor: 'pointer' }}
+                  onDrop={event => { event.preventDefault(); void handleFiles(event.dataTransfer.files) }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 14, border: `1px dashed ${errors.length ? '#ff375f' : hasFlow ? '#30d158' : 'rgba(255,107,138,0.55)'}`, background: hasFlow ? 'rgba(48,209,88,0.08)' : 'rgba(255,107,138,0.06)', cursor: 'pointer' }}
                 >
-                  <div style={{ width: 42, height: 42, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: uploadedFile ? '#30d158' : '#ff6b8a', background: uploadedFile ? 'rgba(48,209,88,0.14)' : 'rgba(255,107,138,0.14)' }}>
-                    {uploadedFile ? <I.Check /> : <I.Upload />}
+                  <div style={{ width: 42, height: 42, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: hasFlow ? '#30d158' : '#ff6b8a', background: hasFlow ? 'rgba(48,209,88,0.14)' : 'rgba(255,107,138,0.14)' }}>
+                    {busy ? <I.Sparkle /> : hasFlow ? <I.Check /> : <I.Upload />}
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <p style={{ color: '#f5f5f7', fontSize: 14, fontWeight: 600, margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {uploadedFile ? uploadedFile.name : 'Drop your IVR file here or browse'}
+                      {busy ? 'Parsing…' : hasFlow ? `${loaded.length} file${loaded.length > 1 ? 's' : ''} loaded` : 'Drop your contact flow + Lex bot export here'}
                     </p>
                     <p style={{ color: 'rgba(245,245,247,0.42)', fontSize: 12, margin: 0 }}>
-                      {uploadedFile ? `${fileFormat === 'json' ? 'Valid JSON' : 'File received'} · Ready for parsing` : 'JSON, VoiceXML, CCXML, or any other file · Max 50 MB'}
+                      {hasFlow
+                        ? `Contact flow${botCount ? ` + ${botCount} bot export${botCount > 1 ? 's' : ''}` : ' · no bot export yet'}`
+                        : 'Connect flow JSON, plus the Lex export (.json or .zip) it references · Max 50 MB'}
                     </p>
                   </div>
                 </label>
-                {fileError && <p style={{ color: '#ff6b8a', fontSize: 12, margin: '8px 2px 0' }}>{fileError}</p>}
+
+                {loaded.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 10 }}>
+                    {loaded.map(f => (
+                      <span key={f.name} style={{ padding: '3px 9px', borderRadius: 6, fontSize: 11.5, background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(245,245,247,0.7)' }}>
+                        {f.kind === 'contact-flow' ? '📄' : '🤖'} {f.name}
+                      </span>
+                    ))}
+                    <button onClick={reset} style={{ padding: '3px 9px', borderRadius: 6, fontSize: 11.5, background: 'transparent', border: '1px solid rgba(255,255,255,0.12)', color: 'rgba(245,245,247,0.45)', cursor: 'pointer' }}>Clear</button>
+                  </div>
+                )}
+
+                {errors.map((e, i) => <p key={i} style={{ color: '#ff6b8a', fontSize: 12, margin: '8px 2px 0' }}>{e}</p>)}
+
+                {loaded.length > 0 && !hasFlow && (
+                  <p style={{ color: '#ff9f0a', fontSize: 12, margin: '8px 2px 0' }}>
+                    A Lex bot export on its own has nothing to attach to — add the contact flow that calls it.
+                  </p>
+                )}
               </div>
             )}
-            {/* Outputs */}
+            {/* Outputs — real once a flow is parsed, illustrative before that */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {step.outputs.map((o, i) => (
+              {(result && active === 0
+                ? [
+                    `${result.model.coverage.flow.mapped}/${result.model.coverage.flow.totalActions} flow blocks mapped`,
+                    result.model.coverage.nlu.totalIntents > 0
+                      ? `${result.model.coverage.nlu.resolved}/${result.model.coverage.nlu.totalIntents} intents resolved from the bot export`
+                      : 'No Lex bot export — conversational content is missing',
+                    `${result.plan.risks.length} item(s) need a human decision`,
+                  ]
+                : step.outputs
+              ).map((o, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <div style={{ color: step.color, flexShrink: 0 }}><I.Check /></div>
                   <span style={{ color: 'rgba(245,245,247,0.6)', fontSize: 14 }}>{o}</span>
@@ -505,8 +534,9 @@ function IVRMigrationSection() {
             </div>
           </div>
 
-          {/* Right — CX Designer block + scorecard */}
+          {/* Right — the real migration report once parsed; illustrative mock before that */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {result ? <MigrationReport model={result.model} plan={result.plan} /> : <>
             {/* CX Designer block */}
             <div className="card-glow" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 24, padding: 36 }}>
               <p style={{ color: 'rgba(245,245,247,0.35)', fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 16 }}>Amazon Connect · CX Designer Block</p>
@@ -567,6 +597,7 @@ function IVRMigrationSection() {
 }`}
               </pre>
             </div>
+          </>}
           </div>
         </div>
       </div>
