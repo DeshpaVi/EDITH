@@ -113,7 +113,7 @@ function confirmGate(plan: AcxdPlan): string {
   return [
     'async function confirm() {',
     '  if (process.argv.includes("--yes")) return',
-    `  console.log("About to create ${total} resource(s) in workspace " + workspaceId + " and deploy to ${plan.contactFlow.agenticCxBlock.environment.toLowerCase()}.")`,
+    `  console.log("About to create ${total} resource(s) in workspace " + workspaceId + " and deploy to ${plan.contactFlow.agenticCxBlock.alias.toLowerCase()}.")`,
     '  const rl = createInterface({ input: process.stdin, output: process.stdout })',
     '  const answer = await rl.question("Type \'yes\' to continue: ")',
     '  rl.close()',
@@ -213,7 +213,7 @@ function sections(plan: AcxdPlan): string[] {
   out.push('  await client.send(new CreateApplicationDeploymentCommand({')
   out.push('    applicationIdentifier: app.applicationId,')
   out.push('    buildIdentifier: build.buildId,')
-  out.push(`    environment: ${lit(plan.contactFlow.agenticCxBlock.environment.toLowerCase())},`)
+  out.push(`    environment: ${lit(plan.contactFlow.agenticCxBlock.alias.toLowerCase())},`)
   out.push(`    languageCodes: ${lit(plan.application.settings.languageCodes)},`)
   out.push('  }))')
   out.push('')

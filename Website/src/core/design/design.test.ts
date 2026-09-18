@@ -108,7 +108,12 @@ describe('designing a DTMF menu IVR', () => {
   it('keeps routing out of ACXD and names the manual console step', () => {
     expect(p.contactFlow.queueAssignments).toHaveLength(1)
     expect(p.contactFlow.voice?.voiceId).toBe('Joanna')
-    expect(p.contactFlow.agenticCxBlock.environment).toBe('Development')
+    // Per the Agentic CX block docs: workspace + application + alias, and four branches.
+    expect(p.contactFlow.agenticCxBlock.alias).toBe('Development')
+    expect(p.contactFlow.agenticCxBlock.branches.map((b) => b.name))
+      .toEqual(['Default', 'Error', 'Idle chat timeout', 'Escalation'])
+    expect(p.contactFlow.agenticCxBlock.branches.find((b) => b.name === 'Escalation')!.target)
+      .toBe('transfer-to-queue')
   })
 
   it('raises the parity risks a reviewer has to see', () => {

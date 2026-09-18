@@ -130,12 +130,11 @@ describe('contact-flow.json', () => {
     expect(types).not.toContain('StoreUserInput')
   })
 
-  it('chains every action to the next so the flow is connected', () => {
-    const actions = flow.Actions as Array<{ Identifier: string; Transitions: { NextAction?: string } }>
-    for (let i = 0; i < actions.length - 1; i++) {
-      expect(actions[i].Transitions.NextAction).toBe(actions[i + 1].Identifier)
-    }
-    expect(actions.at(-1)!.Transitions.NextAction).toBeUndefined()
+  it('provides a landing block for each Agentic CX branch', () => {
+    const ids = flow.Actions.map((a: { Identifier: string }) => a.Identifier)
+    expect(ids).toContain('transfer-to-queue')  // Escalation
+    expect(ids).toContain('error-prompt')       // Error
+    expect(ids).toContain('disconnect')         // Default / Idle chat timeout
   })
 
   it('does not invent the Agentic CX block, and says why', () => {

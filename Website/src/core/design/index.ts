@@ -72,7 +72,19 @@ export function designPlan(model: IvrModel): AcxdPlan {
     hoursOfOperation: model.routing.hoursOfOperation !== undefined,
     recordingBehavior: model.routing.recordingBehavior !== undefined,
     voice: model.routing.voice,
-    agenticCxBlock: { applicationName: appName, environment: 'Development' },
+    agenticCxBlock: {
+      workspaceId: 'TODO_WORKSPACE_ID',
+      applicationName: appName,
+      alias: 'Development',
+      // Documented branches. Escalation is wired to a queue transfer per the block docs;
+      // the rest terminate unless the operator routes them elsewhere.
+      branches: [
+        { name: 'Default', target: 'disconnect' },
+        { name: 'Error', target: 'error-prompt' },
+        { name: 'Idle chat timeout', target: 'disconnect' },
+        { name: 'Escalation', target: needsEscalationFlow ? 'transfer-to-queue' : 'disconnect' },
+      ],
+    },
   }
 
   return {

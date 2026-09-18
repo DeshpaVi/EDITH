@@ -120,8 +120,18 @@ export interface TrimmedContactFlow {
   hoursOfOperation: boolean
   recordingBehavior: boolean
   voice?: { provider?: string; voiceId?: string; languageCode?: string }
-  /** The manual, console-side step that actually completes the cutover. */
-  agenticCxBlock: { applicationName: string; environment: 'Development' | 'Production' }
+  /**
+   * The manual, console-side step that actually completes the cutover.
+   * Per the Agentic CX block docs, it is configured with three identifiers — workspace,
+   * application and alias — and exposes four branches.
+   */
+  agenticCxBlock: {
+    workspaceId: string
+    applicationName: string
+    alias: string
+    /** Documented exit conditions. Every one needs a target in the trimmed flow. */
+    branches: Array<{ name: 'Default' | 'Error' | 'Idle chat timeout' | 'Escalation'; target: string }>
+  }
 }
 
 export interface Risk {
