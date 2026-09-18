@@ -1,0 +1,19 @@
+{
+  "Version": "2019-10-30",
+  "StartAction": "greeting",
+  "Actions": [
+    {
+      "Identifier": "greeting",
+      "Type": "MessageParticipant",
+      "Parameters": { "Text": "Welcome." },
+      "Transitions": { "NextAction": "mystery" }
+    },
+    {
+      "Identifier": "mystery",
+      "Type": "CreateCallbackContact",
+      "Parameters": { "QueueId": "q-1", "CallbackDelaySeconds": 300, "SomeNewField": { "nested": true } },
+      "Transitions": { "NextAction": "hangup" }
+    },
+    { "Identifier": "hangup", "Type": "DisconnectParticipant", "Parameters": {}, "Transitions": {} }
+  ]
+}

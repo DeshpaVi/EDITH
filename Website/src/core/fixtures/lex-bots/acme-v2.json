@@ -1,0 +1,72 @@
+{
+  "Manifest.json": { "metadata": { "schemaVersion": "1.0", "fileFormat": "LexJson", "resourceType": "BOT" } },
+  "AcmeUtilitiesBot/Bot.json": { "name": "AcmeUtilitiesBot", "identifier": "BOT123ABC", "description": "Utility billing and outages" },
+  "AcmeUtilitiesBot/BotLocales/en_US/BotLocale.json": { "localeId": "en_US", "nluConfidenceThreshold": 0.55, "voiceSettings": { "voiceId": "Joanna", "engine": "neural" } },
+
+  "AcmeUtilitiesBot/BotLocales/en_US/Intents/PayBill/Intent.json": {
+    "name": "PayBill",
+    "sampleUtterances": [
+      { "utterance": "pay my bill" },
+      { "utterance": "I want to make a payment" },
+      { "utterance": "settle my account" },
+      { "utterance": "pay the balance" }
+    ],
+    "intentConfirmationSetting": {
+      "promptSpecification": { "maxRetries": 2, "messageGroupsList": [{ "message": { "plainTextMessage": { "value": "Just to confirm, you'd like to pay your bill. Is that right?" } } }] }
+    },
+    "intentClosingSetting": {
+      "closingResponse": { "messageGroupsList": [{ "message": { "plainTextMessage": { "value": "Your payment is complete. Thanks." } } }] }
+    },
+    "fulfillmentCodeHook": { "enabled": true },
+    "dialogCodeHook": { "enabled": false }
+  },
+  "AcmeUtilitiesBot/BotLocales/en_US/Intents/PayBill/Slots/accountNumber/Slot.json": {
+    "name": "accountNumber",
+    "slotTypeName": "AMAZON.Number",
+    "valueElicitationSetting": {
+      "slotConstraint": "Required",
+      "promptSpecification": { "maxRetries": 3, "messageGroupsList": [{ "message": { "plainTextMessage": { "value": "What's your account number?" } } }] }
+    },
+    "obfuscationSetting": { "obfuscationSettingType": "DefaultObfuscation" }
+  },
+  "AcmeUtilitiesBot/BotLocales/en_US/Intents/PayBill/Slots/paymentAmount/Slot.json": {
+    "name": "paymentAmount",
+    "slotTypeName": "AMAZON.Number",
+    "valueElicitationSetting": {
+      "slotConstraint": "Required",
+      "promptSpecification": { "maxRetries": 2, "messageGroupsList": [{ "message": { "plainTextMessage": { "value": "How much would you like to pay?" } } }] }
+    },
+    "obfuscationSetting": { "obfuscationSettingType": "None" }
+  },
+
+  "AcmeUtilitiesBot/BotLocales/en_US/Intents/CheckBalance/Intent.json": {
+    "name": "CheckBalance",
+    "sampleUtterances": [{ "utterance": "what do I owe" }, { "utterance": "check my balance" }, { "utterance": "how much is my bill" }],
+    "fulfillmentCodeHook": { "enabled": true },
+    "dialogCodeHook": { "enabled": true }
+  },
+
+  "AcmeUtilitiesBot/BotLocales/en_US/Intents/SpeakToAgent/Intent.json": {
+    "name": "SpeakToAgent",
+    "sampleUtterances": [{ "utterance": "agent" }, { "utterance": "representative" }, { "utterance": "talk to a human" }, { "utterance": "operator" }]
+  },
+
+  "AcmeUtilitiesBot/BotLocales/en_US/Intents/ReportOutage/Intent.json": {
+    "name": "ReportOutage",
+    "sampleUtterances": [{ "utterance": "my power is out" }, { "utterance": "report an outage" }]
+  },
+
+  "AcmeUtilitiesBot/BotLocales/en_US/Intents/FallbackIntent/Intent.json": {
+    "name": "FallbackIntent",
+    "parentIntentSignature": "AMAZON.FallbackIntent",
+    "sampleUtterances": []
+  },
+
+  "AcmeUtilitiesBot/BotLocales/en_US/SlotTypes/BillingTopic/SlotType.json": {
+    "name": "BillingTopic",
+    "slotTypeValues": [
+      { "sampleValue": { "value": "billing" }, "synonyms": [{ "value": "bill" }, { "value": "my bill" }, { "value": "invoice" }, { "value": "payment" }] },
+      { "sampleValue": { "value": "outage" }, "synonyms": [{ "value": "power cut" }, { "value": "no power" }, { "value": "blackout" }] }
+    ]
+  }
+}
