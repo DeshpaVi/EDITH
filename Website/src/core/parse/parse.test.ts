@@ -290,3 +290,62 @@ describe('real Lex V2 export', () => {
     expect(dept.values[0].synonyms).toEqual([])
   })
 })
+
+/**
+ * Lex bots created after 2022-08-17 can define conversation paths declaratively —
+ * conditional branches and per-turn next steps, without a Lambda. That is real dialogue
+ * structure, and migrating the intents while quietly losing the paths between them would
+ * be the same failure as dropping an unrecognized flow block.
+ */
+describe('declarative conversation paths', () => {
+  const { bots, review } = parseLexExport(realBot, 'real')
+
+  it('detects paths in the real export', () => {
+    expect(bots[0].intents.find((i) => i.name === 'InteractiveMessageIntent')!.hasConversationPaths).toBe(true)
+  })
+
+  it('says plainly that the paths are not migrated', () => {
+    const item = review.find((r) => /declarative conversation paths/.test(r.reason))!
+    expect(item.severity).toBe('warn')
+    expect(item.reason).toContain('NOT migrated')
+    expect(item.reason).toContain('InteractiveMessageIntent')
+  })
+
+  it('does not fire for a bot without paths', () => {
+    expect(parseLexExport(acmeV2, 'acme').review.some((r) => /conversation paths/.test(r.reason))).toBe(false)
+  })
+
+  it('captures declination and post-fulfilment copy that would otherwise be dropped', () => {
+    const withCopy = parseLexExport({
+      'Bot.json': { name: 'B' },
+      'BotLocales/en_US/Intents/Pay/Intent.json': {
+        name: 'Pay',
+        sampleUtterances: [{ utterance: 'pay' }],
+        intentConfirmationSetting: {
+          promptSpecification: { messageGroupsList: [{ message: { plainTextMessage: { value: 'Confirm?' } } }] },
+          declinationResponse: { messageGroupsList: [{ message: { plainTextMessage: { value: 'No problem, cancelled.' } } }] },
+        },
+        fulfillmentCodeHook: {
+          enabled: true,
+          postFulfillmentStatusSpecification: {
+            successResponse: { messageGroupsList: [{ message: { plainTextMessage: { value: 'All done.' } } }] },
+            failureResponse: { messageGroupsList: [{ message: { plainTextMessage: { value: 'That failed.' } } }] },
+          },
+        },
+        inputContexts: [{ name: 'Authenticated' }],
+      },
+    }, 'copy').bots[0].intents[0]
+
+    expect(withCopy.declinationResponse).toBe('No problem, cancelled.')
+    expect(withCopy.fulfillmentResponses).toEqual({ success: 'All done.', failure: 'That failed.', timeout: undefined })
+    expect(withCopy.inputContexts).toEqual(['Authenticated'])
+  })
+
+  it('flags Lex contexts as having no direct ACXD equivalent', () => {
+    const { review: r } = parseLexExport({
+      'Bot.json': { name: 'B' },
+      'BotLocales/en_US/Intents/Pay/Intent.json': { name: 'Pay', inputContexts: [{ name: 'Authenticated' }] },
+    }, 'ctx')
+    expect(r.some((x) => /Lex contexts/.test(x.reason) && /Authenticated/.test(x.reason))).toBe(true)
+  })
+})
