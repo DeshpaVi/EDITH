@@ -76,6 +76,11 @@ const I = {
       <path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6L12 2z" />
     </svg>
   ),
+  Upload: () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 16V4" /><path d="M7 9l5-5 5 5" /><path d="M5 20h14" />
+    </svg>
+  ),
   Puzzle: () => (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" />
@@ -383,7 +388,34 @@ const ivrSteps = [
 
 function IVRMigrationSection() {
   const [active, setActive] = useState(0)
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
+  const [fileError, setFileError] = useState('')
+  const [fileFormat, setFileFormat] = useState<'json' | 'file' | null>(null)
   const step = ivrSteps[active]
+
+  const handleFile = async (file?: File) => {
+    if (!file) return
+    if (file.size > 50 * 1024 * 1024) {
+      setUploadedFile(null)
+      setFileFormat(null)
+      setFileError('This file is larger than the 50 MB limit.')
+      return
+    }
+
+    setFileError('')
+    setUploadedFile(file)
+
+    if (file.name.toLowerCase().endsWith('.json')) {
+      try {
+        JSON.parse(await file.text())
+        setFileFormat('json')
+      } catch {
+        setFileFormat('file')
+      }
+    } else {
+      setFileFormat('file')
+    }
+  }
 
   return (
     <section id="ivr-migration" style={{ background: '#0a0a0a', padding: '96px 24px' }}>
@@ -426,6 +458,38 @@ function IVRMigrationSection() {
                 <span style={{ color: 'rgba(245,245,247,0.65)', fontWeight: 500 }}>Technical note — </span>{step.detail}
               </p>
             </div>
+            {active === 0 && (
+              <div style={{ marginBottom: 28 }}>
+                <input
+                  id="ivr-file-upload"
+                  type="file"
+                  hidden
+                  onChange={event => handleFile(event.target.files?.[0])}
+                />
+                <label
+                  htmlFor="ivr-file-upload"
+                  onDragOver={event => event.preventDefault()}
+                  onDrop={event => {
+                    event.preventDefault()
+                    void handleFile(event.dataTransfer.files[0])
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '16px 18px', borderRadius: 14, border: `1px dashed ${fileError ? '#ff375f' : uploadedFile ? '#30d158' : 'rgba(255,107,138,0.55)'}`, background: uploadedFile ? 'rgba(48,209,88,0.08)' : 'rgba(255,107,138,0.06)', cursor: 'pointer' }}
+                >
+                  <div style={{ width: 42, height: 42, borderRadius: 11, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: uploadedFile ? '#30d158' : '#ff6b8a', background: uploadedFile ? 'rgba(48,209,88,0.14)' : 'rgba(255,107,138,0.14)' }}>
+                    {uploadedFile ? <I.Check /> : <I.Upload />}
+                  </div>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ color: '#f5f5f7', fontSize: 14, fontWeight: 600, margin: '0 0 4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {uploadedFile ? uploadedFile.name : 'Drop your IVR file here or browse'}
+                    </p>
+                    <p style={{ color: 'rgba(245,245,247,0.42)', fontSize: 12, margin: 0 }}>
+                      {uploadedFile ? `${fileFormat === 'json' ? 'Valid JSON' : 'File received'} · Ready for parsing` : 'JSON, VoiceXML, CCXML, or any other file · Max 50 MB'}
+                    </p>
+                  </div>
+                </label>
+                {fileError && <p style={{ color: '#ff6b8a', fontSize: 12, margin: '8px 2px 0' }}>{fileError}</p>}
+              </div>
+            )}
             {/* Outputs */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {step.outputs.map((o, i) => (
