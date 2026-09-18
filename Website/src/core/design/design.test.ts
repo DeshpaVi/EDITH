@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { parseIvr } from '../parse'
 import { designPlan } from './index'
 import { stableUuid, slotTypeId, slotName, contextVariableName } from './ids'
+import { LEX_BUILT_INS } from './builtInSlots'
 
 import simpleMenu from '../fixtures/contact-flows/simple-menu.json'
 import unhandled from '../fixtures/contact-flows/unhandled-action.json'
@@ -235,5 +236,55 @@ describe('real export + real bot, end to end', () => {
     // The flow calls ConnectBot; this is InteractiveMessageBotV2. Matching it on
     // "only bot uploaded" is an assumption, and none of the intents line up.
     expect(p.risks.map((r) => r.id)).toContain('dangling-intents')
+  })
+})
+
+/**
+ * ACXD publishes no built-in slot type catalogue, so most Lex built-ins would be dead
+ * ends. Enumerable ones become ordinary custom slot types; patterned ones carry a regex
+ * on the attached slot. Both are documented ACXD constructs, so the gap shrinks to the
+ * handful that genuinely need an answer from AWS.
+ */
+describe('Lex built-in slot types', () => {
+  const botWith = (slotType: string) => ({
+    'Bot.json': { name: 'B' },
+    'BotLocales/en_US/BotLocale.json': { localeId: 'en_US' },
+    'BotLocales/en_US/Intents/PayBill/Intent.json': { name: 'PayBill', sampleUtterances: [{ utterance: 'pay' }] },
+    'BotLocales/en_US/Intents/PayBill/Slots/thing/Slot.json': {
+      name: 'thing', slotTypeName: slotType,
+      valueElicitationSetting: { slotConstraint: 'Required' },
+    },
+  })
+  const planFor = (slotType: string) => plan(lexBacked, botWith(slotType))
+  const slotOf = (slotType: string) =>
+    planFor(slotType).flows[0].slotTypes.find((s) => s.name === 'thing')!
+
+  it('resolves AMAZON.Confirmation outright as a custom slot type', () => {
+    const p = planFor('AMAZON.Confirmation')
+    const type = p.slotTypes.find((t) => t.slotTypeId === 'Confirmation')!
+    expect(type.values.map((v) => v.value)).toEqual(['Yes', 'No', 'Maybe', "Don't know"])
+    expect(slotOf('AMAZON.Confirmation').type).toBe('Confirmation')
+    // Fully handled — it raises no gap at all.
+    expect(p.schemaGaps.some((g) => g.nodeIds.length && /Confirmation/.test(g.what))).toBe(false)
+  })
+
+  it('carries a deterministic regex for patterned built-ins', () => {
+    expect(slotOf('AMAZON.PhoneNumber').regex).toBe('^\\+?[0-9]{7,15}$')
+    expect(slotOf('AMAZON.Number').regex).toBe('^[0-9]+$')
+  })
+
+  it('describes what an unresolved slot captures instead of just naming it unknown', () => {
+    const gap = planFor('AMAZON.City').schemaGaps.find((g) => g.marker === 'built-in slot type name')!
+    expect(gap.what).toContain('a city name')
+    expect(gap.needed).toContain('a city name')
+  })
+
+  it('covers every documented built-in', () => {
+    // 18 types per docs.aws.amazon.com/lexv2/latest/dg/built-in-slots.html
+    expect(Object.keys(LEX_BUILT_INS)).toHaveLength(18)
+    for (const [name, m] of Object.entries(LEX_BUILT_INS)) {
+      expect(name.startsWith('AMAZON.')).toBe(true)
+      expect(m.captures.length).toBeGreaterThan(0)
+    }
   })
 })
