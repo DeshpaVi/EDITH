@@ -1,0 +1,81 @@
+{
+  "Version": "2019-10-30",
+  "StartAction": "greeting",
+  "Metadata": { "entryPointPosition": { "x": 20, "y": 20 } },
+  "Actions": [
+    {
+      "Identifier": "greeting",
+      "Type": "MessageParticipant",
+      "Parameters": { "Text": "Thank you for calling Acme Utilities. This call may be recorded for quality and training purposes." },
+      "Transitions": { "NextAction": "set-voice" }
+    },
+    {
+      "Identifier": "set-voice",
+      "Type": "UpdateContactTextToSpeechVoice",
+      "Parameters": { "Voice": "Joanna", "Engine": "neural", "LanguageCode": "en-US" },
+      "Transitions": { "NextAction": "set-queue" }
+    },
+    {
+      "Identifier": "set-queue",
+      "Type": "SetWorkingQueue",
+      "Parameters": { "QueueId": "arn:aws:connect:us-east-1:111122223333:instance/abc/queue/general" },
+      "Transitions": { "NextAction": "main-menu" }
+    },
+    {
+      "Identifier": "main-menu",
+      "Type": "GetParticipantInput",
+      "Parameters": {
+        "Text": "Press 1 for billing, press 2 to report an outage, press 3 for Espanol, or press 0 for an agent.",
+        "InputTimeLimitSeconds": 5
+      },
+      "Transitions": {
+        "NextAction": "retry-loop",
+        "Conditions": [
+          { "NextAction": "billing-prompt", "Condition": { "Operator": "Equals", "Operands": ["1"] } },
+          { "NextAction": "outage-dip", "Condition": { "Operator": "Equals", "Operands": ["2"] } },
+          { "NextAction": "set-spanish", "Condition": { "Operator": "Equals", "Operands": ["3"] } },
+          { "NextAction": "agent-transfer", "Condition": { "Operator": "Equals", "Operands": ["0"] } }
+        ],
+        "Errors": [{ "NextAction": "retry-loop", "ErrorType": "NoMatchingCondition" }]
+      }
+    },
+    {
+      "Identifier": "set-spanish",
+      "Type": "UpdateContactTextToSpeechVoice",
+      "Parameters": { "Voice": "Lupe", "Engine": "neural", "LanguageCode": "es-US" },
+      "Transitions": { "NextAction": "main-menu" }
+    },
+    {
+      "Identifier": "retry-loop",
+      "Type": "Loop",
+      "Parameters": { "LoopCount": 3 },
+      "Transitions": {
+        "NextAction": "main-menu",
+        "Conditions": [{ "NextAction": "agent-transfer", "Condition": { "Operator": "Equals", "Operands": ["ContinueLooping"] } }]
+      }
+    },
+    {
+      "Identifier": "billing-prompt",
+      "Type": "StoreUserInput",
+      "Parameters": { "Text": "Please enter your 16 digit card number.", "MaxDigits": 16, "EncryptEntry": true, "EncryptionKeyId": "key-abc" },
+      "Transitions": { "NextAction": "hangup" }
+    },
+    {
+      "Identifier": "outage-dip",
+      "Type": "InvokeLambdaFunction",
+      "Parameters": {
+        "LambdaFunctionARN": "arn:aws:lambda:us-east-1:111122223333:function:CheckOutage",
+        "LambdaInvocationAttributes": { "postalCode": "$.Attributes.postalCode" },
+        "InvocationTimeLimitSeconds": "5"
+      },
+      "Transitions": { "NextAction": "hangup", "Errors": [{ "NextAction": "agent-transfer", "ErrorType": "NoMatchingError" }] }
+    },
+    {
+      "Identifier": "agent-transfer",
+      "Type": "TransferContactToQueue",
+      "Parameters": { "QueueId": "arn:aws:connect:us-east-1:111122223333:instance/abc/queue/agents" },
+      "Transitions": {}
+    },
+    { "Identifier": "hangup", "Type": "DisconnectParticipant", "Parameters": {}, "Transitions": {} }
+  ]
+}

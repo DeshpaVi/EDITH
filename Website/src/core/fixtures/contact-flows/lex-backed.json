@@ -1,0 +1,47 @@
+{
+  "Version": "2019-10-30",
+  "StartAction": "greeting",
+  "Actions": [
+    {
+      "Identifier": "greeting",
+      "Type": "MessageParticipant",
+      "Parameters": { "Text": "Thanks for calling Acme Utilities." },
+      "Transitions": { "NextAction": "ask-intent" }
+    },
+    {
+      "Identifier": "ask-intent",
+      "Type": "GetParticipantInput",
+      "Parameters": {
+        "Text": "In a few words, tell me what you're calling about.",
+        "LexV2Bot": {
+          "AliasArn": "arn:aws:lex:us-east-1:111122223333:bot-alias/BOT123ABC/ALIAS456",
+          "Name": "AcmeUtilitiesBot"
+        }
+      },
+      "Transitions": {
+        "NextAction": "agent-transfer",
+        "Conditions": [
+          { "NextAction": "pay-bill-dip", "Condition": { "Operator": "Equals", "Operands": ["PayBill"] } },
+          { "NextAction": "balance-dip", "Condition": { "Operator": "Equals", "Operands": ["CheckBalance"] } },
+          { "NextAction": "agent-transfer", "Condition": { "Operator": "Equals", "Operands": ["SpeakToAgent"] } },
+          { "NextAction": "hangup", "Condition": { "Operator": "Equals", "Operands": ["ReportMovedHouse"] } }
+        ],
+        "Errors": [{ "NextAction": "ask-intent", "ErrorType": "NoMatchingCondition" }]
+      }
+    },
+    {
+      "Identifier": "pay-bill-dip",
+      "Type": "InvokeLambdaFunction",
+      "Parameters": { "LambdaFunctionARN": "arn:aws:lambda:us-east-1:111122223333:function:TakePayment", "LambdaInvocationAttributes": { "accountNumber": "$.Lex.Slots.accountNumber" } },
+      "Transitions": { "NextAction": "hangup", "Errors": [{ "NextAction": "agent-transfer" }] }
+    },
+    {
+      "Identifier": "balance-dip",
+      "Type": "InvokeLambdaFunction",
+      "Parameters": { "LambdaFunctionARN": "arn:aws:lambda:us-east-1:111122223333:function:GetBalance", "LambdaInvocationAttributes": {} },
+      "Transitions": { "NextAction": "hangup" }
+    },
+    { "Identifier": "agent-transfer", "Type": "TransferContactToQueue", "Parameters": { "QueueId": "q-agents" }, "Transitions": {} },
+    { "Identifier": "hangup", "Type": "DisconnectParticipant", "Parameters": {}, "Transitions": {} }
+  ]
+}
