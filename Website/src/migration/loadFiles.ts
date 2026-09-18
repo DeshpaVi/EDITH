@@ -94,6 +94,7 @@ export function runMigration(files: LoadedFile[]): MigrationResult | null {
 
   const input: ParseInput = {
     contactFlow: flow.content,
+    contactFlowName: flow.name.replace(/\.[^.]+$/, ''),
     lexExports: files
       .filter((f) => f.kind === 'lex-bot')
       .map((f) => ({ name: f.name, content: f.content })),

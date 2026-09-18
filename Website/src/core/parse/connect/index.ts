@@ -31,10 +31,10 @@ export interface ConnectParseResult {
  * is the point — a migration tool that silently drops a block is worse than one that
  * says it couldn't read it.
  */
-export function parseContactFlow(input: unknown): ConnectParseResult {
+export function parseContactFlow(input: unknown, sourceName = 'contact-flow'): ConnectParseResult {
   const review: ReviewItem[] = []
   const result: ConnectParseResult = {
-    sourceName: 'contact-flow',
+    sourceName,
     entryNodeId: '',
     nodes: {},
     routing: { queueAssignments: [] },
