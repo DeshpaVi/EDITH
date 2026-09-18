@@ -6,6 +6,7 @@ import simpleMenu from '../fixtures/contact-flows/simple-menu.json'
 import unhandled from '../fixtures/contact-flows/unhandled-action.json'
 import lexBacked from '../fixtures/contact-flows/lex-backed.json'
 import malformed from '../fixtures/contact-flows/malformed.json'
+import realExport from '../fixtures/contact-flows/real-console-export.json'
 import acmeV2 from '../fixtures/lex-bots/acme-v2.json'
 import acmeV1 from '../fixtures/lex-bots/acme-v1.json'
 
@@ -211,5 +212,39 @@ describe('determinism', () => {
     const a = JSON.stringify(withBot())
     const b = JSON.stringify(withBot())
     expect(a).toBe(b)
+  })
+})
+
+/**
+ * Verified against a genuine Amazon Connect console export. The console's "Export" button
+ * produces a different shape from the flow language used by the API and CloudFormation —
+ * different envelope, key names, value shapes, and action-type names. Both are real.
+ */
+describe('real console export (modules format)', () => {
+  const model = parseIvr({ contactFlow: realExport, importedAt: AT })
+
+  it('maps every block without falling back to unknown', () => {
+    expect(model.coverage.flow.totalActions).toBe(6)
+    expect(model.coverage.flow.unknown).toEqual([])
+  })
+
+  it('takes the flow name from the export metadata', () => {
+    expect(model.sources[0].name).toBe('InboundLexRouter')
+  })
+
+  it('reads array-shaped parameters and branch-shaped transitions', () => {
+    const prompt = Object.values(model.nodes).find((n): n is PromptNode => n.kind === 'prompt')!
+    expect(prompt.text).toBe('Something went wrong.  Please try again later.')
+  })
+
+  it('recognises the Lex handoff and the intents it branches on', () => {
+    const intent = Object.values(model.nodes).find((n): n is IntentNode => n.kind === 'intent')!
+    expect(intent.botRef).toBe('ConnectBot')
+    expect(intent.cases.map((c) => c.intent)).toEqual(['WaitOnHold', 'CallBack', 'Emergency'])
+  })
+
+  it('still blocks on the missing bot export rather than pretending it is complete', () => {
+    expect(model.coverage.nlu.dangling).toEqual(['WaitOnHold', 'CallBack', 'Emergency'])
+    expect(model.coverage.requiresReview.some((r) => r.severity === 'blocker')).toBe(true)
   })
 })

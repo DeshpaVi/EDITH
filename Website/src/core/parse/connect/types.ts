@@ -33,7 +33,10 @@ export interface RawTransitions {
 /** Action types that carry routing, not conversation — they stay upstream of ACXD. */
 export const ROUTING_ACTIONS = new Set([
   'SetWorkingQueue',
+  'UpdateContactTargetQueue',
   'UpdateContactRecordingBehavior',
+  'UpdateFlowLoggingBehavior',
+  'UpdateContactEventHooks',
   'UpdateContactTextToSpeechVoice',
   'CheckHoursOfOperation',
 ])
@@ -41,7 +44,10 @@ export const ROUTING_ACTIONS = new Set([
 /** Routing actions with a single exit can be lifted out of the graph and rewired past. */
 export const SINGLE_EXIT_ROUTING = new Set([
   'SetWorkingQueue',
+  'UpdateContactTargetQueue',
   'UpdateContactRecordingBehavior',
+  'UpdateFlowLoggingBehavior',
+  'UpdateContactEventHooks',
   'UpdateContactTextToSpeechVoice',
 ])
 
