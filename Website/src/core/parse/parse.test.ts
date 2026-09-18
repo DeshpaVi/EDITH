@@ -6,6 +6,8 @@ import simpleMenu from '../fixtures/contact-flows/simple-menu.json'
 import unhandled from '../fixtures/contact-flows/unhandled-action.json'
 import lexBacked from '../fixtures/contact-flows/lex-backed.json'
 import malformed from '../fixtures/contact-flows/malformed.json'
+import realExport from '../fixtures/contact-flows/real-console-export.json'
+import realBot from '../fixtures/lex-bots/real-lex-v2.json'
 import acmeV2 from '../fixtures/lex-bots/acme-v2.json'
 import acmeV1 from '../fixtures/lex-bots/acme-v1.json'
 
@@ -211,5 +213,139 @@ describe('determinism', () => {
     const a = JSON.stringify(withBot())
     const b = JSON.stringify(withBot())
     expect(a).toBe(b)
+  })
+})
+
+/**
+ * Verified against a genuine Amazon Connect console export. The console's "Export" button
+ * produces a different shape from the flow language used by the API and CloudFormation —
+ * different envelope, key names, value shapes, and action-type names. Both are real.
+ */
+describe('real console export (modules format)', () => {
+  const model = parseIvr({ contactFlow: realExport, importedAt: AT })
+
+  it('maps every block without falling back to unknown', () => {
+    expect(model.coverage.flow.totalActions).toBe(6)
+    expect(model.coverage.flow.unknown).toEqual([])
+  })
+
+  it('takes the flow name from the export metadata', () => {
+    expect(model.sources[0].name).toBe('InboundLexRouter')
+  })
+
+  it('reads array-shaped parameters and branch-shaped transitions', () => {
+    const prompt = Object.values(model.nodes).find((n): n is PromptNode => n.kind === 'prompt')!
+    expect(prompt.text).toBe('Something went wrong.  Please try again later.')
+  })
+
+  it('recognises the Lex handoff and the intents it branches on', () => {
+    const intent = Object.values(model.nodes).find((n): n is IntentNode => n.kind === 'intent')!
+    expect(intent.botRef).toBe('ConnectBot')
+    expect(intent.cases.map((c) => c.intent)).toEqual(['WaitOnHold', 'CallBack', 'Emergency'])
+  })
+
+  it('still blocks on the missing bot export rather than pretending it is complete', () => {
+    expect(model.coverage.nlu.dangling).toEqual(['WaitOnHold', 'CallBack', 'Emergency'])
+    expect(model.coverage.requiresReview.some((r) => r.severity === 'blocker')).toBe(true)
+  })
+})
+
+/** Verified against a genuine Lex V2 console export, AppleDouble junk and all. */
+describe('real Lex V2 export', () => {
+  const { bots, review } = parseLexExport(realBot, 'InteractiveMessageBotV2')
+  const bot = bots[0]
+
+  it('ignores the __MACOSX twins that shadow the real file names', () => {
+    // '__MACOSX/.../._Bot.json' ends with 'Bot.json'; unfiltered it wins the lookup.
+    expect(bot.name).toBe('InteractiveMessageBotV2')
+    expect(review.some((r) => r.severity === 'blocker')).toBe(false)
+  })
+
+  it('reads the locale and confidence threshold', () => {
+    expect(bot.locales).toEqual(['en_US'])
+    expect(bot.confidenceThreshold).toBe(0.4)
+  })
+
+  it('recovers every slot with its elicitation prompt', () => {
+    const intent = bot.intents.find((i) => i.name === 'InteractiveMessageIntent')!
+    expect(intent.utterances).toEqual(['help', 'help me'])
+    expect(intent.slots).toHaveLength(5)
+    expect(intent.slots.find((s) => s.name === 'department')!.prompt).toBe('Which department')
+    expect(intent.slots.find((s) => s.name === 'appointment')!.prompt)
+      .toBe('When would you like to schedule the appointment?')
+  })
+
+  it('reads the per-turn hook from initialResponseSetting, where real exports put it', () => {
+    const intent = bot.intents.find((i) => i.name === 'InteractiveMessageIntent')!
+    expect(intent.dialogHook).toBeDefined()
+    expect(review.some((r) => /dialog code hook/.test(r.reason))).toBe(true)
+  })
+
+  it('reads custom slot types and tolerates null synonyms', () => {
+    const dept = bot.slotTypes.find((t) => t.name === 'Department')!
+    expect(dept.builtIn).toBe(false)
+    expect(dept.values.map((v) => v.value)).toEqual(
+      ['Walkthrough', 'Visit', 'Billing', 'Cancellation', 'Setup', 'New Service'],
+    )
+    expect(dept.values[0].synonyms).toEqual([])
+  })
+})
+
+/**
+ * Lex bots created after 2022-08-17 can define conversation paths declaratively —
+ * conditional branches and per-turn next steps, without a Lambda. That is real dialogue
+ * structure, and migrating the intents while quietly losing the paths between them would
+ * be the same failure as dropping an unrecognized flow block.
+ */
+describe('declarative conversation paths', () => {
+  const { bots, review } = parseLexExport(realBot, 'real')
+
+  it('detects paths in the real export', () => {
+    expect(bots[0].intents.find((i) => i.name === 'InteractiveMessageIntent')!.hasConversationPaths).toBe(true)
+  })
+
+  it('says plainly that the paths are not migrated', () => {
+    const item = review.find((r) => /declarative conversation paths/.test(r.reason))!
+    expect(item.severity).toBe('warn')
+    expect(item.reason).toContain('NOT migrated')
+    expect(item.reason).toContain('InteractiveMessageIntent')
+  })
+
+  it('does not fire for a bot without paths', () => {
+    expect(parseLexExport(acmeV2, 'acme').review.some((r) => /conversation paths/.test(r.reason))).toBe(false)
+  })
+
+  it('captures declination and post-fulfilment copy that would otherwise be dropped', () => {
+    const withCopy = parseLexExport({
+      'Bot.json': { name: 'B' },
+      'BotLocales/en_US/Intents/Pay/Intent.json': {
+        name: 'Pay',
+        sampleUtterances: [{ utterance: 'pay' }],
+        intentConfirmationSetting: {
+          promptSpecification: { messageGroupsList: [{ message: { plainTextMessage: { value: 'Confirm?' } } }] },
+          declinationResponse: { messageGroupsList: [{ message: { plainTextMessage: { value: 'No problem, cancelled.' } } }] },
+        },
+        fulfillmentCodeHook: {
+          enabled: true,
+          postFulfillmentStatusSpecification: {
+            successResponse: { messageGroupsList: [{ message: { plainTextMessage: { value: 'All done.' } } }] },
+            failureResponse: { messageGroupsList: [{ message: { plainTextMessage: { value: 'That failed.' } } }] },
+          },
+        },
+        inputContexts: [{ name: 'Authenticated' }],
+      },
+    }, 'copy').bots[0].intents[0]
+
+    expect(withCopy.declinationResponse).toBe('No problem, cancelled.')
+    expect(withCopy.fulfillmentResponses).toEqual({ success: 'All done.', failure: 'That failed.', timeout: undefined })
+    expect(withCopy.inputContexts).toEqual(['Authenticated'])
+  })
+
+  it('flags Lex contexts as having no direct ACXD equivalent', () => {
+    const { review: r } = parseLexExport({
+      'Bot.json': { name: 'B' },
+      'BotLocales/en_US/Intents/Pay/Intent.json': { name: 'Pay', inputContexts: [{ name: 'Authenticated' }] },
+    }, 'ctx')
+    expect(r.some((x) => /Lex contexts/.test(x.reason) && /Authenticated/.test(x.reason))).toBe(true)
   })
 })

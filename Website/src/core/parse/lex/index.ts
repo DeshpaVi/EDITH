@@ -35,8 +35,14 @@ export function parseLexExport(input: unknown, sourceName = 'lex-export'): LexPa
 
 // ── V2 ────────────────────────────────────────────────────────────────────────
 
-function parseV2(files: LexV2Files, sourceName: string, review: ReviewItem[]): LexParseResult {
-  const botFile = Object.keys(files).find((p) => p.endsWith('Bot.json'))
+const isJunk = (path: string): boolean =>
+  path.startsWith('__MACOSX/') || (path.split('/').pop() ?? '').startsWith('._')
+
+function parseV2(all: LexV2Files, sourceName: string, review: ReviewItem[]): LexParseResult {
+  const files: LexV2Files = Object.fromEntries(
+    Object.entries(all).filter(([path]) => !isJunk(path)),
+  )
+  const botFile = Object.keys(files).find((p) => p.endsWith('Bot.json') && !p.endsWith('/._Bot.json'))
   const botJson = botFile ? files[botFile] : undefined
   const botName =
     (isRecord(botJson) ? text(botJson.name) : undefined) ??
@@ -67,14 +73,28 @@ function parseV2(files: LexV2Files, sourceName: string, review: ReviewItem[]): L
           .map((u) => (isRecord(u) ? text(u.utterance) : text(u)))
           .filter((u): u is string => !!u),
         slots: [],
+        initialResponse: isRecord(content.initialResponseSetting)
+          ? firstMessage(content.initialResponseSetting.initialResponse)
+          : undefined,
         confirmationPrompt: isRecord(content.intentConfirmationSetting)
           ? firstMessage(content.intentConfirmationSetting.promptSpecification)
           : undefined,
+        declinationResponse: isRecord(content.intentConfirmationSetting)
+          ? firstMessage(content.intentConfirmationSetting.declinationResponse)
+          : undefined,
+        fulfillmentResponses: fulfillmentResponses(content.fulfillmentCodeHook),
+        inputContexts: contextNames(content.inputContexts),
+        outputContexts: contextNames(content.outputContexts),
+        hasConversationPaths: hasPaths(content),
         closingResponse: isRecord(content.intentClosingSetting)
           ? firstMessage(content.intentClosingSetting.closingResponse)
           : undefined,
         fulfillmentHook: hookArn(content.fulfillmentCodeHook),
-        dialogHook: hookArn(content.dialogCodeHook),
+        // Real V2 exports declare the per-turn hook under initialResponseSetting.codeHook,
+        // not as a top-level dialogCodeHook.
+        dialogHook: hookArn(content.dialogCodeHook) ?? hookArn(
+          isRecord(content.initialResponseSetting) ? content.initialResponseSetting.codeHook : undefined,
+        ),
       })
       continue
     }
@@ -125,6 +145,7 @@ function parseV2(files: LexV2Files, sourceName: string, review: ReviewItem[]): L
   }
   flagBuiltIns(bot, review)
   flagDialogHooks(bot, review)
+  flagConversationPaths(bot, review)
   return { bots: [bot], review }
 }
 
@@ -147,9 +168,42 @@ function readV2Slot(content: Record<string, unknown>): NluSlot | null {
   }
 }
 
+/** Post-fulfilment success/failure/timeout copy — real caller-facing wording. */
+function fulfillmentResponses(hook: unknown): NluIntent['fulfillmentResponses'] {
+  if (!isRecord(hook)) return undefined
+  const post = hook.postFulfillmentStatusSpecification
+  if (!isRecord(post)) return undefined
+  const out = {
+    success: firstMessage(post.successResponse),
+    failure: firstMessage(post.failureResponse),
+    timeout: firstMessage(post.timeoutResponse),
+  }
+  return out.success || out.failure || out.timeout ? out : undefined
+}
+
+function contextNames(v: unknown): string[] | undefined {
+  const names = arr(v)
+    .map((c) => (isRecord(c) ? text(c.name) : text(c)))
+    .filter((n): n is string => !!n)
+  return names.length > 0 ? names : undefined
+}
+
+/**
+ * Detect declarative conversation paths. Post-2022 bots express branching through
+ * `nextStep`/`conditional` on each setting instead of a Lambda; a non-default dialogAction
+ * or any populated conditional means real structure lives here.
+ */
+function hasPaths(content: Record<string, unknown>): boolean {
+  const json = JSON.stringify(content)
+  return /"conditional":\s*\{/.test(json) || /"nextStep":\s*\{/.test(json)
+}
+
 function hookArn(hook: unknown): string | undefined {
   if (!isRecord(hook)) return undefined
-  if (hook.enabled === false) return undefined
+  if (hook.enabled === false || hook.isActive === false) return undefined
+  if (hook.enableCodeHookInvocation === true || hook.isActive === true) {
+    return text(hook.uri) ?? 'lambda-configured-on-bot-alias'
+  }
   // V2 declares the hook as enabled; the Lambda ARN lives on the bot alias, not here.
   return text(hook.uri) ?? (hook.enabled === true ? 'lambda-configured-on-bot-alias' : undefined)
 }
@@ -212,6 +266,7 @@ function parseV1(resource: Record<string, unknown>, sourceName: string, review: 
   }
   flagBuiltIns(bot, review)
   flagDialogHooks(bot, review)
+  flagConversationPaths(bot, review)
   return { bots: [bot], review }
 }
 
@@ -230,6 +285,25 @@ function flagBuiltIns(bot: NluBot, review: ReviewItem[]): void {
     review.push({
       nodeId: `${bot.name}:${name}`,
       reason: `Slot type "${name}" is a Lex built-in. Whether ACXD ships an equivalent, and under what name, is not published — the emitter will mark it TODO(acxd-schema) rather than guess.`,
+      severity: 'warn',
+    })
+  }
+}
+
+function flagConversationPaths(bot: NluBot, review: ReviewItem[]): void {
+  const withPaths = bot.intents.filter((i) => i.hasConversationPaths)
+  if (withPaths.length > 0) {
+    review.push({
+      nodeId: `${bot.name}`,
+      reason: `${withPaths.length} intent(s) define declarative conversation paths (${withPaths.map((i) => i.name).join(', ')}). Lex bots created after 2022-08-17 can branch on conditions and set next steps without a Lambda. Those branches are NOT migrated — the intents and their content come across, the paths between turns do not. Rebuild them as ACXD flow structure.`,
+      severity: 'warn',
+    })
+  }
+  const contexts = new Set(bot.intents.flatMap((i) => [...(i.inputContexts ?? []), ...(i.outputContexts ?? [])]))
+  if (contexts.size > 0) {
+    review.push({
+      nodeId: `${bot.name}`,
+      reason: `The bot uses Lex contexts (${[...contexts].join(', ')}) to gate which intents can be recognised. ACXD has no direct equivalent — the nearest construct is a Context Variable checked in a choice node, which a human needs to wire deliberately.`,
       severity: 'warn',
     })
   }

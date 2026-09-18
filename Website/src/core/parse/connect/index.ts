@@ -8,6 +8,7 @@ import {
   isComplianceText, str, bool, num, promptText,
 } from './types'
 import { extractMenuLabels, looksLikeLanguageOption } from './menuLabels'
+import { isModuleFormat, normalizeModuleFlow } from './modules'
 
 export interface ConnectParseResult {
   sourceName: string
@@ -31,10 +32,10 @@ export interface ConnectParseResult {
  * is the point — a migration tool that silently drops a block is worse than one that
  * says it couldn't read it.
  */
-export function parseContactFlow(input: unknown): ConnectParseResult {
+export function parseContactFlow(input: unknown, sourceName = 'contact-flow'): ConnectParseResult {
   const review: ReviewItem[] = []
   const result: ConnectParseResult = {
-    sourceName: 'contact-flow',
+    sourceName,
     entryNodeId: '',
     nodes: {},
     routing: { queueAssignments: [] },
@@ -46,7 +47,15 @@ export function parseContactFlow(input: unknown): ConnectParseResult {
     voiceLanguages: {},
   }
 
-  const flow = asFlow(input)
+  // Two real export shapes exist; normalize the console one, then parse once.
+  let source = input
+  if (isModuleFormat(input)) {
+    const normalized = normalizeModuleFlow(input)
+    source = normalized.flow
+    if (normalized.name && sourceName === 'contact-flow') result.sourceName = normalized.name
+  }
+
+  const flow = asFlow(source)
   if (!flow) {
     review.push({
       nodeId: '(document)',
@@ -112,6 +121,19 @@ function mapAction(
       return { kind: 'prompt', id, text, compliance: isComplianceText(text), next }
     }
 
+    // Confirmed against real exports: this, not GetParticipantInput, is how a flow hands
+    // the conversation to a Lex bot.
+    case 'ConnectParticipantWithLexBot': {
+      const lexV2 = p.LexV2Bot as Record<string, unknown> | undefined
+      const lexV1 = p.LexBot as Record<string, unknown> | undefined
+      const botRef =
+        str(lexV2?.AliasArn) ?? str(lexV2?.Name) ?? str(lexV1?.Name) ?? str(lexV1?.Alias) ?? 'unspecified-bot'
+      const cases = conditions
+        .map((c) => ({ intent: String(c.Condition?.Operands?.[0] ?? ''), next: str(c.NextAction) ?? '' }))
+        .filter((c) => c.intent && c.next)
+      return { kind: 'intent', id, botRef, cases, resolved: false, next }
+    }
+
     case 'GetParticipantInput': {
       // TODO(source-schema): the Lex binding key varies — LexV2Bot on V2 blocks, LexBot
       // on older ones. Both are read; neither is confirmed against a real export.
@@ -126,6 +148,20 @@ function mapAction(
           .map((c) => ({ intent: String(c.Condition?.Operands?.[0] ?? ''), next: str(c.NextAction) ?? '' }))
           .filter((c) => c.intent && c.next)
         return { kind: 'intent', id, botRef, cases, resolved: false, next }
+      }
+
+      if (bool(p.StoreInput)) {
+        // Real exports collect digits via GetParticipantInput + StoreInput, not StoreUserInput.
+        const validation = p.InputValidation as Record<string, unknown> | undefined
+        const maxDigits = num(p.MaxDigits) ?? num(validation?.MaxDigits)
+        return {
+          kind: 'capture', id,
+          prompt: promptText(p),
+          variable: str(p.DestinationKey) ?? 'StoredCustomerInput',
+          validation: maxDigits === undefined ? undefined : { maxLength: maxDigits },
+          sensitive: bool(p.EncryptEntry) || !!str(p.EncryptionKeyId),
+          next,
+        }
       }
 
       const prompt = promptText(p)
@@ -201,7 +237,20 @@ function mapAction(
       return { kind: 'transfer', id, target: { type: 'flow', ref: str(p.ContactFlowId) ?? 'unknown-flow' } }
 
     case 'DisconnectParticipant':
+    case 'EndFlowExecution':
+    case 'EndFlowModuleExecution':
       return { kind: 'end', id }
+
+    case 'MessageParticipantIteratively': {
+      const text = promptText(p)
+      return { kind: 'prompt', id, text, compliance: isComplianceText(text), next }
+    }
+
+    case 'InvokeFlowModule':
+      // A reusable sub-flow. Its contents are a separate export, so the module boundary is
+      // preserved rather than inlined from something we were not given.
+      review.push({ nodeId: id, reason: `This flow invokes flow module "${str(p.FlowModuleId) ?? 'unknown'}", which is exported separately. Upload that module's export to migrate what it contains.`, severity: 'warn' })
+      return { kind: 'transfer', id, target: { type: 'flow', ref: str(p.FlowModuleId) ?? 'unknown-module' } }
 
     case 'Wait':
       return { kind: 'wait', id, seconds: num(p.TimeLimitSeconds), next }
@@ -210,6 +259,7 @@ function mapAction(
       return { kind: 'loop', id, maxIterations: num(p.LoopCount), next, onComplete: str(conditions[0]?.NextAction) }
 
     // ── Routing: captured into RoutingConfig, kept upstream of ACXD ──────────────
+    case 'UpdateContactTargetQueue':
     case 'SetWorkingQueue': {
       const q = str(p.QueueId) ?? str((p.Queue as Record<string, unknown> | undefined)?.Arn)
       if (q) result.routing.queueAssignments.push(q)
@@ -217,7 +267,9 @@ function mapAction(
     }
 
     case 'UpdateContactRecordingBehavior':
-      result.routing.recordingBehavior = p
+    case 'UpdateFlowLoggingBehavior':
+    case 'UpdateContactEventHooks':
+      result.routing.recordingBehavior ??= p
       return { kind: 'setVar', id, assignments: [], next }
 
     case 'UpdateContactTextToSpeechVoice': {

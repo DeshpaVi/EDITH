@@ -1,0 +1,906 @@
+{
+ "InteractiveMessageBotV2/Manifest.json": {
+  "metaData": {
+   "schemaVersion": "1",
+   "fileFormat": "LexJson",
+   "resourceType": "BOT"
+  }
+ },
+ "InteractiveMessageBotV2/InteractiveMessageBotV2/Bot.json": {
+  "name": "InteractiveMessageBotV2",
+  "version": "DRAFT",
+  "description": null,
+  "identifier": "WCUM1PBTWF",
+  "errorLogSettings": null,
+  "dataPrivacy": {
+   "childDirected": false
+  },
+  "idleSessionTTLInSeconds": 300
+ },
+ "InteractiveMessageBotV2/InteractiveMessageBotV2/BotLocales/en_US/BotLocale.json": {
+  "name": "English (US)",
+  "identifier": "en_US",
+  "version": null,
+  "description": null,
+  "voiceSettings": {
+   "engine": "standard",
+   "voiceId": "Kimberly"
+  },
+  "nluConfidenceThreshold": 0.4
+ },
+ "InteractiveMessageBotV2/InteractiveMessageBotV2/BotLocales/en_US/SlotTypes/Appointment/SlotType.json": {
+  "name": "Appointment",
+  "identifier": "3XIBKXRVVI",
+  "description": "Appointment",
+  "slotTypeValues": [
+   {
+    "synonyms": null,
+    "sampleValue": {
+     "value": "2020-08-31T08:00+0000"
+    }
+   }
+  ],
+  "parentSlotTypeSignature": null,
+  "valueSelectionSetting": {
+   "resolutionStrategy": "ORIGINAL_VALUE",
+   "regexFilter": null
+  }
+ },
+ "InteractiveMessageBotV2/InteractiveMessageBotV2/BotLocales/en_US/SlotTypes/OtherOptions/SlotType.json": {
+  "name": "OtherOptions",
+  "identifier": "KDQ5TIJVUD",
+  "description": "Other Options From the List Picker",
+  "slotTypeValues": [
+   {
+    "synonyms": null,
+    "sampleValue": {
+     "value": "Select Installation and Visit"
+    }
+   },
+   {
+    "synonyms": null,
+    "sampleValue": {
+     "value": "Select Installation and Visit and Video Demonstration"
+    }
+   }
+  ],
+  "parentSlotTypeSignature": null,
+  "valueSelectionSetting": {
+   "resolutionStrategy": "ORIGINAL_VALUE",
+   "regexFilter": null
+  }
+ },
+ "InteractiveMessageBotV2/InteractiveMessageBotV2/BotLocales/en_US/SlotTypes/Department/SlotType.json": {
+  "name": "Department",
+  "identifier": "DCAJRHXLUE",
+  "description": "type of department",
+  "slotTypeValues": [
+   {
+    "synonyms": null,
+    "sampleValue": {
+     "value": "Walkthrough"
+    }
+   },
+   {
+    "synonyms": null,
+    "sampleValue": {
+     "value": "Visit"
+    }
+   },
+   {
+    "synonyms": null,
+    "sampleValue": {
+     "value": "Billing"
+    }
+   },
+   {
+    "synonyms": null,
+    "sampleValue": {
+     "value": "Cancellation"
+    }
+   },
+   {
+    "synonyms": null,
+    "sampleValue": {
+     "value": "Setup"
+    }
+   },
+   {
+    "synonyms": null,
+    "sampleValue": {
+     "value": "New Service"
+    }
+   }
+  ],
+  "parentSlotTypeSignature": null,
+  "valueSelectionSetting": {
+   "resolutionStrategy": "ORIGINAL_VALUE",
+   "regexFilter": null
+  }
+ },
+ "InteractiveMessageBotV2/InteractiveMessageBotV2/BotLocales/en_US/SlotTypes/Action/SlotType.json": {
+  "name": "Action",
+  "identifier": "8KOH0CMQZZ",
+  "description": "Action",
+  "slotTypeValues": [
+   {
+    "synonyms": null,
+    "sampleValue": {
+     "value": "Continue to agent"
+    }
+   },
+   {
+    "synonyms": null,
+    "sampleValue": {
+     "value": "End chat"
+    }
+   },
+   {
+    "synonyms": null,
+    "sampleValue": {
+     "value": "Check self-service options"
+    }
+   }
+  ],
+  "parentSlotTypeSignature": null,
+  "valueSelectionSetting": {
+   "resolutionStrategy": "ORIGINAL_VALUE",
+   "regexFilter": null
+  }
+ },
+ "InteractiveMessageBotV2/InteractiveMessageBotV2/BotLocales/en_US/SlotTypes/InteractiveOption/SlotType.json": {
+  "name": "InteractiveOption",
+  "identifier": "PTBCQCF4YB",
+  "description": "Interactive Option",
+  "slotTypeValues": [
+   {
+    "synonyms": null,
+    "sampleValue": {
+     "value": "Choose a department"
+    }
+   },
+   {
+    "synonyms": null,
+    "sampleValue": {
+     "value": "Schedule a meeting with an agent"
+    }
+   }
+  ],
+  "parentSlotTypeSignature": null,
+  "valueSelectionSetting": {
+   "resolutionStrategy": "ORIGINAL_VALUE",
+   "regexFilter": null
+  }
+ },
+ "InteractiveMessageBotV2/InteractiveMessageBotV2/BotLocales/en_US/Intents/InteractiveMessageIntent/Intent.json": {
+  "name": "InteractiveMessageIntent",
+  "identifier": "3S2R4MZEGP",
+  "description": null,
+  "parentIntentSignature": null,
+  "sampleUtterances": [
+   {
+    "utterance": "help"
+   },
+   {
+    "utterance": "help me"
+   }
+  ],
+  "intentConfirmationSetting": null,
+  "intentClosingSetting": null,
+  "initialResponseSetting": {
+   "conditional": null,
+   "codeHook": {
+    "isActive": true,
+    "enableCodeHookInvocation": true,
+    "invocationLabel": null,
+    "postCodeHookSpecification": {
+     "failureResponse": null,
+     "failureNextStep": {
+      "sessionAttributes": null,
+      "dialogAction": {
+       "type": "EndConversation",
+       "slotToElicit": null,
+       "suppressNextMessage": null
+      },
+      "intent": {
+       "name": null,
+       "slots": null
+      }
+     },
+     "failureConditional": null,
+     "successResponse": null,
+     "successNextStep": {
+      "sessionAttributes": null,
+      "dialogAction": {
+       "type": "FulfillIntent",
+       "slotToElicit": null,
+       "suppressNextMessage": null
+      },
+      "intent": {
+       "name": null,
+       "slots": null
+      }
+     },
+     "successConditional": null,
+     "timeoutResponse": null,
+     "timeoutNextStep": {
+      "sessionAttributes": null,
+      "dialogAction": {
+       "type": "EndConversation",
+       "slotToElicit": null,
+       "suppressNextMessage": null
+      },
+      "intent": {
+       "name": null,
+       "slots": null
+      }
+     },
+     "timeoutConditional": null
+    }
+   },
+   "nextStep": {
+    "sessionAttributes": null,
+    "dialogAction": {
+     "type": "InvokeDialogCodeHook",
+     "slotToElicit": null,
+     "suppressNextMessage": null
+    },
+    "intent": {
+     "name": null,
+     "slots": null
+    }
+   },
+   "initialResponse": null
+  },
+  "inputContexts": null,
+  "outputContexts": null,
+  "kendraConfiguration": null,
+  "qnAIntentConfiguration": null,
+  "bedrockAgentIntentConfiguration": null,
+  "dialogCodeHook": {
+   "enabled": true
+  },
+  "fulfillmentCodeHook": {
+   "postFulfillmentStatusSpecification": {
+    "failureResponse": null,
+    "failureNextStep": {
+     "sessionAttributes": null,
+     "dialogAction": {
+      "type": "EndConversation",
+      "slotToElicit": null,
+      "suppressNextMessage": null
+     },
+     "intent": {
+      "name": null,
+      "slots": null
+     }
+    },
+    "successResponse": null,
+    "successNextStep": {
+     "sessionAttributes": null,
+     "dialogAction": {
+      "type": "EndConversation",
+      "slotToElicit": null,
+      "suppressNextMessage": null
+     },
+     "intent": {
+      "name": null,
+      "slots": null
+     }
+    },
+    "timeoutResponse": null,
+    "timeoutNextStep": {
+     "sessionAttributes": null,
+     "dialogAction": {
+      "type": "EndConversation",
+      "slotToElicit": null,
+      "suppressNextMessage": null
+     },
+     "intent": {
+      "name": null,
+      "slots": null
+     }
+    }
+   },
+   "fulfillmentUpdatesSpecification": null,
+   "enabled": false
+  },
+  "slotPriorities": [
+   {
+    "priority": 7,
+    "slotName": "others"
+   },
+   {
+    "priority": 4,
+    "slotName": "action"
+   },
+   {
+    "priority": 1,
+    "slotName": "department"
+   },
+   {
+    "priority": 5,
+    "slotName": "interactiveOption"
+   },
+   {
+    "priority": 6,
+    "slotName": "appointment"
+   }
+  ]
+ },
+ "InteractiveMessageBotV2/InteractiveMessageBotV2/BotLocales/en_US/Intents/FallbackIntent/Intent.json": {
+  "name": "FallbackIntent",
+  "identifier": "FALLBCKINT",
+  "description": "Default intent when no other intent matches",
+  "parentIntentSignature": "AMAZON.FallbackIntent",
+  "sampleUtterances": null,
+  "intentConfirmationSetting": null,
+  "intentClosingSetting": {
+   "isActive": true,
+   "nextStep": {
+    "sessionAttributes": null,
+    "dialogAction": {
+     "type": "EndConversation",
+     "slotToElicit": null,
+     "suppressNextMessage": null
+    },
+    "intent": null
+   },
+   "closingResponse": {
+    "messageGroupsList": [
+     {
+      "message": {
+       "ssmlMessage": null,
+       "customPayload": null,
+       "plainTextMessage": {
+        "value": "Sorry, can you please repeat that?"
+       },
+       "imageResponseCard": null
+      },
+      "variations": null
+     }
+    ],
+    "allowInterrupt": true
+   }
+  },
+  "initialResponseSetting": {
+   "conditional": null,
+   "codeHook": {
+    "isActive": true,
+    "enableCodeHookInvocation": true,
+    "invocationLabel": null,
+    "postCodeHookSpecification": {
+     "failureResponse": null,
+     "failureNextStep": {
+      "sessionAttributes": null,
+      "dialogAction": {
+       "type": "EndConversation",
+       "slotToElicit": null,
+       "suppressNextMessage": null
+      },
+      "intent": null
+     },
+     "failureConditional": null,
+     "successResponse": null,
+     "successNextStep": {
+      "sessionAttributes": null,
+      "dialogAction": {
+       "type": "CloseIntent",
+       "slotToElicit": null,
+       "suppressNextMessage": null
+      },
+      "intent": null
+     },
+     "successConditional": null,
+     "timeoutResponse": null,
+     "timeoutNextStep": {
+      "sessionAttributes": null,
+      "dialogAction": {
+       "type": "EndConversation",
+       "slotToElicit": null,
+       "suppressNextMessage": null
+      },
+      "intent": null
+     },
+     "timeoutConditional": null
+    }
+   },
+   "nextStep": {
+    "sessionAttributes": null,
+    "dialogAction": {
+     "type": "InvokeDialogCodeHook",
+     "slotToElicit": null,
+     "suppressNextMessage": null
+    },
+    "intent": null
+   },
+   "initialResponse": null
+  },
+  "inputContexts": null,
+  "outputContexts": null,
+  "kendraConfiguration": null,
+  "qnAIntentConfiguration": null,
+  "bedrockAgentIntentConfiguration": null,
+  "dialogCodeHook": null,
+  "fulfillmentCodeHook": null,
+  "slotPriorities": []
+ },
+ "InteractiveMessageBotV2/InteractiveMessageBotV2/BotLocales/en_US/Intents/InteractiveMessageIntent/Slots/appointment/Slot.json": {
+  "name": "appointment",
+  "identifier": "WGRUZLEHME",
+  "description": null,
+  "slotTypeName": "Appointment",
+  "obfuscationSetting": {
+   "obfuscationSettingType": "None"
+  },
+  "valueElicitationSetting": {
+   "slotCaptureSetting": {
+    "codeHook": null,
+    "captureResponse": null,
+    "captureNextStep": null,
+    "captureConditional": null,
+    "failureResponse": null,
+    "failureNextStep": null,
+    "failureConditional": null,
+    "elicitationCodeHook": {
+     "enableCodeHookInvocation": true,
+     "invocationLabel": null
+    }
+   },
+   "slotConstraint": "Optional",
+   "promptSpecification": {
+    "messageGroupsList": [
+     {
+      "message": {
+       "ssmlMessage": null,
+       "customPayload": null,
+       "plainTextMessage": {
+        "value": "When would you like to schedule the appointment?"
+       },
+       "imageResponseCard": null
+      },
+      "variations": null
+     }
+    ],
+    "maxRetries": 1,
+    "messageSelectionStrategy": "Random",
+    "allowInterrupt": true,
+    "promptAttemptsSpecification": {
+     "Retry1": {
+      "allowedInputTypes": {
+       "allowAudioInput": true,
+       "allowDTMFInput": true
+      },
+      "audioAndDTMFInputSpecification": {
+       "dtmfSpecification": {
+        "maxLength": 513,
+        "deletionCharacter": "*",
+        "endCharacter": "#",
+        "endTimeoutMs": 5000
+       },
+       "startTimeoutMs": 4000,
+       "audioSpecification": {
+        "maxLengthMs": 15000,
+        "endTimeoutMs": 640
+       }
+      },
+      "allowInterrupt": true,
+      "textInputSpecification": {
+       "startTimeoutMs": 30000
+      }
+     },
+     "Initial": {
+      "allowedInputTypes": {
+       "allowAudioInput": true,
+       "allowDTMFInput": true
+      },
+      "audioAndDTMFInputSpecification": {
+       "dtmfSpecification": {
+        "maxLength": 513,
+        "deletionCharacter": "*",
+        "endCharacter": "#",
+        "endTimeoutMs": 5000
+       },
+       "startTimeoutMs": 4000,
+       "audioSpecification": {
+        "maxLengthMs": 15000,
+        "endTimeoutMs": 640
+       }
+      },
+      "allowInterrupt": true,
+      "textInputSpecification": {
+       "startTimeoutMs": 30000
+      }
+     }
+    }
+   },
+   "defaultValueSpecification": null,
+   "sampleUtterances": null,
+   "waitAndContinueSpecification": null
+  },
+  "multipleValuesSetting": null
+ },
+ "InteractiveMessageBotV2/InteractiveMessageBotV2/BotLocales/en_US/Intents/InteractiveMessageIntent/Slots/others/Slot.json": {
+  "name": "others",
+  "identifier": "1MCGK9YHYV",
+  "description": null,
+  "slotTypeName": "OtherOptions",
+  "obfuscationSetting": {
+   "obfuscationSettingType": "None"
+  },
+  "valueElicitationSetting": {
+   "slotCaptureSetting": {
+    "codeHook": null,
+    "captureResponse": null,
+    "captureNextStep": null,
+    "captureConditional": null,
+    "failureResponse": null,
+    "failureNextStep": null,
+    "failureConditional": null,
+    "elicitationCodeHook": {
+     "enableCodeHookInvocation": true,
+     "invocationLabel": null
+    }
+   },
+   "slotConstraint": "Optional",
+   "promptSpecification": {
+    "messageGroupsList": [
+     {
+      "message": {
+       "ssmlMessage": null,
+       "customPayload": null,
+       "plainTextMessage": {
+        "value": "Other Options"
+       },
+       "imageResponseCard": null
+      },
+      "variations": null
+     }
+    ],
+    "maxRetries": 1,
+    "messageSelectionStrategy": "Random",
+    "allowInterrupt": true,
+    "promptAttemptsSpecification": {
+     "Retry1": {
+      "allowedInputTypes": {
+       "allowAudioInput": true,
+       "allowDTMFInput": true
+      },
+      "audioAndDTMFInputSpecification": {
+       "dtmfSpecification": {
+        "maxLength": 513,
+        "deletionCharacter": "*",
+        "endCharacter": "#",
+        "endTimeoutMs": 5000
+       },
+       "startTimeoutMs": 4000,
+       "audioSpecification": {
+        "maxLengthMs": 15000,
+        "endTimeoutMs": 640
+       }
+      },
+      "allowInterrupt": true,
+      "textInputSpecification": {
+       "startTimeoutMs": 30000
+      }
+     },
+     "Initial": {
+      "allowedInputTypes": {
+       "allowAudioInput": true,
+       "allowDTMFInput": true
+      },
+      "audioAndDTMFInputSpecification": {
+       "dtmfSpecification": {
+        "maxLength": 513,
+        "deletionCharacter": "*",
+        "endCharacter": "#",
+        "endTimeoutMs": 5000
+       },
+       "startTimeoutMs": 4000,
+       "audioSpecification": {
+        "maxLengthMs": 15000,
+        "endTimeoutMs": 640
+       }
+      },
+      "allowInterrupt": true,
+      "textInputSpecification": {
+       "startTimeoutMs": 30000
+      }
+     }
+    }
+   },
+   "defaultValueSpecification": null,
+   "sampleUtterances": null,
+   "waitAndContinueSpecification": null
+  },
+  "multipleValuesSetting": null
+ },
+ "InteractiveMessageBotV2/InteractiveMessageBotV2/BotLocales/en_US/Intents/InteractiveMessageIntent/Slots/department/Slot.json": {
+  "name": "department",
+  "identifier": "E0LFCEUBNB",
+  "description": null,
+  "slotTypeName": "Department",
+  "obfuscationSetting": {
+   "obfuscationSettingType": "None"
+  },
+  "valueElicitationSetting": {
+   "slotCaptureSetting": {
+    "codeHook": null,
+    "captureResponse": null,
+    "captureNextStep": null,
+    "captureConditional": null,
+    "failureResponse": null,
+    "failureNextStep": null,
+    "failureConditional": null,
+    "elicitationCodeHook": {
+     "enableCodeHookInvocation": true,
+     "invocationLabel": null
+    }
+   },
+   "slotConstraint": "Optional",
+   "promptSpecification": {
+    "messageGroupsList": [
+     {
+      "message": {
+       "ssmlMessage": null,
+       "customPayload": null,
+       "plainTextMessage": {
+        "value": "Which department"
+       },
+       "imageResponseCard": null
+      },
+      "variations": null
+     }
+    ],
+    "maxRetries": 1,
+    "messageSelectionStrategy": "Random",
+    "allowInterrupt": true,
+    "promptAttemptsSpecification": {
+     "Retry1": {
+      "allowedInputTypes": {
+       "allowAudioInput": true,
+       "allowDTMFInput": true
+      },
+      "audioAndDTMFInputSpecification": {
+       "dtmfSpecification": {
+        "maxLength": 513,
+        "deletionCharacter": "*",
+        "endCharacter": "#",
+        "endTimeoutMs": 5000
+       },
+       "startTimeoutMs": 4000,
+       "audioSpecification": {
+        "maxLengthMs": 15000,
+        "endTimeoutMs": 640
+       }
+      },
+      "allowInterrupt": true,
+      "textInputSpecification": {
+       "startTimeoutMs": 30000
+      }
+     },
+     "Initial": {
+      "allowedInputTypes": {
+       "allowAudioInput": true,
+       "allowDTMFInput": true
+      },
+      "audioAndDTMFInputSpecification": {
+       "dtmfSpecification": {
+        "maxLength": 513,
+        "deletionCharacter": "*",
+        "endCharacter": "#",
+        "endTimeoutMs": 5000
+       },
+       "startTimeoutMs": 4000,
+       "audioSpecification": {
+        "maxLengthMs": 15000,
+        "endTimeoutMs": 640
+       }
+      },
+      "allowInterrupt": true,
+      "textInputSpecification": {
+       "startTimeoutMs": 30000
+      }
+     }
+    }
+   },
+   "defaultValueSpecification": null,
+   "sampleUtterances": null,
+   "waitAndContinueSpecification": null
+  },
+  "multipleValuesSetting": null
+ },
+ "InteractiveMessageBotV2/InteractiveMessageBotV2/BotLocales/en_US/Intents/InteractiveMessageIntent/Slots/action/Slot.json": {
+  "name": "action",
+  "identifier": "2KL4SHQ3OC",
+  "description": null,
+  "slotTypeName": "Action",
+  "obfuscationSetting": {
+   "obfuscationSettingType": "None"
+  },
+  "valueElicitationSetting": {
+   "slotCaptureSetting": {
+    "codeHook": null,
+    "captureResponse": null,
+    "captureNextStep": null,
+    "captureConditional": null,
+    "failureResponse": null,
+    "failureNextStep": null,
+    "failureConditional": null,
+    "elicitationCodeHook": {
+     "enableCodeHookInvocation": true,
+     "invocationLabel": null
+    }
+   },
+   "slotConstraint": "Optional",
+   "promptSpecification": {
+    "messageGroupsList": [
+     {
+      "message": {
+       "ssmlMessage": null,
+       "customPayload": null,
+       "plainTextMessage": {
+        "value": "How can I help you?"
+       },
+       "imageResponseCard": null
+      },
+      "variations": null
+     }
+    ],
+    "maxRetries": 1,
+    "messageSelectionStrategy": "Random",
+    "allowInterrupt": true,
+    "promptAttemptsSpecification": {
+     "Retry1": {
+      "allowedInputTypes": {
+       "allowAudioInput": true,
+       "allowDTMFInput": true
+      },
+      "audioAndDTMFInputSpecification": {
+       "dtmfSpecification": {
+        "maxLength": 513,
+        "deletionCharacter": "*",
+        "endCharacter": "#",
+        "endTimeoutMs": 5000
+       },
+       "startTimeoutMs": 4000,
+       "audioSpecification": {
+        "maxLengthMs": 15000,
+        "endTimeoutMs": 640
+       }
+      },
+      "allowInterrupt": true,
+      "textInputSpecification": {
+       "startTimeoutMs": 30000
+      }
+     },
+     "Initial": {
+      "allowedInputTypes": {
+       "allowAudioInput": true,
+       "allowDTMFInput": true
+      },
+      "audioAndDTMFInputSpecification": {
+       "dtmfSpecification": {
+        "maxLength": 513,
+        "deletionCharacter": "*",
+        "endCharacter": "#",
+        "endTimeoutMs": 5000
+       },
+       "startTimeoutMs": 4000,
+       "audioSpecification": {
+        "maxLengthMs": 15000,
+        "endTimeoutMs": 640
+       }
+      },
+      "allowInterrupt": true,
+      "textInputSpecification": {
+       "startTimeoutMs": 30000
+      }
+     }
+    }
+   },
+   "defaultValueSpecification": null,
+   "sampleUtterances": null,
+   "waitAndContinueSpecification": null
+  },
+  "multipleValuesSetting": null
+ },
+ "InteractiveMessageBotV2/InteractiveMessageBotV2/BotLocales/en_US/Intents/InteractiveMessageIntent/Slots/interactiveOption/Slot.json": {
+  "name": "interactiveOption",
+  "identifier": "QJ3CA0UZIK",
+  "description": null,
+  "slotTypeName": "InteractiveOption",
+  "obfuscationSetting": {
+   "obfuscationSettingType": "None"
+  },
+  "valueElicitationSetting": {
+   "slotCaptureSetting": {
+    "codeHook": null,
+    "captureResponse": null,
+    "captureNextStep": null,
+    "captureConditional": null,
+    "failureResponse": null,
+    "failureNextStep": null,
+    "failureConditional": null,
+    "elicitationCodeHook": {
+     "enableCodeHookInvocation": true,
+     "invocationLabel": null
+    }
+   },
+   "slotConstraint": "Optional",
+   "promptSpecification": {
+    "messageGroupsList": [
+     {
+      "message": {
+       "ssmlMessage": null,
+       "customPayload": null,
+       "plainTextMessage": {
+        "value": "Which department would you like to choose?"
+       },
+       "imageResponseCard": null
+      },
+      "variations": null
+     }
+    ],
+    "maxRetries": 1,
+    "messageSelectionStrategy": "Random",
+    "allowInterrupt": true,
+    "promptAttemptsSpecification": {
+     "Retry1": {
+      "allowedInputTypes": {
+       "allowAudioInput": true,
+       "allowDTMFInput": true
+      },
+      "audioAndDTMFInputSpecification": {
+       "dtmfSpecification": {
+        "maxLength": 513,
+        "deletionCharacter": "*",
+        "endCharacter": "#",
+        "endTimeoutMs": 5000
+       },
+       "startTimeoutMs": 4000,
+       "audioSpecification": {
+        "maxLengthMs": 15000,
+        "endTimeoutMs": 640
+       }
+      },
+      "allowInterrupt": true,
+      "textInputSpecification": {
+       "startTimeoutMs": 30000
+      }
+     },
+     "Initial": {
+      "allowedInputTypes": {
+       "allowAudioInput": true,
+       "allowDTMFInput": true
+      },
+      "audioAndDTMFInputSpecification": {
+       "dtmfSpecification": {
+        "maxLength": 513,
+        "deletionCharacter": "*",
+        "endCharacter": "#",
+        "endTimeoutMs": 5000
+       },
+       "startTimeoutMs": 4000,
+       "audioSpecification": {
+        "maxLengthMs": 15000,
+        "endTimeoutMs": 640
+       }
+      },
+      "allowInterrupt": true,
+      "textInputSpecification": {
+       "startTimeoutMs": 30000
+      }
+     }
+    }
+   },
+   "defaultValueSpecification": null,
+   "sampleUtterances": null,
+   "waitAndContinueSpecification": null
+  },
+  "multipleValuesSetting": null
+ },
+ "__MACOSX/InteractiveMessageBotV2/._Bot.json": {
+  "junk": true
+ }
+}

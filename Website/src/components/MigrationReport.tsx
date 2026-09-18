@@ -1,4 +1,14 @@
 import type { AcxdPlan, IvrModel, Risk } from '../core/model'
+import { emitArtifacts } from '../core/emit'
+
+function download(filename: string, contents: string, mime: string) {
+  const url = URL.createObjectURL(new Blob([contents], { type: mime }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 const SEV: Record<Risk['severity'], { color: string; label: string }> = {
   blocker: { color: '#ff375f', label: 'Blocker' },
@@ -139,6 +149,27 @@ export function MigrationReport({ model, plan }: { model: IvrModel; plan: AcxdPl
           </div>
         </div>
       )}
+
+      {/* The deliverable — ACXD has no import path, so this is how the config lands */}
+      <div style={{ ...card, borderColor: 'rgba(48,209,88,0.28)', background: 'rgba(48,209,88,0.05)' }}>
+        <p style={label}>Download the migration</p>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
+          <button
+            onClick={() => download('migrate.ts', emitArtifacts(plan).migrateTs, 'text/typescript')}
+            style={{ padding: '9px 16px', borderRadius: 10, border: '1px solid rgba(48,209,88,0.45)', background: 'rgba(48,209,88,0.14)', color: '#30d158', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}
+          >↓ migrate.ts</button>
+          <button
+            onClick={() => download('contact-flow.json', emitArtifacts(plan).contactFlowJson, 'application/json')}
+            style={{ padding: '9px 16px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.16)', background: 'rgba(255,255,255,0.06)', color: 'rgba(245,245,247,0.85)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}
+          >↓ contact-flow.json</button>
+        </div>
+        <p style={{ color: 'rgba(245,245,247,0.5)', fontSize: 12.5, lineHeight: 1.6, margin: 0 }}>
+          ACXD has no import path — resources are created by API call, so <strong style={{ color: '#f5f5f7' }}>migrate.ts</strong> is
+          the delivery mechanism. Run it yourself with your own key (<code style={{ color: '#30d158' }}>ACXD_API_KEY</code> from
+          your environment); it prompts before creating anything. <strong style={{ color: '#f5f5f7' }}>contact-flow.json</strong> imports
+          in the Connect console, which does support import.
+        </p>
+      </div>
 
       {/* What stays in Connect */}
       <div style={card}>

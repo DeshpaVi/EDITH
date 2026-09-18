@@ -1,10 +1,10 @@
 import type {
   IvrModel, AcxdPlan, PlannedApplication, PlannedFlow, PlannedGuardrail,
-  PlannedContextVariable, PlannedNode, SchemaGap, TrimmedContactFlow,
+  PlannedContextVariable, PlannedNode, PlannedSlotType, SchemaGap, TrimmedContactFlow,
 } from '../model'
 import { buildFlow } from './nodes'
 import { assessRisks, recommend } from './risks'
-import { flowId, description, stableUuid } from './ids'
+import { flowId, slotTypeId, description, stableUuid } from './ids'
 
 export { buildFlow } from './nodes'
 export { assessRisks, recommend } from './risks'
@@ -29,6 +29,21 @@ export function designPlan(model: IvrModel): AcxdPlan {
 
   const built = buildFlow(model, languages, mainLanguage)
   const gaps: SchemaGap[] = [...built.gaps]
+
+  // Custom slot types authored in Lex carry straight across — values and the synonyms a
+  // human already wrote. Built-ins are skipped: ACXD publishes no equivalent catalogue,
+  // so nodes.ts records them as schema gaps instead of inventing a name.
+  const botSlotTypes: PlannedSlotType[] = (model.nlu?.bots ?? []).flatMap((bot) =>
+    bot.slotTypes
+      .filter((t) => !t.builtIn)
+      .map((t) => ({
+        slotTypeId: slotTypeId(t.name),
+        description: description(`Migrated from Lex slot type "${t.name}" on bot ${bot.name}`),
+        values: t.values.map((v) => ({ value: v.value, synonyms: v.synonyms })),
+        mainLanguageCode: mainLanguage,
+        languageCodes: languages,
+      })),
+  )
 
   const guardrails = buildGuardrails(model)
   const needsEscalationFlow =
@@ -57,13 +72,25 @@ export function designPlan(model: IvrModel): AcxdPlan {
     hoursOfOperation: model.routing.hoursOfOperation !== undefined,
     recordingBehavior: model.routing.recordingBehavior !== undefined,
     voice: model.routing.voice,
-    agenticCxBlock: { applicationName: appName, environment: 'Development' },
+    agenticCxBlock: {
+      workspaceId: 'TODO_WORKSPACE_ID',
+      applicationName: appName,
+      alias: 'Development',
+      // Documented branches. Escalation is wired to a queue transfer per the block docs;
+      // the rest terminate unless the operator routes them elsewhere.
+      branches: [
+        { name: 'Default', target: 'disconnect' },
+        { name: 'Error', target: 'error-prompt' },
+        { name: 'Idle chat timeout', target: 'disconnect' },
+        { name: 'Escalation', target: needsEscalationFlow ? 'transfer-to-queue' : 'disconnect' },
+      ],
+    },
   }
 
   return {
     application,
     flows,
-    slotTypes: dedupeBy(built.slotTypes, (t) => t.slotTypeId),
+    slotTypes: dedupeBy([...built.slotTypes, ...botSlotTypes], (t) => t.slotTypeId),
     dataRequests: dedupeBy(built.dataRequests, (d) => d.dataRequestId),
     guardrails,
     contextVariables: dedupeBy(built.contextVariables, (v) => v.name),

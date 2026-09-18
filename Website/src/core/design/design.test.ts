@@ -2,11 +2,14 @@ import { describe, it, expect } from 'vitest'
 import { parseIvr } from '../parse'
 import { designPlan } from './index'
 import { stableUuid, slotTypeId, slotName, contextVariableName } from './ids'
+import { LEX_BUILT_INS } from './builtInSlots'
 
 import simpleMenu from '../fixtures/contact-flows/simple-menu.json'
 import unhandled from '../fixtures/contact-flows/unhandled-action.json'
 import lexBacked from '../fixtures/contact-flows/lex-backed.json'
 import acmeV2 from '../fixtures/lex-bots/acme-v2.json'
+import realExport from '../fixtures/contact-flows/real-console-export.json'
+import realBot from '../fixtures/lex-bots/real-lex-v2.json'
 
 const AT = '2026-01-01T00:00:00.000Z'
 const plan = (flow: unknown, bot?: unknown) =>
@@ -106,7 +109,12 @@ describe('designing a DTMF menu IVR', () => {
   it('keeps routing out of ACXD and names the manual console step', () => {
     expect(p.contactFlow.queueAssignments).toHaveLength(1)
     expect(p.contactFlow.voice?.voiceId).toBe('Joanna')
-    expect(p.contactFlow.agenticCxBlock.environment).toBe('Development')
+    // Per the Agentic CX block docs: workspace + application + alias, and four branches.
+    expect(p.contactFlow.agenticCxBlock.alias).toBe('Development')
+    expect(p.contactFlow.agenticCxBlock.branches.map((b) => b.name))
+      .toEqual(['Default', 'Error', 'Idle chat timeout', 'Escalation'])
+    expect(p.contactFlow.agenticCxBlock.branches.find((b) => b.name === 'Escalation')!.target)
+      .toBe('transfer-to-queue')
   })
 
   it('raises the parity risks a reviewer has to see', () => {
@@ -209,5 +217,74 @@ describe('unmigrated blocks stay visible', () => {
 describe('determinism', () => {
   it('produces byte-identical plans across runs', () => {
     expect(JSON.stringify(plan(lexBacked, acmeV2))).toBe(JSON.stringify(plan(lexBacked, acmeV2)))
+  })
+})
+
+describe('real export + real bot, end to end', () => {
+  const p = plan(realExport, realBot)
+
+  it('carries the bot\'s custom slot types into the plan', () => {
+    // Without this the flow attaches slots referencing types nothing ever creates.
+    expect(p.slotTypes.map((t) => t.slotTypeId).sort()).toEqual(
+      ['Action', 'Appointment', 'Department', 'InteractiveOption', 'OtherOptions'],
+    )
+    const dept = p.slotTypes.find((t) => t.slotTypeId === 'Department')!
+    expect(dept.values).toContainEqual({ value: 'Billing', synonyms: [] })
+  })
+
+  it('still reports the bot as the wrong one for this flow', () => {
+    // The flow calls ConnectBot; this is InteractiveMessageBotV2. Matching it on
+    // "only bot uploaded" is an assumption, and none of the intents line up.
+    expect(p.risks.map((r) => r.id)).toContain('dangling-intents')
+  })
+})
+
+/**
+ * ACXD publishes no built-in slot type catalogue, so most Lex built-ins would be dead
+ * ends. Enumerable ones become ordinary custom slot types; patterned ones carry a regex
+ * on the attached slot. Both are documented ACXD constructs, so the gap shrinks to the
+ * handful that genuinely need an answer from AWS.
+ */
+describe('Lex built-in slot types', () => {
+  const botWith = (slotType: string) => ({
+    'Bot.json': { name: 'B' },
+    'BotLocales/en_US/BotLocale.json': { localeId: 'en_US' },
+    'BotLocales/en_US/Intents/PayBill/Intent.json': { name: 'PayBill', sampleUtterances: [{ utterance: 'pay' }] },
+    'BotLocales/en_US/Intents/PayBill/Slots/thing/Slot.json': {
+      name: 'thing', slotTypeName: slotType,
+      valueElicitationSetting: { slotConstraint: 'Required' },
+    },
+  })
+  const planFor = (slotType: string) => plan(lexBacked, botWith(slotType))
+  const slotOf = (slotType: string) =>
+    planFor(slotType).flows[0].slotTypes.find((s) => s.name === 'thing')!
+
+  it('resolves AMAZON.Confirmation outright as a custom slot type', () => {
+    const p = planFor('AMAZON.Confirmation')
+    const type = p.slotTypes.find((t) => t.slotTypeId === 'Confirmation')!
+    expect(type.values.map((v) => v.value)).toEqual(['Yes', 'No', 'Maybe', "Don't know"])
+    expect(slotOf('AMAZON.Confirmation').type).toBe('Confirmation')
+    // Fully handled — it raises no gap at all.
+    expect(p.schemaGaps.some((g) => g.nodeIds.length && /Confirmation/.test(g.what))).toBe(false)
+  })
+
+  it('carries a deterministic regex for patterned built-ins', () => {
+    expect(slotOf('AMAZON.PhoneNumber').regex).toBe('^\\+?[0-9]{7,15}$')
+    expect(slotOf('AMAZON.Number').regex).toBe('^[0-9]+$')
+  })
+
+  it('describes what an unresolved slot captures instead of just naming it unknown', () => {
+    const gap = planFor('AMAZON.City').schemaGaps.find((g) => g.marker === 'built-in slot type name')!
+    expect(gap.what).toContain('a city name')
+    expect(gap.needed).toContain('a city name')
+  })
+
+  it('covers every documented built-in', () => {
+    // 18 types per docs.aws.amazon.com/lexv2/latest/dg/built-in-slots.html
+    expect(Object.keys(LEX_BUILT_INS)).toHaveLength(18)
+    for (const [name, m] of Object.entries(LEX_BUILT_INS)) {
+      expect(name.startsWith('AMAZON.')).toBe(true)
+      expect(m.captures.length).toBeGreaterThan(0)
+    }
   })
 })

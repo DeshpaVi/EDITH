@@ -6,6 +6,7 @@ import {
   stableUuid, slotTypeId, slotName, resourceId, contextVariableName,
   description, choicePayload, lambdaFunctionName,
 } from './ids'
+import { lookupBuiltIn } from './builtInSlots'
 
 export interface FlowBuild {
   startNodeId: string
@@ -125,12 +126,48 @@ function mapNode(node: IvrNode, id: string, child: ChildFn, ctx: Ctx): PlannedNo
       for (const c of node.cases) {
         const intent = bot?.intents.find((i) => i.name === c.intent)
         for (const slot of intent?.slots ?? []) {
-          ctx.attachedSlots.push({
-            name: slotName(slot.name),
-            type: slot.slotType,
-            sensitive: slot.sensitive,
-            aiDescription: slot.prompt ? description(slot.prompt) : undefined,
-          })
+          const custom = ctx.bots.some((b) => b.slotTypes.some((t) => t.name === slot.slotType && !t.builtIn))
+          const builtIn = custom ? undefined : lookupBuiltIn(slot.slotType)
+
+          if (builtIn?.values) {
+            // Enumerable built-in: an ordinary custom Slot Type covers it exactly.
+            const typeId = slotTypeId(slot.slotType.replace('AMAZON.', ''))
+            ctx.slotTypes.push({
+              slotTypeId: typeId,
+              description: description(`Replaces Lex built-in ${slot.slotType} (${builtIn.captures})`),
+              values: builtIn.values.map((value) => ({ value, synonyms: [] })),
+              mainLanguageCode: ctx.mainLanguage,
+              languageCodes: ctx.languages,
+            })
+            ctx.attachedSlots.push({
+              name: slotName(slot.name),
+              type: typeId,
+              sensitive: slot.sensitive,
+              examples: builtIn.values,
+              aiDescription: slot.prompt ? description(slot.prompt) : undefined,
+            })
+          } else {
+            ctx.attachedSlots.push({
+              name: slotName(slot.name),
+              type: custom ? slotTypeId(slot.slotType) : 'TODO_CONFIRM_BUILTIN',
+              sensitive: slot.sensitive,
+              // A documented field, and the playbook's advice: keep the deterministic
+              // validation the IVR enforced rather than relying purely on NLU.
+              regex: builtIn?.regex,
+              aiDescription: slot.prompt ? description(slot.prompt) : undefined,
+            })
+            if (!custom) {
+              ctx.gaps.push({
+                marker: 'built-in slot type name',
+                what: `Slot "${slot.name}" captures ${builtIn?.captures ?? `type "${slot.slotType}"`}.` +
+                  (builtIn?.regex ? ' A validation regex is supplied, but the slot still needs a type.' : ''),
+                needed: builtIn
+                  ? `Point it at an ACXD type that captures ${builtIn.captures}, or define a custom slot type.`
+                  : `Confirm what ACXD calls the equivalent of "${slot.slotType}".`,
+                nodeIds: [id],
+              })
+            }
+          }
         }
       }
       return {
