@@ -34,6 +34,9 @@ function unzipToPathMap(bytes: Uint8Array): Record<string, unknown> {
   const out: Record<string, unknown> = {}
   for (const [path, data] of Object.entries(files)) {
     if (!path.toLowerCase().endsWith('.json') || data.length === 0) continue
+    // macOS zips carry __MACOSX/._X.json AppleDouble twins. They end in the same names the
+    // parser searches for, so an unfiltered one wins the lookup and yields a garbage bot.
+    if (path.startsWith('__MACOSX/') || path.split('/').pop()!.startsWith('._')) continue
     try {
       out[path] = JSON.parse(strFromU8(data))
     } catch {

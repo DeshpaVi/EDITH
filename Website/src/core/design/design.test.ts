@@ -7,6 +7,8 @@ import simpleMenu from '../fixtures/contact-flows/simple-menu.json'
 import unhandled from '../fixtures/contact-flows/unhandled-action.json'
 import lexBacked from '../fixtures/contact-flows/lex-backed.json'
 import acmeV2 from '../fixtures/lex-bots/acme-v2.json'
+import realExport from '../fixtures/contact-flows/real-console-export.json'
+import realBot from '../fixtures/lex-bots/real-lex-v2.json'
 
 const AT = '2026-01-01T00:00:00.000Z'
 const plan = (flow: unknown, bot?: unknown) =>
@@ -209,5 +211,24 @@ describe('unmigrated blocks stay visible', () => {
 describe('determinism', () => {
   it('produces byte-identical plans across runs', () => {
     expect(JSON.stringify(plan(lexBacked, acmeV2))).toBe(JSON.stringify(plan(lexBacked, acmeV2)))
+  })
+})
+
+describe('real export + real bot, end to end', () => {
+  const p = plan(realExport, realBot)
+
+  it('carries the bot\'s custom slot types into the plan', () => {
+    // Without this the flow attaches slots referencing types nothing ever creates.
+    expect(p.slotTypes.map((t) => t.slotTypeId).sort()).toEqual(
+      ['Action', 'Appointment', 'Department', 'InteractiveOption', 'OtherOptions'],
+    )
+    const dept = p.slotTypes.find((t) => t.slotTypeId === 'Department')!
+    expect(dept.values).toContainEqual({ value: 'Billing', synonyms: [] })
+  })
+
+  it('still reports the bot as the wrong one for this flow', () => {
+    // The flow calls ConnectBot; this is InteractiveMessageBotV2. Matching it on
+    // "only bot uploaded" is an assumption, and none of the intents line up.
+    expect(p.risks.map((r) => r.id)).toContain('dangling-intents')
   })
 })

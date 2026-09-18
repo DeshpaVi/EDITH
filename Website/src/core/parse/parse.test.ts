@@ -7,6 +7,7 @@ import unhandled from '../fixtures/contact-flows/unhandled-action.json'
 import lexBacked from '../fixtures/contact-flows/lex-backed.json'
 import malformed from '../fixtures/contact-flows/malformed.json'
 import realExport from '../fixtures/contact-flows/real-console-export.json'
+import realBot from '../fixtures/lex-bots/real-lex-v2.json'
 import acmeV2 from '../fixtures/lex-bots/acme-v2.json'
 import acmeV1 from '../fixtures/lex-bots/acme-v1.json'
 
@@ -246,5 +247,46 @@ describe('real console export (modules format)', () => {
   it('still blocks on the missing bot export rather than pretending it is complete', () => {
     expect(model.coverage.nlu.dangling).toEqual(['WaitOnHold', 'CallBack', 'Emergency'])
     expect(model.coverage.requiresReview.some((r) => r.severity === 'blocker')).toBe(true)
+  })
+})
+
+/** Verified against a genuine Lex V2 console export, AppleDouble junk and all. */
+describe('real Lex V2 export', () => {
+  const { bots, review } = parseLexExport(realBot, 'InteractiveMessageBotV2')
+  const bot = bots[0]
+
+  it('ignores the __MACOSX twins that shadow the real file names', () => {
+    // '__MACOSX/.../._Bot.json' ends with 'Bot.json'; unfiltered it wins the lookup.
+    expect(bot.name).toBe('InteractiveMessageBotV2')
+    expect(review.some((r) => r.severity === 'blocker')).toBe(false)
+  })
+
+  it('reads the locale and confidence threshold', () => {
+    expect(bot.locales).toEqual(['en_US'])
+    expect(bot.confidenceThreshold).toBe(0.4)
+  })
+
+  it('recovers every slot with its elicitation prompt', () => {
+    const intent = bot.intents.find((i) => i.name === 'InteractiveMessageIntent')!
+    expect(intent.utterances).toEqual(['help', 'help me'])
+    expect(intent.slots).toHaveLength(5)
+    expect(intent.slots.find((s) => s.name === 'department')!.prompt).toBe('Which department')
+    expect(intent.slots.find((s) => s.name === 'appointment')!.prompt)
+      .toBe('When would you like to schedule the appointment?')
+  })
+
+  it('reads the per-turn hook from initialResponseSetting, where real exports put it', () => {
+    const intent = bot.intents.find((i) => i.name === 'InteractiveMessageIntent')!
+    expect(intent.dialogHook).toBeDefined()
+    expect(review.some((r) => /dialog code hook/.test(r.reason))).toBe(true)
+  })
+
+  it('reads custom slot types and tolerates null synonyms', () => {
+    const dept = bot.slotTypes.find((t) => t.name === 'Department')!
+    expect(dept.builtIn).toBe(false)
+    expect(dept.values.map((v) => v.value)).toEqual(
+      ['Walkthrough', 'Visit', 'Billing', 'Cancellation', 'Setup', 'New Service'],
+    )
+    expect(dept.values[0].synonyms).toEqual([])
   })
 })

@@ -125,12 +125,23 @@ function mapNode(node: IvrNode, id: string, child: ChildFn, ctx: Ctx): PlannedNo
       for (const c of node.cases) {
         const intent = bot?.intents.find((i) => i.name === c.intent)
         for (const slot of intent?.slots ?? []) {
+          const custom = ctx.bots.some((b) => b.slotTypes.some((t) => t.name === slot.slotType && !t.builtIn))
           ctx.attachedSlots.push({
             name: slotName(slot.name),
-            type: slot.slotType,
+            // Custom types are created from the bot export; built-ins have no published
+            // ACXD equivalent, so they stay visibly unresolved.
+            type: custom ? slotTypeId(slot.slotType) : 'TODO_CONFIRM_BUILTIN',
             sensitive: slot.sensitive,
             aiDescription: slot.prompt ? description(slot.prompt) : undefined,
           })
+          if (!custom) {
+            ctx.gaps.push({
+              marker: 'built-in slot type name',
+              what: `Slot "${slot.name}" uses type "${slot.slotType}", which the bot does not define as a custom type.`,
+              needed: 'Confirm whether ACXD ships an equivalent built-in, or define a custom slot type.',
+              nodeIds: [id],
+            })
+          }
         }
       }
       return {

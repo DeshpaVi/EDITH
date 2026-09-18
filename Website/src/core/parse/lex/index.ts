@@ -35,8 +35,14 @@ export function parseLexExport(input: unknown, sourceName = 'lex-export'): LexPa
 
 // ── V2 ────────────────────────────────────────────────────────────────────────
 
-function parseV2(files: LexV2Files, sourceName: string, review: ReviewItem[]): LexParseResult {
-  const botFile = Object.keys(files).find((p) => p.endsWith('Bot.json'))
+const isJunk = (path: string): boolean =>
+  path.startsWith('__MACOSX/') || (path.split('/').pop() ?? '').startsWith('._')
+
+function parseV2(all: LexV2Files, sourceName: string, review: ReviewItem[]): LexParseResult {
+  const files: LexV2Files = Object.fromEntries(
+    Object.entries(all).filter(([path]) => !isJunk(path)),
+  )
+  const botFile = Object.keys(files).find((p) => p.endsWith('Bot.json') && !p.endsWith('/._Bot.json'))
   const botJson = botFile ? files[botFile] : undefined
   const botName =
     (isRecord(botJson) ? text(botJson.name) : undefined) ??
@@ -74,7 +80,11 @@ function parseV2(files: LexV2Files, sourceName: string, review: ReviewItem[]): L
           ? firstMessage(content.intentClosingSetting.closingResponse)
           : undefined,
         fulfillmentHook: hookArn(content.fulfillmentCodeHook),
-        dialogHook: hookArn(content.dialogCodeHook),
+        // Real V2 exports declare the per-turn hook under initialResponseSetting.codeHook,
+        // not as a top-level dialogCodeHook.
+        dialogHook: hookArn(content.dialogCodeHook) ?? hookArn(
+          isRecord(content.initialResponseSetting) ? content.initialResponseSetting.codeHook : undefined,
+        ),
       })
       continue
     }
@@ -149,7 +159,10 @@ function readV2Slot(content: Record<string, unknown>): NluSlot | null {
 
 function hookArn(hook: unknown): string | undefined {
   if (!isRecord(hook)) return undefined
-  if (hook.enabled === false) return undefined
+  if (hook.enabled === false || hook.isActive === false) return undefined
+  if (hook.enableCodeHookInvocation === true || hook.isActive === true) {
+    return text(hook.uri) ?? 'lambda-configured-on-bot-alias'
+  }
   // V2 declares the hook as enabled; the Lambda ARN lives on the bot alias, not here.
   return text(hook.uri) ?? (hook.enabled === true ? 'lambda-configured-on-bot-alias' : undefined)
 }
