@@ -25,6 +25,12 @@ export interface RuntimeConfig {
   }
   transcriptPollMs: number
   attributeRefreshMs: number
+  /**
+   * Whether to show the on-screen notice when transcripts are being read
+   * without authentication. Off for demos where the banner is a distraction;
+   * the configuration it warns about is unchanged either way.
+   */
+  showAuthWarning: boolean
 }
 
 function str(value: unknown, fallback: string): string {
@@ -58,6 +64,9 @@ export const config: RuntimeConfig = {
   },
   transcriptPollMs: num(env.VITE_TRANSCRIPT_POLL_MS, 3000, 1000),
   attributeRefreshMs: num(env.VITE_ATTRIBUTE_REFRESH_MS, 5000, 1000),
+  // Shown unless explicitly switched off, so an unauthenticated build is
+  // visible by default and silencing it is a deliberate act.
+  showAuthWarning: env.VITE_SHOW_AUTH_WARNING !== 'false',
 }
 
 /**
@@ -87,6 +96,7 @@ export function configErrors(c: RuntimeConfig = config): string[] {
  */
 export function configWarnings(c: RuntimeConfig = config): string[] {
   const warnings: string[] = []
+  if (!c.showAuthWarning) return warnings
   if (c.transcriptSource === 'api' && c.auth === 'none') {
     warnings.push(
       'Transcripts are being read through an unauthenticated endpoint. Anyone with a contact ID ' +

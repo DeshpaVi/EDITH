@@ -65,14 +65,23 @@ async function readAttributes(
 /**
  * `ContactSnapshot.attributes` is typed as strings, so make that true rather
  * than merely declared. The SDK's own `Record<string, string>` is a
- * compile-time claim about data crossing a postMessage boundary, and a contact
- * can carry a value that is not a string.
+ * compile-time claim about data crossing a postMessage boundary, and it is not
+ * what a live workspace sends: each attribute arrives as a `{ name, value }`
+ * pair, so the inner value is what the agent actually wants to read.
  */
 function asStrings(raw: Readonly<Record<string, unknown>>): Record<string, string> {
   const out: Record<string, string> = {}
   for (const [key, value] of Object.entries(raw ?? {})) {
     if (value === null || value === undefined) continue
-    out[key] = typeof value === 'string' ? value : JSON.stringify(value) ?? String(value)
+    if (typeof value === 'string') {
+      out[key] = value
+      continue
+    }
+    const inner = typeof value === 'object' ? (value as { value?: unknown }).value : undefined
+    out[key] =
+      inner !== null && inner !== undefined && typeof inner !== 'object'
+        ? String(inner)
+        : (JSON.stringify(value) ?? String(value))
   }
   return out
 }

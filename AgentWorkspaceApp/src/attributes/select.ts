@@ -63,33 +63,52 @@ const EMPTY_PLACEHOLDER = 'Not set'
 
 /**
  * The workspace SDK declares `getAttributes` as `Record<string, string>`, but
- * that is a compile-time promise about data that arrives over postMessage from
- * another origin — it is not enforced at runtime, and a contact can carry a
- * value that is not a string. Trusting the declared type cost a live call:
- * calling `.trim()` on a non-string threw inside a render, React unmounted the
- * tree, and the agent got a blank panel with no explanation.
+ * that is a compile-time promise about data arriving over postMessage from
+ * another origin, and it is not what actually turns up. A live workspace
+ * returns each attribute as a `{ name, value }` pair:
  *
- * So every value is coerced here, at the one place all attribute data enters
- * the panel. Nothing is dropped — a value that is not a string is still the
- * flow telling the agent something, and rendering it as JSON beats hiding it.
+ *   { relation: { name: 'relation', value: 'care-giver' } }
+ *
+ * Trusting the declared type cost a live call — `.trim()` on an object threw
+ * during render, React unmounted the tree, and the agent got a blank panel.
+ * Stringifying instead of unwrapping then cost a second one: no crash, but the
+ * agent read raw JSON off the screen.
+ *
+ * So values are unwrapped here, at the single point all attribute data enters
+ * the panel, and nothing is dropped: a wrapper's inner value wins, primitives
+ * stringify, and a shape this does not recognise still renders as JSON rather
+ * than vanishing.
  */
 function coerceAttributes(raw: Readonly<Record<string, unknown>>): Record<string, string> {
   const coerced: Record<string, string> = {}
   for (const [key, value] of Object.entries(raw ?? {})) {
-    if (value === null || value === undefined) continue
-    if (typeof value === 'string') {
-      coerced[key] = value
-    } else if (typeof value === 'number' || typeof value === 'boolean') {
-      coerced[key] = String(value)
-    } else {
-      try {
-        coerced[key] = JSON.stringify(value) ?? String(value)
-      } catch {
-        coerced[key] = String(value)
-      }
-    }
+    const text = toDisplayString(value)
+    if (text !== null) coerced[key] = text
   }
   return coerced
+}
+
+function toDisplayString(value: unknown): string | null {
+  if (value === null || value === undefined) return null
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+
+  if (typeof value === 'object') {
+    // The `{ name, value }` wrapper. Only unwrap when the inner value is itself
+    // a primitive — a nested object is a shape worth seeing in full rather than
+    // silently reaching into.
+    const inner = (value as { value?: unknown }).value
+    if (inner !== null && inner !== undefined && typeof inner !== 'object') {
+      return String(inner)
+    }
+    try {
+      return JSON.stringify(value) ?? String(value)
+    } catch {
+      return String(value)
+    }
+  }
+
+  return String(value)
 }
 
 export function selectAttributes(

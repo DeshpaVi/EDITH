@@ -154,3 +154,31 @@ describe('values that are not strings', () => {
     expect(model.unmapped).toEqual([{ key: 'extra', value: '{"a":1}' }])
   })
 })
+
+describe('the { name, value } wrapper a live workspace sends', () => {
+  it('shows the inner value, not the JSON around it', () => {
+    // The workspace does not send the bare string its SDK type claims; it
+    // sends { name, value }. Rendering the wrapper put raw JSON in front of an
+    // agent mid-call.
+    const attributes = {
+      plain: { name: 'plain', value: 'care-giver' },
+      needed: { name: 'needed', value: 'veteran benefits' },
+      acct: { name: 'acct', value: '400211987654' },
+    } as unknown as Record<string, string>
+
+    const model = selectAttributes(manifest, attributes)
+    const row = (key: string) => model.groups[0]!.rows.find((r) => r.key === key)
+
+    expect(row('plain')?.revealed).toBe('care-giver')
+    expect(row('needed')?.revealed).toBe('veteran benefits')
+    // Masking applies to the unwrapped value, so no JSON leaks past the mask.
+    expect(row('acct')?.display).toBe('••••••••7654')
+    expect(row('acct')?.display).not.toContain('{')
+  })
+
+  it('keeps a shape it does not recognise visible rather than dropping it', () => {
+    const attributes = { odd: { name: 'odd', value: { nested: true } } } as unknown as Record<string, string>
+    const model = selectAttributes(manifest, attributes)
+    expect(model.unmapped).toEqual([{ key: 'odd', value: '{"name":"odd","value":{"nested":true}}' }])
+  })
+})
