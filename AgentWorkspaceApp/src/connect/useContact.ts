@@ -10,6 +10,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { config } from '../config/runtime'
+import { attributeManifest } from '../config/attributes'
 import { selectBridge } from './index'
 import type { BridgeError, BridgeHandle, ContactSnapshot } from './types'
 
@@ -28,6 +29,9 @@ export function useContact(): ContactView {
   const [connecting, setConnecting] = useState(true)
   const handleRef = useRef<BridgeHandle | null>(null)
   const bridge = useRef(selectBridge()).current
+  const declaredKeys = useRef(
+    attributeManifest.groups.flatMap((group) => group.attributes.map((a) => a.key)),
+  ).current
 
   useEffect(() => {
     let disposed = false
@@ -46,7 +50,7 @@ export function useContact(): ContactView {
           setConnecting(false)
           setError(bridgeError)
         },
-      })
+      }, { fallbackAttributeKeys: declaredKeys })
       .then((handle) => {
         if (disposed) {
           handle.close()
@@ -74,7 +78,7 @@ export function useContact(): ContactView {
       handleRef.current?.close()
       handleRef.current = null
     }
-  }, [bridge])
+  }, [bridge, declaredKeys])
 
   return { contact, error, bridgeKind: bridge.kind, connecting }
 }

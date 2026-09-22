@@ -59,7 +59,17 @@ export interface BridgeHandle {
   close(): void
 }
 
+export interface ConnectOptions {
+  /**
+   * Attribute keys to ask for by name if the workspace rejects the `'*'`
+   * wildcard. Older workspace hosts do not implement it, and a rejected
+   * wildcard fails the whole read — including the attributes the app could
+   * otherwise have shown.
+   */
+  fallbackAttributeKeys?: readonly string[]
+}
+
 export interface WorkspaceBridge {
   readonly kind: 'workspace' | 'mock'
-  connect(events: BridgeEvents): Promise<BridgeHandle>
+  connect(events: BridgeEvents, options?: ConnectOptions): Promise<BridgeHandle>
 }

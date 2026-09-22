@@ -51,6 +51,7 @@ export const mockBridge: WorkspaceBridge = {
   kind: 'mock',
 
   connect(events: BridgeEvents): Promise<BridgeHandle> {
+    // The fixture ignores ConnectOptions — it has no host to negotiate with.
     let closed = false
     let attempt = 0
 

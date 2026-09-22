@@ -23,6 +23,7 @@ import type {
   BridgeEvents,
   BridgeHandle,
   Channel,
+  ConnectOptions,
   ContactSnapshot,
   WorkspaceBridge,
 } from './types'
@@ -43,12 +44,30 @@ function toChannel(type: ContactChannelType['type'] | string | undefined): Chann
   }
 }
 
+/**
+ * Reads the contact's attributes, preferring the wildcard and degrading to an
+ * explicit key list. The degraded read cannot populate the Unmapped section —
+ * it only returns what was asked for — but a named-key panel beats an error.
+ */
+async function readAttributes(
+  client: ContactClient,
+  contactId: string,
+  fallbackKeys: readonly string[] | undefined,
+): Promise<Record<string, string>> {
+  try {
+    return await client.getAttributes(contactId, '*')
+  } catch (wildcardError) {
+    if (!fallbackKeys || fallbackKeys.length === 0) throw wildcardError
+    return await client.getAttributes(contactId, [...fallbackKeys])
+  }
+}
+
 let initialized = false
 
 export const workspaceBridge: WorkspaceBridge = {
   kind: 'workspace',
 
-  connect(events: BridgeEvents): Promise<BridgeHandle> {
+  connect(events: BridgeEvents, options: ConnectOptions = {}): Promise<BridgeHandle> {
     if (initialized) {
       return Promise.reject(
         new Error('workspaceBridge.connect() called twice — AmazonConnectApp.init is once-per-page.'),
@@ -65,10 +84,12 @@ export const workspaceBridge: WorkspaceBridge = {
         client: ContactClient,
         contactId: string,
       ): Promise<ContactSnapshot> => {
-        // `'*'` asks for every attribute on the contact. Requesting an explicit
-        // key list here would reintroduce the silent-drop problem the Unmapped
-        // section exists to prevent.
-        const attributes = await client.getAttributes(contactId, '*')
+        // `'*'` asks for every attribute the contact carries, which is what
+        // lets the Unmapped section surface attributes nobody declared. Not
+        // every workspace host implements the wildcard, and one that does not
+        // rejects the call outright — so fall back to asking for the declared
+        // keys by name rather than losing the panel entirely.
+        const attributes = await readAttributes(client, contactId, options.fallbackAttributeKeys)
 
         // Each of these is best-effort: a contact in an odd state can reject any
         // one of them, and none of them is worth losing the attributes over.
@@ -101,9 +122,14 @@ export const workspaceBridge: WorkspaceBridge = {
         try {
           events.onContactChange(await readSnapshot(client, contactId))
         } catch (cause) {
+          const detail = cause instanceof Error ? cause.message : String(cause)
           events.onError({
             kind: 'sdk-call-failed',
-            message: `Could not read contact ${contactId} from the workspace.`,
+            message:
+              `Could not read contact ${contactId} from the workspace. This is usually the ` +
+              `third-party application missing the contact-details read permission — check the ` +
+              `app's permissions in the Amazon Connect console, then sign out and back in. ` +
+              `The workspace said: ${detail}`,
             cause,
           })
         }
