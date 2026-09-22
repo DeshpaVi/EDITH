@@ -15,6 +15,22 @@ Parameters:
     Type: String
     Default: acw-handoff
 
+  AuthMode:
+    Type: String
+    Default: cognito
+    AllowedValues: [cognito, none]
+    Description: >
+      `cognito` creates a user pool and puts a JWT authorizer in front of the
+      API, and the Lambda checks that the caller is the agent on the contact.
+
+      `none` removes both. The /transcript endpoint then answers ANY request
+      that supplies a contact ID, from anywhere on the internet, and cannot
+      check who is asking — the ownership check needs a signed-in identity to
+      work. Contact IDs are UUIDs and so are not guessable, which is the only
+      thing protecting a transcript in this mode. Use it for demos with test
+      calls; switch back to `cognito` before real conversations run through it.
+      Switching back is this parameter plus a frontend rebuild.
+
   ConnectInstanceId:
     Type: String
     Description: The Amazon Connect instance ID (the UUID at the end of the instance ARN).
@@ -29,15 +45,18 @@ Parameters:
 
   CallbackUrl:
     Type: String
+    Default: ''
     Description: >
+      Ignored when AuthMode is `none`.
       The OIDC redirect target, e.g. https://d111111abcdef8.cloudfront.net/auth/callback.html.
       This is the `CallbackUrl` output of hosting.yaml.
 
   CognitoDomainPrefix:
     Type: String
+    Default: acw-handoff-unused
     Description: >
       Globally unique prefix for the Cognito Hosted UI domain, e.g. acme-acw-handoff.
-      Becomes <prefix>.auth.<region>.amazoncognito.com.
+      Becomes <prefix>.auth.<region>.amazoncognito.com. Ignored when AuthMode is `none`.
     AllowedPattern: '[a-z0-9][a-z0-9-]{1,61}[a-z0-9]'
 
   LambdaCodeS3Bucket:
@@ -74,11 +93,16 @@ Parameters:
       Transcript content is never logged, but contact IDs appear in error
       traces. Match this to your contact-data retention policy.
 
+Conditions:
+  UseCognito: !Equals [!Ref AuthMode, 'cognito']
+
 Resources:
   # --- Identity ------------------------------------------------------------
+  # Created only when AuthMode is `cognito`.
 
   UserPool:
     Type: AWS::Cognito::UserPool
+    Condition: UseCognito
     Properties:
       UserPoolName: !Sub '${AppName}-agents'
       # Agents are provisioned from the corporate directory, not self-service.
@@ -99,12 +123,14 @@ Resources:
 
   UserPoolDomain:
     Type: AWS::Cognito::UserPoolDomain
+    Condition: UseCognito
     Properties:
       Domain: !Ref CognitoDomainPrefix
       UserPoolId: !Ref UserPool
 
   UserPoolClient:
     Type: AWS::Cognito::UserPoolClient
+    Condition: UseCognito
     Properties:
       ClientName: !Sub '${AppName}-spa'
       UserPoolId: !Ref UserPool
@@ -197,7 +223,9 @@ Resources:
         Variables:
           CONNECT_INSTANCE_ID: !Ref ConnectInstanceId
           ALLOWED_ORIGIN: !Ref AllowedOrigin
-          ENFORCE_CONTACT_OWNERSHIP: !Ref EnforceContactOwnership
+          # Forced off without Cognito: the check compares a JWT claim against
+          # the contact's assigned agent, and there is no claim to compare.
+          ENFORCE_CONTACT_OWNERSHIP: !If [UseCognito, !Ref EnforceContactOwnership, 'false']
           USERNAME_CLAIM: !Ref UsernameClaim
           MAX_RESULTS: '100'
           NODE_OPTIONS: '--enable-source-maps'
@@ -217,6 +245,7 @@ Resources:
 
   JwtAuthorizer:
     Type: AWS::ApiGatewayV2::Authorizer
+    Condition: UseCognito
     Properties:
       ApiId: !Ref HttpApi
       Name: cognito-jwt
@@ -241,8 +270,8 @@ Resources:
     Properties:
       ApiId: !Ref HttpApi
       RouteKey: 'GET /transcript'
-      AuthorizationType: JWT
-      AuthorizerId: !Ref JwtAuthorizer
+      AuthorizationType: !If [UseCognito, JWT, NONE]
+      AuthorizerId: !If [UseCognito, !Ref JwtAuthorizer, !Ref 'AWS::NoValue']
       Target: !Sub 'integrations/${TranscriptIntegration}'
 
   ApiAccessLogGroup:
@@ -280,12 +309,15 @@ Outputs:
     Value: !Sub 'https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com'
 
   CognitoDomain:
+    Condition: UseCognito
     Description: Set as VITE_COGNITO_DOMAIN.
     Value: !Sub '${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com'
 
   CognitoClientId:
+    Condition: UseCognito
     Description: Set as VITE_COGNITO_CLIENT_ID. Public — safe to put in the bundle.
     Value: !Ref UserPoolClient
 
   UserPoolId:
+    Condition: UseCognito
     Value: !Ref UserPool

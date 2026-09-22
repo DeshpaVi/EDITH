@@ -70,11 +70,29 @@ export function configErrors(c: RuntimeConfig = config): string[] {
   if (c.transcriptSource === 'api' && !c.apiBaseUrl) {
     errors.push('VITE_API_BASE_URL is unset but the transcript source is `api`.')
   }
-  if (c.transcriptSource === 'api' && c.auth === 'none') {
-    errors.push('VITE_AUTH_MODE=none cannot be used with the live transcript API — the backend requires a JWT.')
-  }
   if (c.auth === 'cognito' && (!c.cognito.domain || !c.cognito.clientId)) {
     errors.push('VITE_AUTH_MODE=cognito requires VITE_COGNITO_DOMAIN and VITE_COGNITO_CLIENT_ID.')
   }
   return errors
+}
+
+/**
+ * Configurations that work but should not go unnoticed.
+ *
+ * Running the live transcript API with `VITE_AUTH_MODE=none` is a deliberate
+ * demo shortcut, not a mistake — so it does not block the build. It does mean
+ * the backend is answering unauthenticated requests and cannot check that the
+ * caller is the agent on the contact, which is worth having on screen rather
+ * than only in a deployment note somebody read once.
+ */
+export function configWarnings(c: RuntimeConfig = config): string[] {
+  const warnings: string[] = []
+  if (c.transcriptSource === 'api' && c.auth === 'none') {
+    warnings.push(
+      'Transcripts are being read through an unauthenticated endpoint. Anyone with a contact ID ' +
+        'can read that call. Demo configuration only — set VITE_AUTH_MODE=cognito and redeploy the ' +
+        'backend with AuthMode=cognito before this carries real conversations.',
+    )
+  }
+  return warnings
 }

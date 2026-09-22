@@ -1,4 +1,4 @@
-import { configErrors } from './config/runtime'
+import { configErrors, configWarnings } from './config/runtime'
 import { useContact } from './connect/useContact'
 import { AttributePanel } from './components/AttributePanel'
 import { ContactHeader } from './components/ContactHeader'
@@ -14,6 +14,7 @@ import { TranscriptPanel } from './components/TranscriptPanel'
 export function App() {
   const { contact, error, bridgeKind, connecting } = useContact()
   const misconfigured = configErrors()
+  const warnings = configWarnings()
 
   return (
     <div className="app">
@@ -28,6 +29,12 @@ export function App() {
           </ul>
         </Notice>
       ) : null}
+
+      {warnings.map((warning) => (
+        <Notice tone="warn" title="Unauthenticated transcript access" key={warning}>
+          {warning}
+        </Notice>
+      ))}
 
       {error ? (
         <Notice tone={error.kind === 'not-embedded' ? 'warn' : 'bad'} title="Workspace connection">
