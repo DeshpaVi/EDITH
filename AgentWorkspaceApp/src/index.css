@@ -35,28 +35,57 @@
   --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 }
 
+/*
+ * Dark comes from the OS by default, but an explicit `data-theme` on the root
+ * wins in both directions. The workspace never stamps that attribute, so in
+ * production only the media query fires; a host that does stamp it (a preview
+ * surface, an embedding page) gets the theme the reader actually chose rather
+ * than the one their laptop is set to.
+ */
 @media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #16181d;
-    --bg-sunken: #1d2026;
-    --bg-raised: #22262d;
-    --border: #333941;
-    --border-strong: #4a515b;
-    --text: #e8eaee;
-    --text-muted: #a2aab6;
-    --text-faint: #7b838f;
-    --accent: #5fa8e8;
-    --accent-soft: #1b2b3d;
+  :root:not([data-theme='light']) {
+  --bg: #16181d;
+  --bg-sunken: #1d2026;
+  --bg-raised: #22262d;
+  --border: #333941;
+  --border-strong: #4a515b;
+  --text: #e8eaee;
+  --text-muted: #a2aab6;
+  --text-faint: #7b838f;
+  --accent: #5fa8e8;
+  --accent-soft: #1b2b3d;
 
-    --good: #6fd399;
-    --good-soft: #17301f;
-    --warn: #e0b055;
-    --warn-soft: #302711;
-    --bad: #f28b82;
-    --bad-soft: #341c1a;
-    --neutral: #a2aab6;
-    --neutral-soft: #262a31;
+  --good: #6fd399;
+  --good-soft: #17301f;
+  --warn: #e0b055;
+  --warn-soft: #302711;
+  --bad: #f28b82;
+  --bad-soft: #341c1a;
+  --neutral: #a2aab6;
+  --neutral-soft: #262a31;
   }
+}
+
+:root[data-theme='dark'] {
+  --bg: #16181d;
+  --bg-sunken: #1d2026;
+  --bg-raised: #22262d;
+  --border: #333941;
+  --border-strong: #4a515b;
+  --text: #e8eaee;
+  --text-muted: #a2aab6;
+  --text-faint: #7b838f;
+  --accent: #5fa8e8;
+  --accent-soft: #1b2b3d;
+
+  --good: #6fd399;
+  --good-soft: #17301f;
+  --warn: #e0b055;
+  --warn-soft: #302711;
+  --bad: #f28b82;
+  --bad-soft: #341c1a;
+  --neutral: #a2aab6;
+  --neutral-soft: #262a31;
 }
 
 * { box-sizing: border-box; }
@@ -189,7 +218,7 @@ button.link {
   align-items: baseline;
 }
 .attr:hover { background: var(--bg-sunken); }
-.attr__label { color: var(--text-muted); font-size: 12px; }
+.attr__label { color: var(--text-muted); font-size: 12px; overflow-wrap: anywhere; }
 .attr__value {
   font-size: 13px;
   word-break: break-word;
