@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "source": "The four attributes APFM_Flow writes in its UpdateContactAttributes block (action eeae1640-8792-4bd2-8afd-d071c3d10aca), sourced from APFM_Bot's customerintake slots. These are the same four the APFM_Intake_Guide view renders as $.Attributes.*, so this panel and the agent's step-by-step guide read the identical values.",
+  "source": "APFM_Flow's UpdateContactAttributes block (action eeae1640-8792-4bd2-8afd-d071c3d10aca) writes relation, interest, phone_and_location and city from APFM_Bot's customerintake slots. Those four are the same ones APFM_Intake_Guide renders as $.Attributes.*, so this panel and the agent's step-by-step guide read identical values. customer_id and account_number are demo stand-ins for a CRM lookup \u2014 the flow must set them for them to appear.",
   "groups": [
     {
       "id": "intake",
@@ -11,14 +11,14 @@
           "label": "Relationship",
           "format": "text",
           "required": true,
-          "help": "From the RelationType slot — who the caller is to the person they are enquiring for."
+          "help": "From the RelationType slot \u2014 who the caller is to the person they are enquiring for."
         },
         {
           "key": "interest",
           "label": "Interest",
           "format": "text",
           "required": true,
-          "help": "From the InterestType slot — the service the caller asked about."
+          "help": "From the InterestType slot \u2014 the service the caller asked about."
         },
         {
           "key": "phone_and_location",
@@ -31,6 +31,25 @@
           "label": "City",
           "format": "text",
           "required": true
+        }
+      ]
+    },
+    {
+      "id": "record",
+      "label": "Customer record",
+      "attributes": [
+        {
+          "key": "customer_id",
+          "label": "Customer ID",
+          "format": "text"
+        },
+        {
+          "key": "account_number",
+          "label": "Account number",
+          "format": "text",
+          "sensitive": true,
+          "mask": "last4",
+          "help": "Masked on screen. Reveal shows the full value; it is excluded from Copy for notes either way."
         }
       ]
     }
