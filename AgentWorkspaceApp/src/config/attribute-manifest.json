@@ -16,7 +16,7 @@
           "format": "badge",
           "required": true,
           "badgeMap": { "verified": "good", "partial": "warn", "failed": "bad", "skipped": "warn" },
-          "help": "Set by the IVR after knowledge-based or voice verification. `partial` means the caller cleared some but not all challenges — re-verify before discussing balances."
+          "help": "Set by the IVR after knowledge-based or voice verification. A value of \u201cpartial\u201d means the caller cleared some but not all challenges — re-verify before discussing balances."
         },
         { "key": "verificationAttempts", "label": "Verification attempts", "format": "text" },
         { "key": "dateOfBirth", "label": "Date of birth", "format": "date", "sensitive": true, "mask": "all" }
