@@ -7,7 +7,19 @@
     <title>Contact Handoff</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!--
+        Replaced by React on mount. If this text is still on screen, the
+        JavaScript bundle did not load or run — almost always index.html and
+        assets/ coming from different builds, so index.html references a
+        filename that is not in the bucket.
+      -->
+      <p>Loading the contact handoff panel&hellip;</p>
+      <p>
+        If this message stays, the app's JavaScript did not load. Check the
+        browser console for a 404 on a file under /assets/.
+      </p>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
