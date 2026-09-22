@@ -1,75 +1,11 @@
 {
   "version": 1,
-  "source": "TODO(handoff-doc): replace the seeded keys below with the exact attribute keys listed in your handoff document. The `key` of every entry must match, byte-for-byte and case-sensitively, the key a Set contact attributes block (or the Agentic CX / Lex session-attribute export) writes in the flow. A key that does not match renders as 'not set' and the real value falls into the Unmapped section.",
+  "source": "TODO(handoff-doc): the four attributes this contact flow collects. Each `key` must match the Destination key of the flow's Set contact attributes block byte-for-byte and case-sensitively. A key that does not match renders as 'Not set', and the real value falls through to the Unmapped section instead.",
   "groups": [
     {
-      "id": "identity",
-      "label": "Identity & verification",
-      "attributes": [
-        { "key": "customerId", "label": "Customer ID", "format": "text", "required": true },
-        { "key": "accountNumber", "label": "Account number", "format": "text", "sensitive": true, "mask": "last4", "required": true },
-        { "key": "callerName", "label": "Caller name", "format": "text" },
-        { "key": "callbackNumber", "label": "Callback number", "format": "phone" },
-        {
-          "key": "authStatus",
-          "label": "Authentication",
-          "format": "badge",
-          "required": true,
-          "badgeMap": { "verified": "good", "partial": "warn", "failed": "bad", "skipped": "warn" },
-          "help": "Set by the IVR after knowledge-based or voice verification. A value of \u201cpartial\u201d means the caller cleared some but not all challenges — re-verify before discussing balances."
-        },
-        { "key": "verificationAttempts", "label": "Verification attempts", "format": "text" },
-        { "key": "dateOfBirth", "label": "Date of birth", "format": "date", "sensitive": true, "mask": "all" }
-      ]
-    },
-    {
-      "id": "intent",
-      "label": "Intent & self-service",
-      "attributes": [
-        { "key": "callerIntent", "label": "Stated intent", "format": "text", "required": true },
-        { "key": "intentConfidence", "label": "Intent confidence", "format": "text" },
-        { "key": "lastMenuSelection", "label": "Last menu selection", "format": "text" },
-        {
-          "key": "selfServiceOutcome",
-          "label": "Self-service outcome",
-          "format": "badge",
-          "badgeMap": { "completed": "good", "abandoned": "warn", "failed": "bad", "not_attempted": "neutral" }
-        },
-        { "key": "escalationReason", "label": "Escalation reason", "format": "multiline", "required": true },
-        { "key": "languagePreference", "label": "Language", "format": "text" }
-      ]
-    },
-    {
-      "id": "transaction",
-      "label": "Case & transaction",
-      "attributes": [
-        { "key": "crmCaseId", "label": "CRM case", "format": "text" },
-        { "key": "orderId", "label": "Order / reference", "format": "text" },
-        { "key": "paymentAmount", "label": "Payment amount", "format": "currency", "currencyFrom": "paymentCurrency" },
-        { "key": "paymentCurrency", "label": "Currency", "format": "text" },
-        { "key": "cardLast4", "label": "Card (last 4)", "format": "text", "sensitive": true, "mask": "none" },
-        { "key": "dueDate", "label": "Due date", "format": "date" },
-        {
-          "key": "recordingDisclosure",
-          "label": "Recording disclosure played",
-          "format": "multiline",
-          "compliance": true,
-          "help": "Reproduced verbatim from the flow. Do not paraphrase this wording when repeating it to the caller."
-        }
-      ]
-    },
-    {
-      "id": "session",
-      "label": "Session & diagnostics",
-      "attributes": [
-        { "key": "ivrDurationSeconds", "label": "Time in IVR", "format": "duration" },
-        { "key": "transferReason", "label": "Transfer reason", "format": "text" },
-        { "key": "queueName", "label": "Queue", "format": "text" },
-        { "key": "acxdApplication", "label": "ACXD application", "format": "text" },
-        { "key": "acxdConversationId", "label": "ACXD conversation", "format": "text" },
-        { "key": "botSessionId", "label": "Bot session", "format": "text" },
-        { "key": "repeatCaller", "label": "Repeat caller", "format": "boolean" }
-      ]
+      "id": "collected",
+      "label": "Collected in the IVR",
+      "attributes": []
     }
   ]
 }
