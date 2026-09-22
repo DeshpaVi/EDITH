@@ -61,10 +61,42 @@ export interface AttributePanelModel {
 
 const EMPTY_PLACEHOLDER = 'Not set'
 
+/**
+ * The workspace SDK declares `getAttributes` as `Record<string, string>`, but
+ * that is a compile-time promise about data that arrives over postMessage from
+ * another origin — it is not enforced at runtime, and a contact can carry a
+ * value that is not a string. Trusting the declared type cost a live call:
+ * calling `.trim()` on a non-string threw inside a render, React unmounted the
+ * tree, and the agent got a blank panel with no explanation.
+ *
+ * So every value is coerced here, at the one place all attribute data enters
+ * the panel. Nothing is dropped — a value that is not a string is still the
+ * flow telling the agent something, and rendering it as JSON beats hiding it.
+ */
+function coerceAttributes(raw: Readonly<Record<string, unknown>>): Record<string, string> {
+  const coerced: Record<string, string> = {}
+  for (const [key, value] of Object.entries(raw ?? {})) {
+    if (value === null || value === undefined) continue
+    if (typeof value === 'string') {
+      coerced[key] = value
+    } else if (typeof value === 'number' || typeof value === 'boolean') {
+      coerced[key] = String(value)
+    } else {
+      try {
+        coerced[key] = JSON.stringify(value) ?? String(value)
+      } catch {
+        coerced[key] = String(value)
+      }
+    }
+  }
+  return coerced
+}
+
 export function selectAttributes(
   manifest: AttributeManifest,
-  attributes: Readonly<Record<string, string>>,
+  rawAttributes: Readonly<Record<string, unknown>>,
 ): AttributePanelModel {
+  const attributes = coerceAttributes(rawAttributes)
   const claimed = new Set<string>()
   const groups: AttributeGroupView[] = []
   const missingRequired: AttributeRow[] = []

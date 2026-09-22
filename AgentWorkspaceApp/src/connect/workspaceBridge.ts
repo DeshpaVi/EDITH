@@ -55,11 +55,26 @@ async function readAttributes(
   fallbackKeys: readonly string[] | undefined,
 ): Promise<Record<string, string>> {
   try {
-    return await client.getAttributes(contactId, '*')
+    return asStrings(await client.getAttributes(contactId, '*'))
   } catch (wildcardError) {
     if (!fallbackKeys || fallbackKeys.length === 0) throw wildcardError
-    return await client.getAttributes(contactId, [...fallbackKeys])
+    return asStrings(await client.getAttributes(contactId, [...fallbackKeys]))
   }
+}
+
+/**
+ * `ContactSnapshot.attributes` is typed as strings, so make that true rather
+ * than merely declared. The SDK's own `Record<string, string>` is a
+ * compile-time claim about data crossing a postMessage boundary, and a contact
+ * can carry a value that is not a string.
+ */
+function asStrings(raw: Readonly<Record<string, unknown>>): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(raw ?? {})) {
+    if (value === null || value === undefined) continue
+    out[key] = typeof value === 'string' ? value : JSON.stringify(value) ?? String(value)
+  }
+  return out
 }
 
 let initialized = false

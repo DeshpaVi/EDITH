@@ -133,3 +133,24 @@ describe('validateManifest', () => {
     expect(problems).toEqual([])
   })
 })
+
+describe('values that are not strings', () => {
+  it('does not throw when the workspace returns a non-string value', () => {
+    // Reproduces a live failure: the SDK types getAttributes as
+    // Record<string, string>, a contact carried something else, and .trim()
+    // threw inside a render — unmounting the panel and blanking it mid-call.
+    const attributes = { plain: 42, needed: true, acct: null, extra: { a: 1 } } as unknown as Record<string, string>
+    expect(() => selectAttributes(manifest, attributes)).not.toThrow()
+
+    const model = selectAttributes(manifest, attributes)
+    const row = (key: string) => model.groups[0]!.rows.find((r) => r.key === key)
+    expect(row('plain')?.revealed).toBe('42')
+    // `needed` is declared `text`, so the boolean is stringified rather than
+    // rendered as Yes/No — that formatting belongs to `format: 'boolean'`.
+    expect(row('needed')?.revealed).toBe('true')
+    // null is absent, not a value — it reads as a gap, not as "null".
+    expect(row('acct')?.state).toBe('missing')
+    // An object is still the flow saying something; show it rather than drop it.
+    expect(model.unmapped).toEqual([{ key: 'extra', value: '{"a":1}' }])
+  })
+})
