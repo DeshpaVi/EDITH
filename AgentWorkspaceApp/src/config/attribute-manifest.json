@@ -1,11 +1,38 @@
 {
   "version": 1,
-  "source": "TODO(handoff-doc): the four attributes this contact flow collects. Each `key` must match the Destination key of the flow's Set contact attributes block byte-for-byte and case-sensitively. A key that does not match renders as 'Not set', and the real value falls through to the Unmapped section instead.",
+  "source": "The four attributes APFM_Flow writes in its UpdateContactAttributes block (action eeae1640-8792-4bd2-8afd-d071c3d10aca), sourced from APFM_Bot's customerintake slots. These are the same four the APFM_Intake_Guide view renders as $.Attributes.*, so this panel and the agent's step-by-step guide read the identical values.",
   "groups": [
     {
-      "id": "collected",
+      "id": "intake",
       "label": "Collected in the IVR",
-      "attributes": []
+      "attributes": [
+        {
+          "key": "relation",
+          "label": "Relationship",
+          "format": "text",
+          "required": true,
+          "help": "From the RelationType slot — who the caller is to the person they are enquiring for."
+        },
+        {
+          "key": "interest",
+          "label": "Interest",
+          "format": "text",
+          "required": true,
+          "help": "From the InterestType slot — the service the caller asked about."
+        },
+        {
+          "key": "phone_and_location",
+          "label": "Phone & location",
+          "format": "text",
+          "required": true
+        },
+        {
+          "key": "city",
+          "label": "City",
+          "format": "text",
+          "required": true
+        }
+      ]
     }
   ]
 }
