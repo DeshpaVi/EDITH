@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "types": ["node", "aws-lambda"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true
+  },
+  // Only the two shared, environment-free transcript modules are pulled in.
+  // Including the whole directory would drag the browser-side polling hook —
+  // and with it `window` and `import.meta.env` — into a Node type-check.
+  "include": [
+    "src",
+    "esbuild.mjs",
+    "../src/transcript/normalize.ts",
+    "../src/transcript/types.ts"
+  ]
+}

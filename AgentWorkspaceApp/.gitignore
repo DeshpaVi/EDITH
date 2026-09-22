@@ -1,0 +1,10 @@
+node_modules/
+dist/
+
+# Every .env variant except the committed template. Vite inlines these into the
+# bundle, so a stray one is a deployed configuration, not a local note.
+.env*
+!.env.example
+
+# Build artifacts produced by infra/deploy.sh
+backend/transcript-lambda.zip

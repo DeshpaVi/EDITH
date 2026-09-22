@@ -1,0 +1,205 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Static hosting for the Amazon Connect agent workspace handoff app: a private
+  S3 bucket fronted by CloudFront. The response headers policy is the part that
+  matters — the agent workspace loads this app in an iframe, so the page must
+  explicitly permit framing by the workspace origin and must NOT send
+  X-Frame-Options, which has no origin allow-list and would block it outright.
+
+Parameters:
+  AppName:
+    Type: String
+    Default: acw-handoff
+    Description: Prefix for resource names.
+
+  WorkspaceOrigins:
+    Type: String
+    Default: https://*.my.connect.aws https://*.awsapps.com
+    Description: >
+      Space-separated origins allowed to frame this app, used verbatim in the
+      CSP frame-ancestors directive. Narrow this to your own instance — e.g.
+      "https://acme.my.connect.aws" — before going beyond a pilot. The two
+      defaults cover the current workspace domain and the legacy one.
+
+Resources:
+  Bucket:
+    Type: AWS::S3::Bucket
+    # Retained so a stack rollback cannot delete a live app's files.
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub '${AppName}-${AWS::AccountId}-${AWS::Region}'
+      # The bucket is never public. CloudFront reaches it through an Origin
+      # Access Control, which is the only principal the bucket policy allows.
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      VersioningConfiguration:
+        Status: Enabled
+
+  # Deployment artifacts (the Lambda zip) go here, never into the site bucket:
+  # everything in the site bucket is reachable through CloudFront by anyone
+  # with the URL.
+  ArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${AppName}-artifacts-${AWS::AccountId}-${AWS::Region}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-old-bundles
+            Status: Enabled
+            ExpirationInDays: 30
+
+  OriginAccessControl:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub '${AppName}-oac'
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  SecurityHeadersPolicy:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: !Sub '${AppName}-security-headers'
+        Comment: Permits framing by the Amazon Connect agent workspace and nothing else.
+        SecurityHeadersConfig:
+          ContentTypeOptions:
+            Override: true
+          ReferrerPolicy:
+            ReferrerPolicy: strict-origin-when-cross-origin
+            Override: true
+          StrictTransportSecurity:
+            AccessControlMaxAgeSec: 31536000
+            IncludeSubdomains: true
+            Override: true
+          ContentSecurityPolicy:
+            Override: true
+            # frame-ancestors is what lets the workspace embed this app.
+            # connect-src covers the two outbound calls the page makes: the
+            # transcript API (API Gateway) and the Cognito token endpoint.
+            # No 'unsafe-inline' anywhere — the build emits no inline script
+            # and no inline style.
+            ContentSecurityPolicy: !Sub
+              - >-
+                default-src 'none';
+                script-src 'self';
+                style-src 'self';
+                img-src 'self' data:;
+                font-src 'self';
+                connect-src 'self' https://*.execute-api.${AWS::Region}.amazonaws.com https://*.auth.${AWS::Region}.amazoncognito.com;
+                form-action 'none';
+                base-uri 'none';
+                frame-ancestors ${Origins}
+              - Origins: !Ref WorkspaceOrigins
+        # X-Frame-Options is deliberately absent. It cannot express "only this
+        # Connect instance", and when present it overrides frame-ancestors in
+        # some browsers — which would blank the app inside the workspace.
+
+  Distribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub '${AppName} agent workspace app'
+        DefaultRootObject: index.html
+        HttpVersion: http2and3
+        IPV6Enabled: true
+        PriceClass: PriceClass_100
+        Origins:
+          - Id: s3-origin
+            DomainName: !GetAtt Bucket.RegionalDomainName
+            OriginAccessControlId: !GetAtt OriginAccessControl.Id
+            S3OriginConfig:
+              OriginAccessIdentity: ''
+        DefaultCacheBehavior:
+          TargetOriginId: s3-origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods: [GET, HEAD, OPTIONS]
+          CachedMethods: [GET, HEAD]
+          Compress: true
+          # Managed-CachingOptimized. Vite fingerprints every asset filename, so
+          # long cache lifetimes are safe for /assets/* and index.html is
+          # revalidated by its own short TTL below.
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
+          ResponseHeadersPolicyId: !Ref SecurityHeadersPolicy
+        CacheBehaviors:
+          - PathPattern: /index.html
+            TargetOriginId: s3-origin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS]
+            Compress: true
+            # Managed-CachingDisabled: a deploy must be visible on the agent's
+            # next reload, not after a CloudFront TTL expires.
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
+            ResponseHeadersPolicyId: !Ref SecurityHeadersPolicy
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 0
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+            ErrorCachingMinTTL: 0
+
+  BucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref Bucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontRead
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub '${Bucket.Arn}/*'
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub 'arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Distribution}'
+
+Outputs:
+  BucketName:
+    Description: Upload the contents of AgentWorkspaceApp/dist here.
+    Value: !Ref Bucket
+
+  ArtifactsBucketName:
+    Description: Upload the built Lambda zip here. Not served by CloudFront.
+    Value: !Ref ArtifactsBucket
+
+  AppOrigin:
+    Description: >
+      The app's origin. Use it as the ALLOWED_ORIGIN of the backend stack and as
+      the base of the Cognito callback URL.
+    Value: !Sub 'https://${Distribution.DomainName}'
+
+  AccessUrl:
+    Description: The Access URL to register as the third-party application in Amazon Connect.
+    Value: !Sub 'https://${Distribution.DomainName}/'
+
+  CallbackUrl:
+    Description: Add this to the Cognito app client's allowed callback URLs.
+    Value: !Sub 'https://${Distribution.DomainName}/auth/callback.html'
+
+  DistributionId:
+    Description: Needed to invalidate /index.html after each deploy.
+    Value: !Ref Distribution

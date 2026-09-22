@@ -1,0 +1,291 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Transcript proxy for the agent workspace handoff app: Cognito user pool,
+  HTTP API with a JWT authorizer, and a Lambda that reads Contact Lens
+  real-time analysis.
+
+  This stack exists for one reason. Contact Lens real-time is a SigV4-signed
+  AWS API, so a browser cannot call it without AWS credentials — and AWS
+  credentials in a browser are a breach, not a trade-off. The Lambda holds the
+  only credentials in the system, and checks that the caller is the agent on
+  the contact before returning a word of it.
+
+Parameters:
+  AppName:
+    Type: String
+    Default: acw-handoff
+
+  ConnectInstanceId:
+    Type: String
+    Description: The Amazon Connect instance ID (the UUID at the end of the instance ARN).
+    AllowedPattern: '[0-9a-fA-F-]{36}'
+
+  AllowedOrigin:
+    Type: String
+    Description: >
+      The app's exact origin, e.g. https://d111111abcdef8.cloudfront.net.
+      This is the `AppOrigin` output of hosting.yaml. One origin only — a
+      reflected Origin header is not an allow-list.
+
+  CallbackUrl:
+    Type: String
+    Description: >
+      The OIDC redirect target, e.g. https://d111111abcdef8.cloudfront.net/auth/callback.html.
+      This is the `CallbackUrl` output of hosting.yaml.
+
+  CognitoDomainPrefix:
+    Type: String
+    Description: >
+      Globally unique prefix for the Cognito Hosted UI domain, e.g. acme-acw-handoff.
+      Becomes <prefix>.auth.<region>.amazoncognito.com.
+    AllowedPattern: '[a-z0-9][a-z0-9-]{1,61}[a-z0-9]'
+
+  LambdaCodeS3Bucket:
+    Type: String
+    Description: Bucket holding the built Lambda zip (backend/dist/index.mjs, zipped).
+
+  LambdaCodeS3Key:
+    Type: String
+    Default: acw-handoff/transcript-lambda.zip
+
+  UsernameClaim:
+    Type: String
+    Default: email
+    AllowedValues: [email, cognito:username, preferred_username]
+    Description: >
+      Which JWT claim holds the value that equals the agent's Amazon Connect
+      username. With a SAML-federated Connect instance this is normally `email`.
+      Getting this wrong makes every ownership check fail closed (403), which is
+      the safe direction but will look like a permissions bug.
+
+  EnforceContactOwnership:
+    Type: String
+    Default: 'true'
+    AllowedValues: ['true', 'false']
+    Description: >
+      Keep this `true`. Setting it to `false` makes any signed-in user able to
+      read any live contact's transcript by supplying its id. It exists only for
+      isolated load testing.
+
+  LogRetentionDays:
+    Type: Number
+    Default: 30
+    Description: >
+      Transcript content is never logged, but contact IDs appear in error
+      traces. Match this to your contact-data retention policy.
+
+Resources:
+  # --- Identity ------------------------------------------------------------
+
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: !Sub '${AppName}-agents'
+      # Agents are provisioned from the corporate directory, not self-service.
+      AdminCreateUserConfig:
+        AllowAdminCreateUserOnly: true
+      UsernameAttributes: [email]
+      AutoVerifiedAttributes: [email]
+      MfaConfiguration: 'OFF'
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 12
+          RequireLowercase: true
+          RequireUppercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+      UserPoolAddOns:
+        AdvancedSecurityMode: AUDIT
+
+  UserPoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties:
+      Domain: !Ref CognitoDomainPrefix
+      UserPoolId: !Ref UserPool
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: !Sub '${AppName}-spa'
+      UserPoolId: !Ref UserPool
+      # PUBLIC client: no secret. The app runs in a browser, where a secret
+      # would be readable by anyone who opens devtools. PKCE is what protects
+      # the code exchange instead.
+      GenerateSecret: false
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows: [code]
+      AllowedOAuthScopes: [openid, email, profile]
+      CallbackURLs: [!Ref CallbackUrl]
+      SupportedIdentityProviders: [COGNITO]
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+      # Short-lived, because the token is held in the page's memory and is the
+      # only thing standing between a stolen tab and a live transcript.
+      AccessTokenValidity: 60
+      IdTokenValidity: 60
+      RefreshTokenValidity: 8
+      TokenValidityUnits:
+        AccessToken: minutes
+        IdToken: minutes
+        RefreshToken: hours
+
+  # --- Compute -------------------------------------------------------------
+
+  TranscriptFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: read-realtime-analysis
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Scoped to contacts on one instance. The instance id is fixed at
+              # deploy time and never read from a request, so a caller cannot
+              # steer the proxy at another instance.
+              - Sid: ReadContactAndAnalysis
+                Effect: Allow
+                Action:
+                  - connect:DescribeContact
+                  - connect:ListRealtimeContactAnalysisSegments
+                  - connect:ListRealtimeContactAnalysisSegmentsV2
+                Resource: !Sub 'arn:${AWS::Partition}:connect:${AWS::Region}:${AWS::AccountId}:instance/${ConnectInstanceId}/contact/*'
+              # Resolves the JWT's email to a Connect user id, which is what the
+              # ownership check compares against the contact's AgentInfo.
+              - Sid: ResolveAgentIdentity
+                Effect: Allow
+                Action: connect:SearchUsers
+                Resource:
+                  - !Sub 'arn:${AWS::Partition}:connect:${AWS::Region}:${AWS::AccountId}:instance/${ConnectInstanceId}'
+                  - !Sub 'arn:${AWS::Partition}:connect:${AWS::Region}:${AWS::AccountId}:instance/${ConnectInstanceId}/agent/*'
+        - PolicyName: logs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents]
+                Resource: !GetAtt TranscriptLogGroup.Arn
+
+  TranscriptLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${AppName}-transcript'
+      RetentionInDays: !Ref LogRetentionDays
+
+  TranscriptFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: TranscriptLogGroup
+    Properties:
+      FunctionName: !Sub '${AppName}-transcript'
+      Runtime: nodejs20.x
+      Handler: index.handler
+      Architectures: [arm64]
+      MemorySize: 512
+      # Two AWS calls per invocation on the slow path. 10s leaves room for a
+      # retry without holding an API Gateway connection open pointlessly.
+      Timeout: 10
+      Role: !GetAtt TranscriptFunctionRole.Arn
+      Code:
+        S3Bucket: !Ref LambdaCodeS3Bucket
+        S3Key: !Ref LambdaCodeS3Key
+      Environment:
+        Variables:
+          CONNECT_INSTANCE_ID: !Ref ConnectInstanceId
+          ALLOWED_ORIGIN: !Ref AllowedOrigin
+          ENFORCE_CONTACT_OWNERSHIP: !Ref EnforceContactOwnership
+          USERNAME_CLAIM: !Ref UsernameClaim
+          MAX_RESULTS: '100'
+          NODE_OPTIONS: '--enable-source-maps'
+
+  # --- API -----------------------------------------------------------------
+
+  HttpApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub '${AppName}-api'
+      ProtocolType: HTTP
+      CorsConfiguration:
+        AllowOrigins: [!Ref AllowedOrigin]
+        AllowHeaders: [authorization, content-type]
+        AllowMethods: [GET, OPTIONS]
+        MaxAge: 600
+
+  JwtAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      ApiId: !Ref HttpApi
+      Name: cognito-jwt
+      AuthorizerType: JWT
+      IdentitySource: ['$request.header.Authorization']
+      JwtConfiguration:
+        # The app sends the ID token: its `aud` is this client, and the Lambda
+        # needs the identity claims (email) that only the ID token carries.
+        Audience: [!Ref UserPoolClient]
+        Issuer: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}'
+
+  TranscriptIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref HttpApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !GetAtt TranscriptFunction.Arn
+      PayloadFormatVersion: '2.0'
+
+  TranscriptRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref HttpApi
+      RouteKey: 'GET /transcript'
+      AuthorizationType: JWT
+      AuthorizerId: !Ref JwtAuthorizer
+      Target: !Sub 'integrations/${TranscriptIntegration}'
+
+  ApiAccessLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/apigateway/${AppName}-api'
+      RetentionInDays: !Ref LogRetentionDays
+
+  Stage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref HttpApi
+      StageName: $default
+      AutoDeploy: true
+      AccessLogSettings:
+        DestinationArn: !GetAtt ApiAccessLogGroup.Arn
+        Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","route":"$context.routeKey","status":"$context.status","sub":"$context.authorizer.claims.sub","latency":"$context.responseLatency"}'
+      DefaultRouteSettings:
+        # An agent's browser polls every 3s. This ceiling absorbs a few hundred
+        # concurrent agents while still stopping a runaway client.
+        ThrottlingBurstLimit: 200
+        ThrottlingRateLimit: 100
+
+  InvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt TranscriptFunction.Arn
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:${AWS::Partition}:execute-api:${AWS::Region}:${AWS::AccountId}:${HttpApi}/*/GET/transcript'
+
+Outputs:
+  ApiBaseUrl:
+    Description: Set as VITE_API_BASE_URL in the frontend .env.
+    Value: !Sub 'https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+
+  CognitoDomain:
+    Description: Set as VITE_COGNITO_DOMAIN.
+    Value: !Sub '${CognitoDomainPrefix}.auth.${AWS::Region}.amazoncognito.com'
+
+  CognitoClientId:
+    Description: Set as VITE_COGNITO_CLIENT_ID. Public — safe to put in the bundle.
+    Value: !Ref UserPoolClient
+
+  UserPoolId:
+    Value: !Ref UserPool

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Signing in…</title>
+    <style>
+      body {
+        font: 14px/1.5 system-ui, -apple-system, Segoe UI, sans-serif;
+        display: grid;
+        place-items: center;
+        min-height: 100vh;
+        margin: 0;
+        color: #1b1b1f;
+        background: #fff;
+      }
+      @media (prefers-color-scheme: dark) {
+        body { color: #e7e7ea; background: #16161a; }
+      }
+    </style>
+  </head>
+  <body>
+    <p id="status">Completing sign-in…</p>
+    <script>
+      // This page is the OIDC redirect target. It never sees a client secret and
+      // never exchanges the code itself — it hands the code back to the opener,
+      // which holds the PKCE verifier, and closes.
+      (function () {
+        var params = new URLSearchParams(window.location.search)
+        var message = {
+          type: 'acw-handoff-auth',
+          code: params.get('code') || undefined,
+          state: params.get('state') || undefined,
+          error: params.get('error_description') || params.get('error') || undefined,
+        }
+        if (window.opener) {
+          window.opener.postMessage(message, window.location.origin)
+          window.close()
+        } else {
+          document.getElementById('status').textContent =
+            'This page is the sign-in callback and cannot be opened directly.'
+        }
+      })()
+    </script>
+  </body>
+</html>
