@@ -19,7 +19,8 @@ import embed  # noqa: E402
 from scoring import cosine  # noqa: E402
 
 
-def load(path: Path, telephony: bool) -> np.ndarray:
+def load(path: Path, telephony: bool, split: float) -> list[np.ndarray]:
+    """One embedding per clip, or per `split`-second chunk of the speech when split > 0."""
     import torchaudio
 
     wav, sr = torchaudio.load(str(path))
@@ -27,7 +28,11 @@ def load(path: Path, telephony: bool) -> np.ndarray:
     if telephony:
         wav = torchaudio.functional.resample(wav, sr, 8000)
         sr = 8000
-    return embed.embed(embed.trim_silence(wav.numpy(), sr), sr)
+    wav = embed.trim_silence(wav.numpy(), sr)
+    n = int(split * sr) if split > 0 else len(wav)
+    chunks = [wav[i:i + n] for i in range(0, len(wav), n)]
+    chunks = [c for c in chunks if len(c) >= embed.MIN_SPEECH_SECONDS * sr]  # drop short tail
+    return [embed.embed(c, sr) for c in chunks]
 
 
 def stats(label: str, xs: list[float]) -> None:
@@ -39,9 +44,14 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("data", type=Path)
     ap.add_argument("--telephony", action="store_true", help="downsample to 8 kHz first")
+    ap.add_argument("--split", type=float, default=0.0, metavar="SEC",
+                    help="cut each clip's speech into SEC-second chunks (e.g. 10) when you only have one long clip per speaker. "
+                         "Chunks from one call are correlated, so genuine scores will look optimistic")
     a = ap.parse_args()
 
-    embs = {d.name: [load(w, a.telephony) for w in sorted(d.glob("*.wav"))] for d in sorted(a.data.iterdir()) if d.is_dir()}
+    embs = {d.name: [e for w in sorted(d.glob("*.wav")) for e in load(w, a.telephony, a.split)]
+            for d in sorted(a.data.iterdir()) if d.is_dir()}
+    print({k: len(v) for k, v in embs.items()}, "clips/chunks per speaker")
     embs = {k: v for k, v in embs.items() if len(v) >= 2}
     if len(embs) < 2:
         print("need >=2 speakers with >=2 clips each", file=sys.stderr)
