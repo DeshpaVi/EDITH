@@ -31,7 +31,10 @@ if os.environ.get("PRELOAD_MODEL") == "1":
     embed.encoder()
 
 TELEPHONY_SR = 8000  # what Connect puts in KVS
-VERIFY_SECONDS = float(os.environ.get("VERIFY_SECONDS", "15"))
+VERIFY_SECONDS = float(os.environ.get("VERIFY_SECONDS", "15"))  # upper bound on audio read, not a requirement
+# Minimum net speech to attempt a score. Below ~2 s an embedding is mostly noise; shorter audio also widens the
+# genuine/impostor score spread, so thresholds calibrated on long clips should be re-checked if this is lowered.
+VERIFY_MIN_SPEECH = float(os.environ.get("VERIFY_MIN_SPEECH", "2.0"))
 _thresholds: dict[str, float] = {}
 
 
@@ -164,7 +167,9 @@ def _score(table: Any, s3: Any, bucket: str, sid: str, event: dict[str, Any]) ->
 # ------------------------------- verify ------------------------------------------------
 
 
-def _result(decision: str, score: float | None = None, sid: str = "", reason: str = "", error: bool = False) -> dict[str, str]:
+def _result(
+    decision: str, score: float | None = None, sid: str = "", reason: str = "", error: bool = False, detail: str = ""
+) -> dict[str, str]:
     """Connect attributes are flat strings. Never nest, never return non-strings."""
     return {
         "voiceDecision": decision,
@@ -172,10 +177,11 @@ def _result(decision: str, score: float | None = None, sid: str = "", reason: st
         "voiceSpeakerId": sid,
         "voiceReason": reason,
         "voiceError": "true" if error else "false",
+        "voiceDetail": detail,
     }
 
 
-def _read_kvs_pcm(arn: str, fragment: str) -> bytes:
+def _read_kvs_pcm(arn: str, fragment: str, info: dict | None = None) -> bytes:
     kv = boto3.client("kinesisvideo")
     ep = kv.get_data_endpoint(StreamARN=arn, APIName="GET_MEDIA")["DataEndpoint"]
     media = boto3.client("kinesis-video-media", endpoint_url=ep)
@@ -184,7 +190,7 @@ def _read_kvs_pcm(arn: str, fragment: str) -> bytes:
         StartSelector={"StartSelectorType": "FRAGMENT_NUMBER", "AfterFragmentNumber": fragment},
     )
     want = int(VERIFY_SECONDS * TELEPHONY_SR * 2)  # 16-bit mono
-    return mkv.extract_pcm(resp["Payload"], "AUDIO_FROM_CUSTOMER", max_bytes=want)
+    return mkv.extract_pcm(resp["Payload"], "AUDIO_FROM_CUSTOMER", max_bytes=want, info=info)
 
 
 def verify_handler(event: dict[str, Any], _ctx: Any = None) -> dict[str, str]:
@@ -203,20 +209,23 @@ def verify_handler(event: dict[str, Any], _ctx: Any = None) -> dict[str, str]:
             return _finish(contact, _result("failed", sid=sid, reason="not_enrolled"))
         enrolled = np.frombuffer(bytes(item["embedding"]), dtype=np.float32)
 
-        wav = embed.trim_silence(embed.pcm16_to_float(_read_kvs_pcm(arn, frag)), TELEPHONY_SR)
-        if embed.speech_seconds(wav, TELEPHONY_SR) < embed.MIN_SPEECH_SECONDS:
-            return _finish(contact, _result("inconclusive", sid=sid, reason="insufficient_speech"))
+        info: dict = {}
+        raw = embed.pcm16_to_float(_read_kvs_pcm(arn, frag, info))
+        wav = embed.trim_silence(raw, TELEPHONY_SR)
+        detail = f"{embed.audio_stats(raw, wav, TELEPHONY_SR)} blocks={info.get('blocks_selected', '?')}/{info.get('blocks', '?')} tracks={','.join(info.get('tracks', []))}"
+        if embed.speech_seconds(wav, TELEPHONY_SR) < VERIFY_MIN_SPEECH:
+            return _finish(contact, _result("inconclusive", sid=sid, reason="insufficient_speech", detail=detail))
 
         score = cosine(embed.embed(wav, TELEPHONY_SR), enrolled)
         decision = decide(score, _threshold("low"), _threshold("high"))
-        return _finish(contact, _result(decision, score, sid))
+        return _finish(contact, _result(decision, score, sid, detail=detail))
     except Exception as exc:  # noqa: BLE001 - deliberate catch-all, see docstring
         log.error(json.dumps({"event": "verify_error", "type": type(exc).__name__, "contactId": contact}))
         return _finish(contact, _result("failed", sid=sid, reason="error", error=True))
 
 
 def _finish(contact: str, res: dict[str, str]) -> dict[str, str]:
-    log.info(json.dumps({"event": "verify", "contactId": contact, "decision": res["voiceDecision"], "score": res["voiceScore"], "reason": res["voiceReason"]}))
+    log.info(json.dumps({"event": "verify", "contactId": contact, "decision": res["voiceDecision"], "score": res["voiceScore"], "reason": res["voiceReason"], "detail": res["voiceDetail"]}))
     if contact:
         try:
             _, exp = _retention()
@@ -227,6 +236,7 @@ def _finish(contact: str, res: dict[str, str]) -> dict[str, str]:
                     "score": res["voiceScore"],
                     "decision": res["voiceDecision"],
                     "reason": res["voiceReason"],
+                    "detail": res["voiceDetail"],
                     "timestamp": int(time.time()),
                     "expiresAt": exp,
                 }

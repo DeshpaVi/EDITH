@@ -33,8 +33,8 @@ def aws(monkeypatch):
 
 
 def stub(monkeypatch, probe, seconds=10):
-    monkeypatch.setattr(handler, "_read_kvs_pcm", lambda a, f: b"\x00\x10" * int(8000 * seconds))
-    monkeypatch.setattr(embed, "trim_silence", lambda w, sr: w)
+    monkeypatch.setattr(handler, "_read_kvs_pcm", lambda a, f, info=None: b"\x00\x10" * int(8000 * seconds))
+    monkeypatch.setattr(embed, "trim_silence", lambda w, sr, **k: w)
     monkeypatch.setattr(embed, "embed", lambda w, sr: np.array(probe, dtype=np.float32))
 
 
@@ -60,7 +60,7 @@ def test_too_little_speech_is_inconclusive_not_failed(aws, monkeypatch):
 
 
 def test_never_raises_and_flags_error(aws, monkeypatch):
-    monkeypatch.setattr(handler, "_read_kvs_pcm", lambda a, f: (_ for _ in ()).throw(RuntimeError("kvs down")))
+    monkeypatch.setattr(handler, "_read_kvs_pcm", lambda a, f, info=None: (_ for _ in ()).throw(RuntimeError("kvs down")))
     r = handler.verify_handler(EVENT)
     assert r["voiceDecision"] == "failed" and r["voiceError"] == "true"
     assert handler.verify_handler({})["voiceError"] == "true"  # malformed event too
@@ -119,3 +119,20 @@ def test_score_mode(aws, monkeypatch):
     assert "insufficient" in r["scores"]["enrol/probe/short.wav"]
     assert not handler.enrol_handler({"mode": "score", "speakerId": "spk_0007", "keys": ["other/x.wav"]})["ok"]
     assert handler.enrol_handler({"mode": "score", "speakerId": "spk_0099", "keys": ["enrol/probe/g.wav"]})["error"] == "not_enrolled"
+
+
+def test_insufficient_speech_reports_diagnostics(aws, monkeypatch):
+    stub(monkeypatch, [1, 0, 0, 0], seconds=1)
+    r = handler.verify_handler(EVENT)
+    assert r["voiceReason"] == "insufficient_speech" and "raw=1.0s" in r["voiceDetail"]
+    assert "embedding" not in r["voiceDetail"]
+
+
+def test_trim_survives_a_loud_click():
+    sr = 8000
+    speech = (np.sin(np.arange(sr * 4) * 0.3) * 0.02).astype("float32")  # quiet but real speech-level signal
+    click = np.zeros(sr, dtype="float32"); click[100:110] = 0.95
+    audio = np.concatenate([click, speech])
+    assert embed.speech_seconds(embed.trim_silence(audio, sr), sr) > 3.0
+    silence = np.zeros(sr * 5, dtype="float32") + 0.0005
+    assert embed.speech_seconds(embed.trim_silence(silence, sr), sr) == 0

@@ -96,8 +96,13 @@ def _block(payload: bytes) -> tuple[int, bytes]:
     return track_no, payload[n + 3:]
 
 
-def extract_pcm(f: BinaryIO, track_name: str = "AUDIO_FROM_CUSTOMER", max_bytes: Optional[int] = None) -> bytes:
-    """Concatenate raw payloads of `track_name`, stopping once `max_bytes` is reached."""
+def extract_pcm(
+    f: BinaryIO, track_name: str = "AUDIO_FROM_CUSTOMER", max_bytes: Optional[int] = None, info: Optional[dict] = None
+) -> bytes:
+    """Concatenate raw payloads of `track_name`, stopping once `max_bytes` is reached.
+    If `info` is given it is filled with diagnostics (track names seen, block counts): no audio content."""
+    if info is not None:
+        info.update(blocks=0, blocks_selected=0)
     tracks: dict[int, str] = {}
     cur_no: Optional[int] = None
     cur_name: Optional[str] = None
@@ -119,7 +124,12 @@ def extract_pcm(f: BinaryIO, track_name: str = "AUDIO_FROM_CUSTOMER", max_bytes:
         elif eid in (SIMPLE_BLOCK, BLOCK):
             flush_track()
             no, data = _block(payload)
+            if info is not None:
+                info["blocks"] += 1
+                info["tracks"] = sorted(tracks.values())
             if tracks.get(no) == track_name:
+                if info is not None:
+                    info["blocks_selected"] += 1
                 out += data
                 if max_bytes is not None and len(out) >= max_bytes:
                     return bytes(out[:max_bytes])
