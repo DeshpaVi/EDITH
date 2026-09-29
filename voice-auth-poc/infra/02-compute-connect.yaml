@@ -1,0 +1,263 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Voice-auth POC compute + Connect wiring: enrol and verify Lambdas (one container image,
+  two entry points), least-privilege roles, and - optionally - the Connect live-media-streaming
+  and Lambda association. Requires 01-foundation and a pushed image.
+
+Parameters:
+  FoundationStackName:
+    Type: String
+    Default: voice-auth-poc-foundation
+  ProjectName:
+    Type: String
+    Default: voice-auth-poc
+    AllowedPattern: "^[a-z0-9-]{3,30}$"
+  ImageUri:
+    Type: String
+    AllowedPattern: "^.+@sha256:[a-f0-9]{64}$"
+    Description: >
+      Scorer image, pinned by digest (repo@sha256:...). A digest, not a tag, so a new image
+      produces a new Lambda version and the alias moves with it.
+  RetentionDays:
+    Type: Number
+    Default: 30
+    MinValue: 1
+    MaxValue: 365
+    Description: Log-group retention. Keep equal to the foundation stack value.
+  VerifyProvisionedConcurrency:
+    Type: Number
+    Default: 1
+    MinValue: 0
+    Description: >
+      Warm instances for the verify alias. Cold-starting PyTorch (10-20 s) blows Connect's
+      8 s Invoke-Lambda budget; 0 disables. Move inference to SageMaker if this is not enough.
+  ConnectInstanceArn:
+    Type: String
+    Default: ""
+    Description: >
+      Existing Connect instance ARN. Leave empty to deploy the Lambdas only (stages 2-3 can be
+      tested by direct invoke without Connect).
+  MediaStreamPrefix:
+    Type: String
+    Default: voiceauth
+    AllowedPattern: "^[a-zA-Z0-9-]{1,30}$"
+    Description: Live-media-streaming stream prefix. Also scopes the verify role's KVS access.
+  MediaStreamRetentionHours:
+    Type: Number
+    Default: 2
+    MinValue: 1
+    Description: KVS retention. Only the buffer is needed, so keep it short.
+  ManageMediaStreamingConfig:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: >
+      Set false if the instance already has live media streaming configured (Connect allows one
+      config per instance and CloudFormation cannot adopt an existing one).
+  KvsKmsKeyArn:
+    Type: String
+    Default: ""
+    Description: >
+      KMS key ARN for the KVS streams. Required when ManageMediaStreamingConfig is true.
+      For the AWS-managed key: aws kms describe-key --key-id alias/aws/kinesisvideo
+
+Conditions:
+  HasConnect: !Not [!Equals [!Ref ConnectInstanceArn, ""]]
+  ManageStreaming: !And
+    - !Condition HasConnect
+    - !Equals [!Ref ManageMediaStreamingConfig, "true"]
+  HasKvsKey: !Not [!Equals [!Ref KvsKmsKeyArn, ""]]
+  WarmVerify: !Not [!Equals [!Ref VerifyProvisionedConcurrency, 0]]
+
+Rules:
+  StreamingNeedsKey:
+    RuleCondition: !And
+      - !Not [!Equals [!Ref ConnectInstanceArn, ""]]
+      - !Equals [!Ref ManageMediaStreamingConfig, "true"]
+    Assertions:
+      - Assert: !Not [!Equals [!Ref KvsKmsKeyArn, ""]]
+        AssertDescription: KvsKmsKeyArn is required when this stack manages the media-streaming config.
+
+Resources:
+  # ---- Logs (retention set so logs expire with the POC) -----------------------
+  EnrolLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ProjectName}-enrol"
+      RetentionInDays: !Ref RetentionDays
+  VerifyLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ProjectName}-verify"
+      RetentionInDays: !Ref RetentionDays
+
+  # ---- Enrol role: writes voiceprints, reads enrolment audio, owns the delete path
+  EnrolRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - { Effect: Allow, Principal: { Service: lambda.amazonaws.com }, Action: "sts:AssumeRole" }
+      Policies:
+        - PolicyName: enrol
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ["logs:CreateLogStream", "logs:PutLogEvents"]
+                Resource: !Sub "${EnrolLogGroup.Arn}:*"
+              - Effect: Allow
+                Action: ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+                Resource: !Sub
+                  - "${Bucket}/enrol/*"
+                  - Bucket: { Fn::ImportValue: !Sub "${FoundationStackName}-EnrolmentBucketArn" }
+              - Effect: Allow
+                Action: ["s3:ListBucket"]
+                Resource: { Fn::ImportValue: !Sub "${FoundationStackName}-EnrolmentBucketArn" }
+                Condition: { StringLike: { "s3:prefix": ["enrol/*"] } }
+              - Effect: Allow
+                Action: ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem"]
+                Resource: { Fn::ImportValue: !Sub "${FoundationStackName}-VoiceprintTableArn" }
+              - Effect: Allow
+                Action: ["kms:Decrypt", "kms:GenerateDataKey"]
+                Resource: { Fn::ImportValue: !Sub "${FoundationStackName}-DataKeyArn" }
+
+  # ---- Verify role: read-only on voiceprints, append-only log, KVS read -------
+  VerifyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - { Effect: Allow, Principal: { Service: lambda.amazonaws.com }, Action: "sts:AssumeRole" }
+      Policies:
+        - PolicyName: verify
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ["logs:CreateLogStream", "logs:PutLogEvents"]
+                Resource: !Sub "${VerifyLogGroup.Arn}:*"
+              - Effect: Allow
+                Action: ["dynamodb:GetItem"]
+                Resource: { Fn::ImportValue: !Sub "${FoundationStackName}-VoiceprintTableArn" }
+              - Effect: Allow
+                Action: ["dynamodb:PutItem"]
+                Resource: { Fn::ImportValue: !Sub "${FoundationStackName}-VerificationLogTableArn" }
+              - Effect: Allow
+                Action: ["ssm:GetParameter", "ssm:GetParameters"]
+                Resource: !Sub
+                  - "arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${Prefix}/*"
+                  - Prefix: { Fn::ImportValue: !Sub "${FoundationStackName}-ThresholdPrefix" }
+              - Effect: Allow
+                Action: ["kms:Decrypt", "kms:GenerateDataKey"]
+                Resource: { Fn::ImportValue: !Sub "${FoundationStackName}-DataKeyArn" }
+              # IAM prefix is kinesisvideo:* for GetMedia too (the SDK client is kinesis-video-media).
+              # Stream names are Connect-generated from the prefix; TODO(verify): confirm naming on first real call.
+              - Effect: Allow
+                Action: ["kinesisvideo:GetDataEndpoint", "kinesisvideo:GetMedia"]
+                Resource: !Sub "arn:${AWS::Partition}:kinesisvideo:${AWS::Region}:${AWS::AccountId}:stream/${MediaStreamPrefix}-*/*"
+              - !If
+                - HasKvsKey
+                - Effect: Allow
+                  Action: ["kms:Decrypt"]
+                  Resource: !Ref KvsKmsKeyArn
+                - !Ref AWS::NoValue
+
+  # ---- Functions: one image, different entry points ---------------------------
+  EnrolFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: EnrolLogGroup
+    Properties:
+      FunctionName: !Sub "${ProjectName}-enrol"
+      PackageType: Image
+      Code: { ImageUri: !Ref ImageUri }
+      ImageConfig: { Command: ["handler.enrol_handler"] }
+      Role: !GetAtt EnrolRole.Arn
+      MemorySize: 3008
+      Timeout: 60
+      Architectures: [x86_64]
+      Environment:
+        Variables:
+          ENROL_BUCKET: { Fn::ImportValue: !Sub "${FoundationStackName}-EnrolmentBucket" }
+          VOICEPRINT_TABLE: { Fn::ImportValue: !Sub "${FoundationStackName}-VoiceprintTable" }
+          RETENTION_DAYS: !Ref RetentionDays
+
+  VerifyFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: VerifyLogGroup
+    Properties:
+      FunctionName: !Sub "${ProjectName}-verify"
+      PackageType: Image
+      Code: { ImageUri: !Ref ImageUri }
+      ImageConfig: { Command: ["handler.verify_handler"] }
+      Role: !GetAtt VerifyRole.Arn
+      MemorySize: 3008
+      # Connect cuts Invoke-Lambda off at 8 s; a longer Lambda timeout does not help.
+      Timeout: 10
+      Architectures: [x86_64]
+      Environment:
+        Variables:
+          VOICEPRINT_TABLE: { Fn::ImportValue: !Sub "${FoundationStackName}-VoiceprintTable" }
+          VERIFICATION_LOG_TABLE: { Fn::ImportValue: !Sub "${FoundationStackName}-VerificationLogTable" }
+          THRESHOLD_PARAM_PREFIX: { Fn::ImportValue: !Sub "${FoundationStackName}-ThresholdPrefix" }
+          RETENTION_DAYS: !Ref RetentionDays
+
+  # Connect invokes the alias, never $LATEST: provisioned concurrency needs a version.
+  # Description carries the digest so a new image => a new (replaced) Version => alias moves.
+  VerifyVersion:
+    Type: AWS::Lambda::Version
+    Properties:
+      FunctionName: !Ref VerifyFunction
+      Description: !Sub "image ${ImageUri}"
+  VerifyAlias:
+    Type: AWS::Lambda::Alias
+    Properties:
+      FunctionName: !Ref VerifyFunction
+      FunctionVersion: !GetAtt VerifyVersion.Version
+      Name: live
+      ProvisionedConcurrencyConfig: !If
+        - WarmVerify
+        - ProvisionedConcurrentExecutions: !Ref VerifyProvisionedConcurrency
+        - !Ref AWS::NoValue
+
+  # ---- Connect wiring (all optional) ------------------------------------------
+  ConnectInvokePermission:
+    Type: AWS::Lambda::Permission
+    Condition: HasConnect
+    Properties:
+      FunctionName: !Ref VerifyAlias
+      Action: "lambda:InvokeFunction"
+      Principal: connect.amazonaws.com
+      SourceArn: !Ref ConnectInstanceArn
+      SourceAccount: !Ref AWS::AccountId
+
+  ConnectLambdaAssociation:
+    Type: AWS::Connect::IntegrationAssociation
+    Condition: HasConnect
+    DependsOn: ConnectInvokePermission
+    Properties:
+      InstanceId: !Ref ConnectInstanceArn
+      IntegrationType: LAMBDA_FUNCTION
+      IntegrationArn: !Ref VerifyAlias
+
+  MediaStreamingConfig:
+    Type: AWS::Connect::InstanceStorageConfig
+    Condition: ManageStreaming
+    Properties:
+      InstanceArn: !Ref ConnectInstanceArn
+      ResourceType: MEDIA_STREAMS
+      StorageType: KINESIS_VIDEO_STREAM
+      KinesisVideoStreamConfig:
+        Prefix: !Ref MediaStreamPrefix
+        RetentionPeriodHours: !Ref MediaStreamRetentionHours
+        EncryptionConfig:
+          EncryptionType: KMS
+          KeyId: !Ref KvsKmsKeyArn
+
+Outputs:
+  EnrolFunctionName: { Value: !Ref EnrolFunction }
+  VerifyAliasArn:
+    Description: Reference this ARN from the Connect flow's Invoke AWS Lambda block.
+    Value: !Ref VerifyAlias

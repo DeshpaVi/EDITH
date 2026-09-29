@@ -1,0 +1,168 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Voice-auth POC foundation: KMS key, enrolment bucket, voiceprint + audit tables,
+  ECR repo, threshold parameters. Everything here carries the POC retention window.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: voice-auth-poc
+    AllowedPattern: "^[a-z0-9-]{3,30}$"
+  RetentionDays:
+    Type: Number
+    Default: 30
+    MinValue: 1
+    MaxValue: 365
+    Description: >
+      POC retention window. Drives the S3 lifecycle rule and the log-group retention.
+      DynamoDB expiry is per item (the app writes `expiresAt`), so the app must also
+      derive it from this value.
+  ThresholdHigh:
+    Type: String
+    AllowedPattern: "^[01](\\.[0-9]+)?$"
+    Description: >
+      Cosine score at/above which the caller is "authenticated". Deliberately no default:
+      calibrate on stage-1 audio, do not copy a value from a blog post.
+  ThresholdLow:
+    Type: String
+    AllowedPattern: "^[01](\\.[0-9]+)?$"
+    Description: Cosine score below which the caller is "failed". Between low and high is "inconclusive". No default, see ThresholdHigh.
+
+Resources:
+  # ---- Encryption ------------------------------------------------------------
+  DataKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: !Sub "${ProjectName} voiceprints and enrolment audio"
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          # Account root delegates to IAM; roles in 02-compute get access via their own policies.
+          - Sid: AccountAdmin
+            Effect: Allow
+            Principal: { AWS: !Sub "arn:${AWS::Partition}:iam::${AWS::AccountId}:root" }
+            Action: "kms:*"
+            Resource: "*"
+  DataKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub "alias/${ProjectName}-data"
+      TargetKeyId: !Ref DataKey
+
+  # ---- Enrolment audio -------------------------------------------------------
+  EnrolmentBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - BucketKeyEnabled: true
+            ServerSideEncryptionByDefault:
+              SSEAlgorithm: aws:kms
+              KMSMasterKeyID: !GetAtt DataKey.Arn
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      # No versioning: deletes must be real deletes (voiceprint deletion evidence).
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-enrolment-audio
+            Status: Enabled
+            Prefix: enrol/
+            ExpirationInDays: !Ref RetentionDays
+          - Id: abort-incomplete-uploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload: { DaysAfterInitiation: 1 }
+  EnrolmentBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref EnrolmentBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: TlsOnly
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource:
+              - !GetAtt EnrolmentBucket.Arn
+              - !Sub "${EnrolmentBucket.Arn}/*"
+            Condition: { Bool: { "aws:SecureTransport": "false" } }
+
+  # ---- Voiceprints -----------------------------------------------------------
+  VoiceprintTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${ProjectName}-voiceprints"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: speakerId, AttributeType: S }
+      KeySchema:
+        - { AttributeName: speakerId, KeyType: HASH }
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: !GetAtt DataKey.Arn
+      # PITR off on purpose: a backup would outlive a voiceprint deletion.
+      PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: false }
+      # DynamoDB TTL needs epoch SECONDS as a Number. HANDOFF.md lists `retentionUntil` as an
+      # ISO string, which TTL silently ignores; the app writes both (ISO for humans, this for expiry).
+      TimeToLiveSpecification: { AttributeName: expiresAt, Enabled: true }
+
+  VerificationLogTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${ProjectName}-verification-log"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - { AttributeName: contactId, AttributeType: S }
+      KeySchema:
+        - { AttributeName: contactId, KeyType: HASH }
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: !GetAtt DataKey.Arn
+      PointInTimeRecoverySpecification: { PointInTimeRecoveryEnabled: false }
+      TimeToLiveSpecification: { AttributeName: expiresAt, Enabled: true }
+
+  # ---- Container registry ----------------------------------------------------
+  ImageRepository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: !Sub "${ProjectName}/scorer"
+      ImageScanningConfiguration: { ScanOnPush: true }
+      EncryptionConfiguration: { EncryptionType: KMS, KmsKey: !GetAtt DataKey.Arn }
+      LifecyclePolicy:
+        LifecyclePolicyText: |
+          {"rules":[{"rulePriority":1,"description":"keep last 5","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":5},"action":{"type":"expire"}}]}
+
+  # ---- Tunable thresholds (never hardcoded in the Lambda) ---------------------
+  ThresholdHighParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "/${ProjectName}/threshold/high"
+      Type: String
+      Value: !Ref ThresholdHigh
+      Description: Score >= this => authenticated. Uncalibrated until stage-1 results are in.
+  ThresholdLowParam:
+    Type: AWS::SSM::Parameter
+    Properties:
+      Name: !Sub "/${ProjectName}/threshold/low"
+      Type: String
+      Value: !Ref ThresholdLow
+      Description: Score < this => failed. Uncalibrated until stage-1 results are in.
+
+Outputs:
+  DataKeyArn: { Value: !GetAtt DataKey.Arn, Export: { Name: !Sub "${AWS::StackName}-DataKeyArn" } }
+  EnrolmentBucketName: { Value: !Ref EnrolmentBucket, Export: { Name: !Sub "${AWS::StackName}-EnrolmentBucket" } }
+  EnrolmentBucketArn: { Value: !GetAtt EnrolmentBucket.Arn, Export: { Name: !Sub "${AWS::StackName}-EnrolmentBucketArn" } }
+  VoiceprintTableName: { Value: !Ref VoiceprintTable, Export: { Name: !Sub "${AWS::StackName}-VoiceprintTable" } }
+  VoiceprintTableArn: { Value: !GetAtt VoiceprintTable.Arn, Export: { Name: !Sub "${AWS::StackName}-VoiceprintTableArn" } }
+  VerificationLogTableName: { Value: !Ref VerificationLogTable, Export: { Name: !Sub "${AWS::StackName}-VerificationLogTable" } }
+  VerificationLogTableArn: { Value: !GetAtt VerificationLogTable.Arn, Export: { Name: !Sub "${AWS::StackName}-VerificationLogTableArn" } }
+  ImageRepositoryUri: { Value: !GetAtt ImageRepository.RepositoryUri, Export: { Name: !Sub "${AWS::StackName}-RepoUri" } }
+  ThresholdParamPrefix: { Value: !Sub "/${ProjectName}/threshold", Export: { Name: !Sub "${AWS::StackName}-ThresholdPrefix" } }
