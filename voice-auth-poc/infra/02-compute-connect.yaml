@@ -39,9 +39,12 @@ Parameters:
       tested by direct invoke without Connect).
   MediaStreamPrefix:
     Type: String
-    Default: voiceauth
-    AllowedPattern: "^[a-zA-Z0-9-]{1,30}$"
-    Description: Live-media-streaming stream prefix. Also scopes the verify role's KVS access.
+    Default: vmail-connect-win-demo-manual-contact-
+    AllowedPattern: "^[a-zA-Z0-9_.-]{1,60}$"
+    Description: >
+      Live-media-streaming stream prefix exactly as configured on the instance (this instance
+      already has one, so keep ManageMediaStreamingConfig=false). Scopes the verify role's KVS
+      access as "<prefix>*", so include any trailing hyphen.
   MediaStreamRetentionHours:
     Type: Number
     Default: 2
@@ -49,7 +52,7 @@ Parameters:
     Description: KVS retention. Only the buffer is needed, so keep it short.
   ManageMediaStreamingConfig:
     Type: String
-    Default: "true"
+    Default: "false"
     AllowedValues: ["true", "false"]
     Description: >
       Set false if the instance already has live media streaming configured (Connect allows one
@@ -157,7 +160,7 @@ Resources:
               # Stream names are Connect-generated from the prefix; TODO(verify): confirm naming on first real call.
               - Effect: Allow
                 Action: ["kinesisvideo:GetDataEndpoint", "kinesisvideo:GetMedia"]
-                Resource: !Sub "arn:${AWS::Partition}:kinesisvideo:${AWS::Region}:${AWS::AccountId}:stream/${MediaStreamPrefix}-*/*"
+                Resource: !Sub "arn:${AWS::Partition}:kinesisvideo:${AWS::Region}:${AWS::AccountId}:stream/${MediaStreamPrefix}*/*"
               - !If
                 - HasKvsKey
                 - Effect: Allow

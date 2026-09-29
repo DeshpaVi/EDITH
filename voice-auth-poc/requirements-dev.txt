@@ -1,0 +1,4 @@
+pytest
+moto[dynamodb,s3,ssm]
+boto3
+numpy
