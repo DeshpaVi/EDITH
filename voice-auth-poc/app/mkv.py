@@ -146,6 +146,8 @@ def extract_pcm(
                     if info is not None:
                         info["stopped"] = "max_bytes"
                     return bytes(out[:max_bytes])
+    if info is not None and info.get("stopped") == "deadline":
+        return bytes(out)  # ran out of time: whatever was read (possibly nothing) is the answer, not an error
     if not tracks:
         raise MkvError("no track metadata seen")
     if track_name not in tracks.values():
