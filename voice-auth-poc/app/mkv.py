@@ -6,6 +6,7 @@ into the few master elements we need, skip everything else, and select the track
 """
 from __future__ import annotations
 
+import time
 from typing import BinaryIO, Iterator, Optional
 
 # Element IDs (with their length-marker bits, as they appear on the wire).
@@ -97,12 +98,18 @@ def _block(payload: bytes) -> tuple[int, bytes]:
 
 
 def extract_pcm(
-    f: BinaryIO, track_name: str = "AUDIO_FROM_CUSTOMER", max_bytes: Optional[int] = None, info: Optional[dict] = None
+    f: BinaryIO,
+    track_name: str = "AUDIO_FROM_CUSTOMER",
+    max_bytes: Optional[int] = None,
+    info: Optional[dict] = None,
+    deadline: Optional[float] = None,
 ) -> bytes:
     """Concatenate raw payloads of `track_name`, stopping once `max_bytes` is reached.
-    If `info` is given it is filled with diagnostics (track names seen, block counts): no audio content."""
+    `deadline` (a time.monotonic() value) stops reading at the live edge of a stream, which otherwise delivers
+    audio only in real time. If `info` is given it is filled with diagnostics (track names, block counts, why
+    reading stopped): no audio content."""
     if info is not None:
-        info.update(blocks=0, blocks_selected=0)
+        info.update(blocks=0, blocks_selected=0, stopped="eof")
     tracks: dict[int, str] = {}
     cur_no: Optional[int] = None
     cur_name: Optional[str] = None
@@ -115,6 +122,10 @@ def extract_pcm(
         cur_no = cur_name = None
 
     for eid, payload in _elements(f):
+        if deadline is not None and time.monotonic() > deadline:
+            if info is not None:
+                info["stopped"] = "deadline"
+            break
         if eid == TRACK_NUMBER:
             flush_track()  # a new TrackEntry begins
             cur_no = _uint(payload)
@@ -132,6 +143,8 @@ def extract_pcm(
                     info["blocks_selected"] += 1
                 out += data
                 if max_bytes is not None and len(out) >= max_bytes:
+                    if info is not None:
+                        info["stopped"] = "max_bytes"
                     return bytes(out[:max_bytes])
     if not tracks:
         raise MkvError("no track metadata seen")

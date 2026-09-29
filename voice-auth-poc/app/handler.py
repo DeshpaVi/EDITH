@@ -31,7 +31,11 @@ if os.environ.get("PRELOAD_MODEL") == "1":
     embed.encoder()
 
 TELEPHONY_SR = 8000  # what Connect puts in KVS
-VERIFY_SECONDS = float(os.environ.get("VERIFY_SECONDS", "15"))  # upper bound on audio read, not a requirement
+# The caller's answers are spread through a conversation in which the bot talks most of the time, so read a wide
+# window of buffered audio, drop the silence, and score the speech: the first 15 s held only 2-3 s of caller speech.
+VERIFY_MAX_RAW_SECONDS = float(os.environ.get("VERIFY_MAX_RAW_SECONDS", "45"))  # cap on raw audio read
+VERIFY_READ_BUDGET = float(os.environ.get("VERIFY_READ_BUDGET", "3.0"))  # wall-clock cap on the read (Connect gives 8 s)
+VERIFY_SPEECH_CAP = float(os.environ.get("VERIFY_SPEECH_CAP", "20"))  # score at most this much net speech
 # Minimum net speech to attempt a score. Below ~2 s an embedding is mostly noise; shorter audio also widens the
 # genuine/impostor score spread, so thresholds calibrated on long clips should be re-checked if this is lowered.
 VERIFY_MIN_SPEECH = float(os.environ.get("VERIFY_MIN_SPEECH", "2.0"))
@@ -189,8 +193,9 @@ def _read_kvs_pcm(arn: str, fragment: str, info: dict | None = None) -> bytes:
         StreamARN=arn,
         StartSelector={"StartSelectorType": "FRAGMENT_NUMBER", "AfterFragmentNumber": fragment},
     )
-    want = int(VERIFY_SECONDS * TELEPHONY_SR * 2)  # 16-bit mono
-    return mkv.extract_pcm(resp["Payload"], "AUDIO_FROM_CUSTOMER", max_bytes=want, info=info)
+    want = int(VERIFY_MAX_RAW_SECONDS * TELEPHONY_SR * 2)  # 16-bit mono
+    deadline = time.monotonic() + VERIFY_READ_BUDGET
+    return mkv.extract_pcm(resp["Payload"], "AUDIO_FROM_CUSTOMER", max_bytes=want, info=info, deadline=deadline)
 
 
 def verify_handler(event: dict[str, Any], _ctx: Any = None) -> dict[str, str]:
@@ -211,8 +216,8 @@ def verify_handler(event: dict[str, Any], _ctx: Any = None) -> dict[str, str]:
 
         info: dict = {}
         raw = embed.pcm16_to_float(_read_kvs_pcm(arn, frag, info))
-        wav = embed.trim_silence(raw, TELEPHONY_SR)
-        detail = f"{embed.audio_stats(raw, wav, TELEPHONY_SR)} blocks={info.get('blocks_selected', '?')}/{info.get('blocks', '?')} tracks={','.join(info.get('tracks', []))}"
+        wav = embed.trim_silence(raw, TELEPHONY_SR)[: int(VERIFY_SPEECH_CAP * TELEPHONY_SR)]
+        detail = f"{embed.audio_stats(raw, wav, TELEPHONY_SR)} stop={info.get('stopped', '?')} blocks={info.get('blocks_selected', '?')}/{info.get('blocks', '?')} tracks={','.join(info.get('tracks', []))}"
         if embed.speech_seconds(wav, TELEPHONY_SR) < VERIFY_MIN_SPEECH:
             return _finish(contact, _result("inconclusive", sid=sid, reason="insufficient_speech", detail=detail))
 

@@ -136,3 +136,12 @@ def test_trim_survives_a_loud_click():
     assert embed.speech_seconds(embed.trim_silence(audio, sr), sr) > 3.0
     silence = np.zeros(sr * 5, dtype="float32") + 0.0005
     assert embed.speech_seconds(embed.trim_silence(silence, sr), sr) == 0
+
+
+def test_speech_is_capped_before_scoring(aws, monkeypatch):
+    seen = {}
+    monkeypatch.setattr(handler, "_read_kvs_pcm", lambda a, f, info=None: b"\x00\x10" * int(8000 * 40))
+    monkeypatch.setattr(embed, "trim_silence", lambda w, sr, **k: w)
+    monkeypatch.setattr(embed, "embed", lambda w, sr: seen.setdefault("n", len(w)) and np.array([1, 0, 0, 0], dtype=np.float32))
+    handler.verify_handler(EVENT)
+    assert seen["n"] == int(handler.VERIFY_SPEECH_CAP * 8000)

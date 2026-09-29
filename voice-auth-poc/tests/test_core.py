@@ -76,3 +76,18 @@ def test_truncated_live_tail_is_tolerated():
 def test_missing_track_fails_loudly():
     with pytest.raises(mkv.MkvError):
         mkv.extract_pcm(io.BytesIO(stream()), track_name="NOPE")
+
+
+def test_deadline_stops_reading_and_reports_it():
+    info = {}
+    out = mkv.extract_pcm(io.BytesIO(stream()), deadline=0.0, info=info)  # deadline already passed
+    assert out == b"" and info["stopped"] == "deadline"
+
+
+def test_info_reports_why_reading_stopped():
+    info = {}
+    mkv.extract_pcm(io.BytesIO(stream()), info=info)
+    assert info["stopped"] == "eof" and info["blocks_selected"] == 2 and info["tracks"] == ["AUDIO_FROM_CUSTOMER", "AUDIO_TO_CUSTOMER"]
+    info = {}
+    mkv.extract_pcm(io.BytesIO(stream()), max_bytes=6, info=info)
+    assert info["stopped"] == "max_bytes"
