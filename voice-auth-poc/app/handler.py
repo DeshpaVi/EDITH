@@ -50,20 +50,25 @@ def _threshold(name: str) -> float:
 # ------------------------------- enrol -------------------------------------------------
 
 
-def _read_wav(data: bytes) -> tuple[np.ndarray, int]:
+def _read_wav(data: bytes, channel: int | None = None) -> tuple[np.ndarray, int]:
+    """Stereo call recordings carry the caller on one channel and other audio (prompts, agent) on the
+    other. Averaging them would bake that audio into the voiceprint, so stereo requires an explicit channel."""
     with wave.open(io.BytesIO(data)) as w:
         if w.getsampwidth() != 2:
             raise ValueError("enrolment audio must be 16-bit PCM WAV")
-        frames = w.readframes(w.getnframes())
-        pcm = embed.pcm16_to_float(frames)
-        if w.getnchannels() > 1:
-            pcm = pcm.reshape(-1, w.getnchannels()).mean(axis=1)
+        n = w.getnchannels()
+        pcm = embed.pcm16_to_float(w.readframes(w.getnframes()))
+        if n > 1:
+            if channel is None or not 0 <= channel < n:
+                raise ValueError(f"{n}-channel audio: set 'channel' (0..{n - 1}) to the caller's channel")
+            pcm = pcm.reshape(-1, n)[:, channel]
         return pcm, w.getframerate()
 
 
 def enrol_handler(event: dict[str, Any], _ctx: Any = None) -> dict[str, Any]:
     """{"mode":"enrol","speakerId":"spk_0007","consentRef":"...","keys":["enrol/spk_0007/a.wav",...]}
        {"mode":"delete","speakerId":"spk_0007"}
+    Stereo clips need "channel": 0 or 1 (the caller's channel).
     Enrolment audio should be recorded over the phone so it matches verification conditions."""
     mode, sid = event.get("mode"), event.get("speakerId", "")
     if not valid_speaker_id(sid):
@@ -95,7 +100,10 @@ def enrol_handler(event: dict[str, Any], _ctx: Any = None) -> dict[str, Any]:
 
     embs = []
     for k in keys:
-        wav, sr = _read_wav(s3.get_object(Bucket=bucket, Key=k)["Body"].read())
+        try:
+            wav, sr = _read_wav(s3.get_object(Bucket=bucket, Key=k)["Body"].read(), event.get("channel"))
+        except ValueError as exc:
+            return {"ok": False, "error": f"{k}: {exc}"}
         wav = embed.trim_silence(wav, sr)
         if embed.speech_seconds(wav, sr) < embed.MIN_SPEECH_SECONDS:
             return {"ok": False, "error": f"{k}: under {embed.MIN_SPEECH_SECONDS}s of speech after trimming"}

@@ -76,3 +76,18 @@ def test_delete_removes_voiceprint(aws):
     boto3.client("s3").create_bucket(Bucket="enrol-bucket")
     assert handler.enrol_handler({"mode": "delete", "speakerId": "spk_0007"})["ok"]
     assert "Item" not in aws.Table("vp").get_item(Key={"speakerId": "spk_0007"})
+
+
+def test_stereo_requires_explicit_channel():
+    import io, wave
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(2); w.setsampwidth(2); w.setframerate(8000)
+        left = (np.sin(np.arange(8000) / 5) * 8000).astype("<i2")
+        right = np.zeros(8000, dtype="<i2")
+        w.writeframes(np.stack([left, right], axis=1).tobytes())
+    with pytest.raises(ValueError):
+        handler._read_wav(buf.getvalue())
+    pcm, sr = handler._read_wav(buf.getvalue(), channel=0)
+    assert sr == 8000 and len(pcm) == 8000 and abs(pcm).max() > 0.1
+    assert abs(handler._read_wav(buf.getvalue(), channel=1)[0]).max() == 0
