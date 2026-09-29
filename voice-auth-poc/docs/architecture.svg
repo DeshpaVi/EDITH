@@ -1,0 +1,231 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1880 1050" width="1880" height="1050">
+<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#39485C"/></marker></defs>
+<rect width="1880" height="1050" fill="#fff"/>
+<text x="30" y="38" font-family="'Segoe UI',Arial,sans-serif" font-size="22" font-weight="700" fill="#232F3E" text-anchor="start">Voice authentication POC: AWS architecture</text>
+<text x="30" y="60" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="400" fill="#5F6B7A" text-anchor="start">Region us-east-1 · POC scope: consenting voices only · voice is one factor, not the gate</text>
+<text x="30" y="92" font-family="'Segoe UI',Arial,sans-serif" font-size="12" font-weight="700" fill="#5F6B7A" text-anchor="start">VERIFICATION CALL (runtime)</text>
+<rect x="30" y="430" width="150" height="70" rx="8" fill="#fff" stroke="#E7157B" stroke-width="1.6"/>
+<rect x="30" y="430" width="7" height="70" rx="3" fill="#E7157B"/>
+<text x="48" y="450" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#232F3E" text-anchor="start">Caller</text>
+<text x="48" y="468" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">Phone (PSTN)</text>
+<text x="48" y="484" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">test number</text>
+<rect x="230" y="100" width="530" height="570" rx="10" fill="#F4F6F8" stroke="#B8C2CC" stroke-dasharray="6 4"/>
+<text x="242" y="120" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#5F6B7A" text-anchor="start">Amazon Connect instance (existing) · flow APFM_Auth_Flow</text>
+<rect x="250" y="135" width="290" height="50" rx="8" fill="#fff" stroke="#DD344C" stroke-width="1.6"/>
+<rect x="250" y="135" width="7" height="50" rx="3" fill="#DD344C"/>
+<text x="268" y="155" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#232F3E" text-anchor="start">Play consent prompt</text>
+<rect x="250" y="199" width="290" height="50" rx="8" fill="#fff" stroke="#DD344C" stroke-width="1.6"/>
+<rect x="250" y="199" width="7" height="50" rx="3" fill="#DD344C"/>
+<text x="268" y="219" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#232F3E" text-anchor="start">Start media streaming</text>
+<text x="268" y="237" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">customer audio only</text>
+<rect x="250" y="263" width="290" height="50" rx="8" fill="#fff" stroke="#DD344C" stroke-width="1.6"/>
+<rect x="250" y="263" width="7" height="50" rx="3" fill="#DD344C"/>
+<text x="268" y="283" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#232F3E" text-anchor="start">Set attributes</text>
+<text x="268" y="301" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">kvsArn · kvsFragment · speakerId</text>
+<rect x="250" y="327" width="290" height="50" rx="8" fill="#fff" stroke="#DD344C" stroke-width="1.6"/>
+<rect x="250" y="327" width="7" height="50" rx="3" fill="#DD344C"/>
+<text x="268" y="347" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#232F3E" text-anchor="start">Get customer input</text>
+<text x="268" y="365" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">asks name / address</text>
+<rect x="250" y="391" width="290" height="50" rx="8" fill="#fff" stroke="#DD344C" stroke-width="1.6"/>
+<rect x="250" y="391" width="7" height="50" rx="3" fill="#DD344C"/>
+<text x="268" y="411" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#232F3E" text-anchor="start">Invoke Lambda  verify:live</text>
+<text x="268" y="429" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">synchronous, 8 s limit</text>
+<rect x="250" y="455" width="290" height="50" rx="8" fill="#fff" stroke="#DD344C" stroke-width="1.6"/>
+<rect x="250" y="455" width="7" height="50" rx="3" fill="#DD344C"/>
+<text x="268" y="475" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#232F3E" text-anchor="start">Check voiceDecision</text>
+<text x="268" y="493" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">authenticated / inconclusive / failed</text>
+<rect x="250" y="519" width="290" height="50" rx="8" fill="#fff" stroke="#DD344C" stroke-width="1.6"/>
+<rect x="250" y="519" width="7" height="50" rx="3" fill="#DD344C"/>
+<text x="268" y="539" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#232F3E" text-anchor="start">Play result, then disconnect</text>
+<text x="268" y="557" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">or transfer to APFM_Flow</text>
+<path d="M395,185 L395,199" fill="none" stroke="#39485C" stroke-width="1.8" marker-end="url(#ah)"/>
+<path d="M395,249 L395,263" fill="none" stroke="#39485C" stroke-width="1.8" marker-end="url(#ah)"/>
+<path d="M395,313 L395,327" fill="none" stroke="#39485C" stroke-width="1.8" marker-end="url(#ah)"/>
+<path d="M395,377 L395,391" fill="none" stroke="#39485C" stroke-width="1.8" marker-end="url(#ah)"/>
+<path d="M395,441 L395,455" fill="none" stroke="#39485C" stroke-width="1.8" marker-end="url(#ah)"/>
+<path d="M395,505 L395,519" fill="none" stroke="#39485C" stroke-width="1.8" marker-end="url(#ah)"/>
+<rect x="590" y="300" width="150" height="100" rx="8" fill="#fff" stroke="#DD344C" stroke-width="1.6"/>
+<rect x="590" y="300" width="7" height="100" rx="3" fill="#DD344C"/>
+<text x="608" y="320" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#232F3E" text-anchor="start">Amazon Lex V2</text>
+<text x="608" y="338" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">APFM_Auth_Bot</text>
+<text x="608" y="354" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">TestBotAlias</text>
+<text x="608" y="370" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">keeps the caller</text>
+<text x="608" y="386" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">talking</text>
+<rect x="830" y="110" width="330" height="120" rx="8" fill="#fff" stroke="#ED7100" stroke-width="1.6"/>
+<rect x="830" y="110" width="7" height="120" rx="3" fill="#ED7100"/>
+<text x="848" y="130" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#232F3E" text-anchor="start">Kinesis Video Streams</text>
+<text x="848" y="148" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">Live media streaming (existing config)</text>
+<text x="848" y="164" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">prefix vmail-connect-win-demo-manual-contact-</text>
+<text x="848" y="180" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">customer audio, 8 kHz PCM · 1 h retention</text>
+<text x="848" y="196" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">key aws/kinesisvideo</text>
+<rect x="810" y="260" width="370" height="330" rx="10" fill="#F4F6F8" stroke="#B8C2CC" stroke-dasharray="6 4"/>
+<text x="822" y="280" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#5F6B7A" text-anchor="start">AWS Lambda · 3008 MB</text>
+<rect x="830" y="290" width="330" height="280" rx="8" fill="#fff" stroke="#ED7100" stroke-width="1.6"/>
+<rect x="830" y="290" width="7" height="280" rx="3" fill="#ED7100"/>
+<text x="848" y="310" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#232F3E" text-anchor="start">voice-auth-poc-verify : live</text>
+<text x="848" y="328" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">container image · provisioned concurrency = 1</text>
+<text x="848" y="344" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">model preloaded at init (off the caller's clock)</text>
+<text x="848" y="360" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start"></text>
+<text x="848" y="376" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">a  GetMedia: last ~18 s of caller audio</text>
+<text x="848" y="392" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">b  parse MKV, pick AUDIO_FROM_CUSTOMER</text>
+<text x="848" y="408" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">c  trim silence (energy gate)</text>
+<text x="848" y="424" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">d  ECAPA-TDNN embedding (192-d)</text>
+<text x="848" y="440" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">e  cosine vs enrolled voiceprint</text>
+<text x="848" y="456" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">f  band: high / middle / low</text>
+<text x="848" y="472" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">g  audit row: score + decision only</text>
+<text x="848" y="488" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start"></text>
+<text x="848" y="504" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">returns flat string attributes:</text>
+<text x="848" y="520" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">voiceDecision · voiceScore · voiceReason</text>
+<text x="848" y="536" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">never raises: errors map to 'failed'</text>
+<rect x="1210" y="100" width="370" height="570" rx="10" fill="#F4F6F8" stroke="#B8C2CC" stroke-dasharray="6 4"/>
+<text x="1222" y="120" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#5F6B7A" text-anchor="start">Data, config and security</text>
+<rect x="1240" y="140" width="310" height="90" rx="8" fill="#fff" stroke="#3B48CC" stroke-width="1.6"/>
+<rect x="1240" y="140" width="7" height="90" rx="3" fill="#3B48CC"/>
+<text x="1258" y="160" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#232F3E" text-anchor="start">DynamoDB  voiceprints</text>
+<text x="1258" y="178" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">speakerId → 192-d embedding</text>
+<text x="1258" y="194" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">KMS encrypted · TTL expiresAt · no PITR</text>
+<rect x="1240" y="260" width="310" height="90" rx="8" fill="#fff" stroke="#3B48CC" stroke-width="1.6"/>
+<rect x="1240" y="260" width="7" height="90" rx="3" fill="#3B48CC"/>
+<text x="1258" y="280" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#232F3E" text-anchor="start">DynamoDB  verification-log</text>
+<text x="1258" y="298" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">contactId, score, decision, reason</text>
+<text x="1258" y="314" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">no audio, no embeddings · TTL</text>
+<rect x="1240" y="380" width="310" height="90" rx="8" fill="#fff" stroke="#E7157B" stroke-width="1.6"/>
+<rect x="1240" y="380" width="7" height="90" rx="3" fill="#E7157B"/>
+<text x="1258" y="400" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#232F3E" text-anchor="start">SSM Parameter Store</text>
+<text x="1258" y="418" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">/voice-auth-poc/threshold/high  0.60</text>
+<text x="1258" y="434" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">/voice-auth-poc/threshold/low   0.35</text>
+<rect x="1240" y="500" width="310" height="60" rx="8" fill="#fff" stroke="#8C4FFF" stroke-width="1.6"/>
+<rect x="1240" y="500" width="7" height="60" rx="3" fill="#8C4FFF"/>
+<text x="1258" y="520" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#232F3E" text-anchor="start">AWS KMS (customer key)</text>
+<text x="1258" y="538" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">encrypts bucket, tables, ECR</text>
+<rect x="1240" y="580" width="310" height="70" rx="8" fill="#fff" stroke="#E7157B" stroke-width="1.6"/>
+<rect x="1240" y="580" width="7" height="70" rx="3" fill="#E7157B"/>
+<text x="1258" y="600" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#232F3E" text-anchor="start">Amazon CloudWatch Logs</text>
+<text x="1258" y="618" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">Lambda + CodeBuild · 30-day retention</text>
+<text x="1258" y="634" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">scores and decisions only</text>
+<path d="M180,465 L230,465" fill="none" stroke="#39485C" stroke-width="1.8" marker-end="url(#ah)"/>
+<circle cx="205" cy="452" r="11" fill="#232F3E"/>
+<text x="205" y="456" font-family="'Segoe UI',Arial,sans-serif" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">1</text>
+<path d="M540,224 L580,224 L580,170 L830,170" fill="none" stroke="#39485C" stroke-width="1.8" marker-end="url(#ah)"/>
+<circle cx="690" cy="158" r="11" fill="#232F3E"/>
+<text x="690" y="162" font-family="'Segoe UI',Arial,sans-serif" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">2</text>
+<path d="M540,352 L590,352" fill="none" stroke="#39485C" stroke-width="1.8" marker-end="url(#ah)"/>
+<circle cx="565" cy="340" r="11" fill="#232F3E"/>
+<text x="565" y="344" font-family="'Segoe UI',Arial,sans-serif" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">3</text>
+<path d="M540,416 L830,416" fill="none" stroke="#39485C" stroke-width="1.8" marker-end="url(#ah)"/>
+<circle cx="690" cy="404" r="11" fill="#232F3E"/>
+<text x="690" y="408" font-family="'Segoe UI',Arial,sans-serif" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">4</text>
+<path d="M995,230 L995,290" fill="none" stroke="#39485C" stroke-width="1.8" marker-end="url(#ah)"/>
+<circle cx="1013" cy="245" r="11" fill="#232F3E"/>
+<text x="1013" y="249" font-family="'Segoe UI',Arial,sans-serif" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">5</text>
+<path d="M1160,330 L1200,330 L1200,185 L1240,185" fill="none" stroke="#39485C" stroke-width="1.8" marker-end="url(#ah)"/>
+<circle cx="1200" cy="250" r="11" fill="#232F3E"/>
+<text x="1200" y="254" font-family="'Segoe UI',Arial,sans-serif" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">6</text>
+<path d="M1160,378 L1220,378 L1220,305 L1240,305" fill="none" stroke="#39485C" stroke-width="1.8" marker-end="url(#ah)"/>
+<circle cx="1222" cy="340" r="11" fill="#232F3E"/>
+<text x="1222" y="344" font-family="'Segoe UI',Arial,sans-serif" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">7</text>
+<path d="M1160,425 L1240,425" fill="none" stroke="#39485C" stroke-width="1.8" marker-end="url(#ah)"/>
+<path d="M830,480 L540,480" fill="none" stroke="#39485C" stroke-width="1.8" marker-end="url(#ah)"/>
+<circle cx="690" cy="468" r="11" fill="#232F3E"/>
+<text x="690" y="472" font-family="'Segoe UI',Arial,sans-serif" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">8</text>
+<text x="30" y="712" font-family="'Segoe UI',Arial,sans-serif" font-size="12" font-weight="700" fill="#5F6B7A" text-anchor="start">ENROLMENT (run by hand)</text>
+<rect x="30" y="770" width="150" height="70" rx="8" fill="#fff" stroke="#E7157B" stroke-width="1.6"/>
+<rect x="30" y="770" width="7" height="70" rx="3" fill="#E7157B"/>
+<text x="48" y="790" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#232F3E" text-anchor="start">You (admin)</text>
+<text x="48" y="808" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">upload clips,</text>
+<text x="48" y="824" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">invoke enrol</text>
+<rect x="250" y="755" width="250" height="100" rx="8" fill="#fff" stroke="#7AA116" stroke-width="1.6"/>
+<rect x="250" y="755" width="7" height="100" rx="3" fill="#7AA116"/>
+<text x="268" y="775" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#232F3E" text-anchor="start">S3  enrolment bucket</text>
+<text x="268" y="793" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">enrol/spk_0001/*.wav</text>
+<text x="268" y="809" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">SSE-KMS · 30-day lifecycle</text>
+<text x="268" y="825" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">no versioning · public access off</text>
+<rect x="830" y="730" width="330" height="130" rx="8" fill="#fff" stroke="#ED7100" stroke-width="1.6"/>
+<rect x="830" y="730" width="7" height="130" rx="3" fill="#ED7100"/>
+<text x="848" y="750" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#232F3E" text-anchor="start">voice-auth-poc-enrol</text>
+<text x="848" y="768" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">same image · 300 s timeout</text>
+<text x="848" y="784" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">mode enrol: needs consentRef,</text>
+<text x="848" y="800" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">  averages clips into one voiceprint</text>
+<text x="848" y="816" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">mode score: raw scores only</text>
+<text x="848" y="832" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">mode delete: voiceprint + audio</text>
+<rect x="1240" y="755" width="310" height="100" rx="8" fill="#fff" stroke="#3B48CC" stroke-width="1.6" stroke-dasharray="5 4"/>
+<rect x="1240" y="755" width="7" height="100" rx="3" fill="#3B48CC"/>
+<text x="1258" y="775" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#232F3E" text-anchor="start">DynamoDB  voiceprints</text>
+<text x="1258" y="793" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">(same table as above)</text>
+<path d="M180,805 L250,805" fill="none" stroke="#39485C" stroke-width="1.8" marker-end="url(#ah)"/>
+<circle cx="215" cy="793" r="11" fill="#232F3E"/>
+<text x="215" y="797" font-family="'Segoe UI',Arial,sans-serif" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">A</text>
+<path d="M500,805 L830,805" fill="none" stroke="#39485C" stroke-width="1.8" marker-end="url(#ah)"/>
+<circle cx="665" cy="793" r="11" fill="#232F3E"/>
+<text x="665" y="797" font-family="'Segoe UI',Arial,sans-serif" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">B</text>
+<path d="M1160,805 L1240,805" fill="none" stroke="#39485C" stroke-width="1.8" marker-end="url(#ah)"/>
+<circle cx="1200" cy="793" r="11" fill="#232F3E"/>
+<text x="1200" y="797" font-family="'Segoe UI',Arial,sans-serif" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">C</text>
+<text x="30" y="905" font-family="'Segoe UI',Arial,sans-serif" font-size="12" font-weight="700" fill="#5F6B7A" text-anchor="start">BUILD AND DEPLOY</text>
+<rect x="250" y="930" width="230" height="80" rx="8" fill="#fff" stroke="#7AA116" stroke-width="1.6"/>
+<rect x="250" y="930" width="7" height="80" rx="3" fill="#7AA116"/>
+<text x="268" y="950" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#232F3E" text-anchor="start">S3  build source</text>
+<text x="268" y="968" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">source.zip</text>
+<text x="268" y="984" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">(Dockerfile + app/)</text>
+<rect x="540" y="930" width="250" height="80" rx="8" fill="#fff" stroke="#0A6EBD" stroke-width="1.6"/>
+<rect x="540" y="930" width="7" height="80" rx="3" fill="#0A6EBD"/>
+<text x="558" y="950" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#232F3E" text-anchor="start">AWS CodeBuild</text>
+<text x="558" y="968" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">docker build, model baked in</text>
+<text x="558" y="984" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">push, prints image digest</text>
+<rect x="850" y="930" width="250" height="80" rx="8" fill="#fff" stroke="#ED7100" stroke-width="1.6"/>
+<rect x="850" y="930" width="7" height="80" rx="3" fill="#ED7100"/>
+<text x="868" y="950" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#232F3E" text-anchor="start">Amazon ECR</text>
+<text x="868" y="968" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">voice-auth-poc/scorer</text>
+<text x="868" y="984" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">KMS encrypted · scan on push</text>
+<rect x="1240" y="930" width="310" height="80" rx="8" fill="#fff" stroke="#E7157B" stroke-width="1.6"/>
+<rect x="1240" y="930" width="7" height="80" rx="3" fill="#E7157B"/>
+<text x="1258" y="950" font-family="'Segoe UI',Arial,sans-serif" font-size="13" font-weight="700" fill="#232F3E" text-anchor="start">AWS CloudFormation</text>
+<text x="1258" y="968" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">3 stacks: foundation · compute · image-build</text>
+<text x="1258" y="984" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">IAM roles: one per function, least privilege</text>
+<path d="M480,970 L540,970" fill="none" stroke="#39485C" stroke-width="1.8" marker-end="url(#ah)"/>
+<circle cx="510" cy="958" r="11" fill="#232F3E"/>
+<text x="510" y="962" font-family="'Segoe UI',Arial,sans-serif" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">a</text>
+<path d="M790,970 L850,970" fill="none" stroke="#39485C" stroke-width="1.8" marker-end="url(#ah)"/>
+<circle cx="820" cy="958" r="11" fill="#232F3E"/>
+<text x="820" y="962" font-family="'Segoe UI',Arial,sans-serif" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">b</text>
+<path d="M975,930 L975,860" fill="none" stroke="#39485C" stroke-width="1.8" marker-end="url(#ah)"/>
+<circle cx="993" cy="895" r="11" fill="#232F3E"/>
+<text x="993" y="899" font-family="'Segoe UI',Arial,sans-serif" font-size="12" font-weight="700" fill="#fff" text-anchor="middle">c</text>
+<text x="1010" y="902" font-family="'Segoe UI',Arial,sans-serif" font-size="11.5" font-weight="400" fill="#5F6B7A" text-anchor="start">image digest → verify and enrol</text>
+<text x="1610" y="118" font-family="'Segoe UI',Arial,sans-serif" font-size="14" font-weight="700" fill="#232F3E" text-anchor="start">Verification call, step by step</text>
+<text x="1610" y="146" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#232F3E" text-anchor="start">1  Caller dials the test number.</text>
+<text x="1610" y="166" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#232F3E" text-anchor="start">2  Flow plays the consent notice and</text>
+<text x="1610" y="186" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#232F3E" text-anchor="start">    starts streaming caller audio.</text>
+<text x="1610" y="206" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#232F3E" text-anchor="start">3  Lex bot asks for name and address so</text>
+<text x="1610" y="226" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#232F3E" text-anchor="start">    the caller speaks continuously.</text>
+<text x="1610" y="246" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#232F3E" text-anchor="start">4  Flow invokes Lambda verify:live</text>
+<text x="1610" y="266" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#232F3E" text-anchor="start">    (kvsArn, kvsFragment, speakerId).</text>
+<text x="1610" y="286" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#232F3E" text-anchor="start">5  Lambda reads the latest ~18 s of</text>
+<text x="1610" y="306" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#232F3E" text-anchor="start">    caller audio from Kinesis.</text>
+<text x="1610" y="326" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#232F3E" text-anchor="start">6  Loads the voiceprint (DynamoDB).</text>
+<text x="1610" y="346" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#232F3E" text-anchor="start">7  Scores it against the thresholds</text>
+<text x="1610" y="366" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#232F3E" text-anchor="start">    (SSM) and writes the audit row.</text>
+<text x="1610" y="386" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#232F3E" text-anchor="start">8  Returns the decision; the flow</text>
+<text x="1610" y="406" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#232F3E" text-anchor="start">    branches on it.</text>
+<text x="1610" y="460" font-family="'Segoe UI',Arial,sans-serif" font-size="14" font-weight="700" fill="#232F3E" text-anchor="start">Not built (out of POC scope)</text>
+<text x="1610" y="488" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#5F6B7A" text-anchor="start">• Anti-spoofing / replay detection</text>
+<text x="1610" y="508" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#5F6B7A" text-anchor="start">• SMS one-time-code step-up</text>
+<text x="1610" y="528" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#5F6B7A" text-anchor="start">• SageMaker endpoint (warm Lambda</text>
+<text x="1610" y="548" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#5F6B7A" text-anchor="start">   is used instead)</text>
+<text x="1610" y="568" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#5F6B7A" text-anchor="start">• Amazon Transcribe liveness check</text>
+<text x="1610" y="620" font-family="'Segoe UI',Arial,sans-serif" font-size="14" font-weight="700" fill="#232F3E" text-anchor="start">Colour key</text>
+<rect x="1610" y="636" width="14" height="14" rx="3" fill="#DD344C"/>
+<text x="1632" y="648" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#232F3E" text-anchor="start">Customer engagement</text>
+<rect x="1610" y="658" width="14" height="14" rx="3" fill="#ED7100"/>
+<text x="1632" y="670" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#232F3E" text-anchor="start">Compute</text>
+<rect x="1610" y="680" width="14" height="14" rx="3" fill="#7AA116"/>
+<text x="1632" y="692" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#232F3E" text-anchor="start">Storage</text>
+<rect x="1610" y="702" width="14" height="14" rx="3" fill="#3B48CC"/>
+<text x="1632" y="714" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#232F3E" text-anchor="start">Database</text>
+<rect x="1610" y="724" width="14" height="14" rx="3" fill="#E7157B"/>
+<text x="1632" y="736" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#232F3E" text-anchor="start">Management / integration</text>
+<rect x="1610" y="746" width="14" height="14" rx="3" fill="#8C4FFF"/>
+<text x="1632" y="758" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#232F3E" text-anchor="start">Security</text>
+<rect x="1610" y="768" width="14" height="14" rx="3" fill="#0A6EBD"/>
+<text x="1632" y="780" font-family="'Segoe UI',Arial,sans-serif" font-size="12.5" font-weight="400" fill="#232F3E" text-anchor="start">Developer tools</text>
+</svg>
