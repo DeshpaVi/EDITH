@@ -6,7 +6,12 @@ from typing import Sequence
 
 import numpy as np
 
-MODEL_DIR = os.environ.get("MODEL_DIR", "/opt/model")
+# In Lambda the model is baked in at /opt/model. Elsewhere (a laptop) use ./model next to the project:
+# "/opt/model" would resolve to C:\\opt\\model on Windows.
+_DEFAULT_DIR = "/opt/model" if os.environ.get("AWS_LAMBDA_FUNCTION_NAME") or os.path.isdir("/opt/model") else os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "model"
+)
+MODEL_DIR = os.environ.get("MODEL_DIR", _DEFAULT_DIR)
 MODEL_SOURCE = "speechbrain/spkrec-ecapa-voxceleb"
 MODEL_SR = 16000
 MIN_SPEECH_SECONDS = 3.0  # below this an embedding is noise; caller decides what to do
@@ -18,8 +23,12 @@ def encoder():
     global _enc
     if _enc is None:
         from speechbrain.inference.speaker import EncoderClassifier
+        from speechbrain.utils.fetching import LocalStrategy
 
-        _enc = EncoderClassifier.from_hparams(source=MODEL_SOURCE, savedir=MODEL_DIR, run_opts={"device": "cpu"})
+        # COPY, not the default SYMLINK: Windows refuses symlinks without admin/Developer Mode (WinError 1314).
+        _enc = EncoderClassifier.from_hparams(
+            source=MODEL_SOURCE, savedir=MODEL_DIR, run_opts={"device": "cpu"}, local_strategy=LocalStrategy.COPY
+        )
     return _enc
 
 
