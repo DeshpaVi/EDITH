@@ -92,8 +92,9 @@ def enrol_handler(event: dict[str, Any], _ctx: Any = None) -> dict[str, Any]:
     if not event.get("consentRef"):
         return {"ok": False, "error": "consentRef is required: no voiceprint without recorded consent"}
     keys = event.get("keys") or []
-    if len(keys) < 3:
-        return {"ok": False, "error": "need at least 3 clips"}
+    min_clips = int(os.environ.get("MIN_ENROL_CLIPS", "2"))  # skill recommends 3-5; 2 is the POC floor
+    if len(keys) < min_clips:
+        return {"ok": False, "error": f"need at least {min_clips} clips"}
     prefix = f"enrol/{sid}/"
     if not all(k.startswith(prefix) for k in keys):
         return {"ok": False, "error": f"keys must be under {prefix}"}

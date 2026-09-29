@@ -91,3 +91,8 @@ def test_stereo_requires_explicit_channel():
     pcm, sr = handler._read_wav(buf.getvalue(), channel=0)
     assert sr == 8000 and len(pcm) == 8000 and abs(pcm).max() > 0.1
     assert abs(handler._read_wav(buf.getvalue(), channel=1)[0]).max() == 0
+
+
+def test_enrol_clip_floor(aws):
+    r = handler.enrol_handler({"mode": "enrol", "speakerId": "spk_0009", "consentRef": "c", "keys": ["enrol/spk_0009/a.wav"]})
+    assert not r["ok"] and "at least 2" in r["error"]
