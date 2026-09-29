@@ -21,10 +21,12 @@ from scoring import cosine  # noqa: E402
 
 def load(path: Path, telephony: bool, split: float) -> list[np.ndarray]:
     """One embedding per clip, or per `split`-second chunk of the speech when split > 0."""
+    import soundfile as sf  # torchaudio.load now needs torchcodec; soundfile reads WAV/FLAC directly
+    import torch
     import torchaudio
 
-    wav, sr = torchaudio.load(str(path))
-    wav = wav.mean(dim=0)
+    data, sr = sf.read(str(path), dtype="float32", always_2d=True)
+    wav = torch.from_numpy(data.mean(axis=1))
     if telephony:
         wav = torchaudio.functional.resample(wav, sr, 8000)
         sr = 8000
