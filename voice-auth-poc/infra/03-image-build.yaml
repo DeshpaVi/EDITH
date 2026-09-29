@@ -1,0 +1,110 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Voice-auth POC image build: a private source bucket and a CodeBuild project that builds the
+  scorer container (model baked in) and pushes it to the foundation stack's ECR repository.
+  Needs no local Docker or AWS CLI.
+
+Parameters:
+  FoundationStackName:
+    Type: String
+    Default: voice-auth-poc-foundation
+  ProjectName:
+    Type: String
+    Default: voice-auth-poc
+    AllowedPattern: "^[a-z0-9-]{3,30}$"
+
+Resources:
+  SourceBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - { Id: expire-source, Status: Enabled, ExpirationInDays: 30 }
+
+  BuildRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - { Effect: Allow, Principal: { Service: codebuild.amazonaws.com }, Action: "sts:AssumeRole" }
+      Policies:
+        - PolicyName: build
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+                Resource: !Sub "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/codebuild/${ProjectName}-image-build*"
+              - Effect: Allow
+                Action: ["s3:GetObject", "s3:GetObjectVersion"]
+                Resource: !Sub "${SourceBucket.Arn}/*"
+              - Effect: Allow
+                Action: ["s3:ListBucket", "s3:GetBucketLocation"]
+                Resource: !GetAtt SourceBucket.Arn
+              - Effect: Allow
+                Action: ["ecr:GetAuthorizationToken"]
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:InitiateLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:CompleteLayerUpload
+                  - ecr:PutImage
+                  - ecr:BatchGetImage
+                  - ecr:GetDownloadUrlForLayer
+                Resource: !Sub "arn:${AWS::Partition}:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ProjectName}/scorer"
+              # The repo is encrypted with the foundation CMK.
+              - Effect: Allow
+                Action: ["kms:Decrypt", "kms:GenerateDataKey", "kms:DescribeKey"]
+                Resource: { Fn::ImportValue: !Sub "${FoundationStackName}-DataKeyArn" }
+
+  BuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Name: !Sub "${ProjectName}-image-build"
+      ServiceRole: !GetAtt BuildRole.Arn
+      TimeoutInMinutes: 60
+      Artifacts: { Type: NO_ARTIFACTS }
+      Source:
+        Type: S3
+        Location: !Sub "${SourceBucket}/source.zip"
+        BuildSpec: |
+          version: 0.2
+          phases:
+            pre_build:
+              commands:
+                - REGISTRY=${REPO_URI%%/*}
+                - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $REGISTRY
+            build:
+              commands:
+                # Classic builder: BuildKit's default provenance/attestation manifests are rejected by Lambda.
+                - DOCKER_BUILDKIT=0 docker build -t $REPO_URI:latest .
+            post_build:
+              commands:
+                - docker push $REPO_URI:latest
+                - echo "IMAGE_DIGEST_URI=$(docker inspect --format='{{index .RepoDigests 0}}' $REPO_URI:latest)"
+      Environment:
+        Type: LINUX_CONTAINER
+        ComputeType: BUILD_GENERAL1_MEDIUM
+        Image: aws/codebuild/standard:7.0
+        PrivilegedMode: true # required to run docker
+        EnvironmentVariables:
+          - Name: REPO_URI
+            Type: PLAINTEXT
+            Value: { Fn::ImportValue: !Sub "${FoundationStackName}-RepoUri" }
+
+Outputs:
+  SourceBucketName:
+    Description: Upload source.zip (Dockerfile + app/) here.
+    Value: !Ref SourceBucket
+  BuildProjectName: { Value: !Ref BuildProject }
