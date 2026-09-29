@@ -37,6 +37,14 @@ Parameters:
     Description: >
       Existing Connect instance ARN. Leave empty to deploy the Lambdas only (stages 2-3 can be
       tested by direct invoke without Connect).
+  CreateLambdaAssociation:
+    Type: String
+    Default: "true"
+    AllowedValues: ["true", "false"]
+    Description: >
+      Registers the verify alias with the Connect instance. TODO(verify): unconfirmed that Connect accepts
+      an alias (qualified) ARN here. If the stack update fails on ConnectLambdaAssociation, set this to
+      false: the invoke permission still exists, and the flow's Invoke AWS Lambda block can take the ARN by hand.
   MediaStreamPrefix:
     Type: String
     Default: vmail-connect-win-demo-manual-contact-
@@ -69,6 +77,9 @@ Conditions:
   ManageStreaming: !And
     - !Condition HasConnect
     - !Equals [!Ref ManageMediaStreamingConfig, "true"]
+  AssociateLambda: !And
+    - !Condition HasConnect
+    - !Equals [!Ref CreateLambdaAssociation, "true"]
   HasKvsKey: !Not [!Equals [!Ref KvsKmsKeyArn, ""]]
   WarmVerify: !Not [!Equals [!Ref VerifyProvisionedConcurrency, 0]]
 
@@ -240,7 +251,7 @@ Resources:
 
   ConnectLambdaAssociation:
     Type: AWS::Connect::IntegrationAssociation
-    Condition: HasConnect
+    Condition: AssociateLambda
     DependsOn: ConnectInvokePermission
     Properties:
       InstanceId: !Ref ConnectInstanceArn
