@@ -1,0 +1,459 @@
+{
+  "Version": "2019-10-30",
+  "StartAction": "b27bf993-43a5-4cae-8765-d15459ae90f6",
+  "Metadata": {
+    "entryPointPosition": {
+      "x": 40,
+      "y": 40
+    },
+    "ActionMetadata": {
+      "b27bf993-43a5-4cae-8765-d15459ae90f6": {
+        "position": {
+          "x": 198.4,
+          "y": 72.8
+        }
+      },
+      "e0c2bd06-31a9-4817-bbe2-5750459b9447": {
+        "position": {
+          "x": 436,
+          "y": 75.2
+        }
+      },
+      "6cdc10cf-dd74-434b-8c25-d2d177de159a": {
+        "position": {
+          "x": 673.6,
+          "y": 75.2
+        },
+        "toCustomer": false,
+        "fromCustomer": true
+      },
+      "16092312-89ea-4ca7-8a5b-c0ccc18b868d": {
+        "position": {
+          "x": 900.8,
+          "y": 72.8
+        },
+        "parameters": {
+          "Attributes": {
+            "kvsArn": {
+              "useDynamic": true
+            },
+            "kvsFragment": {
+              "useDynamic": true
+            }
+          }
+        },
+        "dynamicParams": [
+          "kvsArn",
+          "kvsFragment"
+        ]
+      },
+      "642d1be5-1997-4603-b17c-79f7ca8bade2": {
+        "position": {
+          "x": 1127.2,
+          "y": 67.2
+        },
+        "parameters": {
+          "LexV2Bot": {
+            "AliasArn": {
+              "displayName": "TestBotAlias",
+              "useLexBotDropdown": true,
+              "lexV2BotName": "APFM_Auth_Bot"
+            }
+          }
+        },
+        "useLexBotDropdown": true,
+        "lexV2BotName": "APFM_Auth_Bot",
+        "lexV2BotAliasName": "TestBotAlias",
+        "conditionMetadata": [
+          {
+            "id": "b492338e-e26b-4258-b055-30304aeca260",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "introduction"
+          }
+        ]
+      },
+      "ca8f7f53-3c40-486a-9cb0-bb3cdef23438": {
+        "position": {
+          "x": 1354.4,
+          "y": 72
+        },
+        "parameters": {
+          "LambdaInvocationAttributes": {
+            "kvsArn": {
+              "useDynamic": true
+            },
+            "kvsFragment": {
+              "useDynamic": true
+            },
+            "speakerId": {
+              "useDynamic": true
+            }
+          }
+        },
+        "dynamicMetadata": {
+          "kvsArn": true,
+          "kvsFragment": true,
+          "speakerId": true
+        }
+      },
+      "6e4a9993-caf8-49c9-b1bb-8f4c7751fea8": {
+        "position": {
+          "x": 1583.2,
+          "y": 77.6
+        },
+        "conditions": [],
+        "conditionMetadata": [
+          {
+            "id": "11831185-e412-47fd-bfc7-605abe1c370c",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "authenticated"
+          },
+          {
+            "id": "b220eba8-a5d1-4826-870f-e7e1ca37a76e",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "inconclusive"
+          },
+          {
+            "id": "0f0bec75-7cea-46c0-99e1-f4317449fe94",
+            "operator": {
+              "name": "Equals",
+              "value": "Equals",
+              "shortDisplay": "="
+            },
+            "value": "failed"
+          }
+        ]
+      },
+      "f14c4ebf-1903-4624-adc3-98af029b17d4": {
+        "position": {
+          "x": 1868.8,
+          "y": 79.2
+        }
+      },
+      "4d34c60f-4536-479c-a470-196e1e8fd864": {
+        "position": {
+          "x": 1876,
+          "y": 292.8
+        }
+      },
+      "0a626cd9-7cf7-43a9-af00-c7c0143fbfa1": {
+        "position": {
+          "x": 2176,
+          "y": 394.4
+        }
+      },
+      "ee5bd876-dc78-4565-9194-e6dd66f42522": {
+        "position": {
+          "x": 2673.6,
+          "y": 224.8
+        }
+      },
+      "b1a015ba-e010-4625-8c92-5d020bc8eaaf": {
+        "position": {
+          "x": 2160.8,
+          "y": 160.8
+        }
+      },
+      "1a1e10b5-1982-440b-8e88-d2873b3833c6": {
+        "position": {
+          "x": 2428.8,
+          "y": 221.6
+        },
+        "parameters": {
+          "ContactFlowId": {
+            "displayName": "APFM_Flow"
+          }
+        },
+        "ContactFlow": {
+          "text": "APFM_Flow"
+        }
+      }
+    },
+    "Annotations": [],
+    "name": "APFM_Auth_Flow",
+    "description": "",
+    "type": "contactFlow",
+    "status": "published",
+    "hash": {}
+  },
+  "Actions": [
+    {
+      "Parameters": {
+        "FlowLoggingBehavior": "Enabled"
+      },
+      "Identifier": "b27bf993-43a5-4cae-8765-d15459ae90f6",
+      "Type": "UpdateFlowLoggingBehavior",
+      "Transitions": {
+        "NextAction": "e0c2bd06-31a9-4817-bbe2-5750459b9447"
+      }
+    },
+    {
+      "Parameters": {
+        "SkipWhenDTMFBufferEnabled": "false",
+        "Text": "This call may be recorded and monitored for quality and training purposes."
+      },
+      "Identifier": "e0c2bd06-31a9-4817-bbe2-5750459b9447",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "6cdc10cf-dd74-434b-8c25-d2d177de159a",
+        "Errors": [
+          {
+            "NextAction": "6cdc10cf-dd74-434b-8c25-d2d177de159a",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "MediaStreamingState": "Enabled",
+        "MediaStreamType": "Audio",
+        "Participants": [
+          {
+            "ParticipantType": "Customer",
+            "MediaDirections": [
+              "From"
+            ]
+          }
+        ]
+      },
+      "Identifier": "6cdc10cf-dd74-434b-8c25-d2d177de159a",
+      "Type": "UpdateContactMediaStreamingBehavior",
+      "Transitions": {
+        "NextAction": "16092312-89ea-4ca7-8a5b-c0ccc18b868d",
+        "Errors": [
+          {
+            "NextAction": "16092312-89ea-4ca7-8a5b-c0ccc18b868d",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "kvsArn": "$.MediaStreams.Customer.Audio.StreamARN",
+          "kvsFragment": "$.MediaStreams.Customer.Audio.StartFragmentNumber",
+          "speakerId": "spk_0001"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "16092312-89ea-4ca7-8a5b-c0ccc18b868d",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "642d1be5-1997-4603-b17c-79f7ca8bade2",
+        "Errors": [
+          {
+            "NextAction": "642d1be5-1997-4603-b17c-79f7ca8bade2",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "Please answer a few questions so we can verify your voice.",
+        "LexV2Bot": {
+          "AliasArn": "arn:aws:lex:us-east-1:411035539438:bot-alias/VBNXMQYTCC/TSTALIASID"
+        }
+      },
+      "Identifier": "642d1be5-1997-4603-b17c-79f7ca8bade2",
+      "Type": "ConnectParticipantWithLexBot",
+      "Transitions": {
+        "NextAction": "ca8f7f53-3c40-486a-9cb0-bb3cdef23438",
+        "Conditions": [
+          {
+            "NextAction": "ca8f7f53-3c40-486a-9cb0-bb3cdef23438",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "introduction"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "ca8f7f53-3c40-486a-9cb0-bb3cdef23438",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "ca8f7f53-3c40-486a-9cb0-bb3cdef23438",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "LambdaFunctionARN": "arn:aws:lambda:us-east-1:411035539438:function:voice-auth-poc-verify:live",
+        "InvocationTimeLimitSeconds": "8",
+        "InvocationType": "SYNCHRONOUS",
+        "LambdaInvocationAttributes": {
+          "kvsArn": "$.Attributes.kvsArn",
+          "kvsFragment": "$.Attributes.kvsFragment",
+          "speakerId": "$.Attributes.speakerId"
+        },
+        "ResponseValidation": {
+          "ResponseType": "STRING_MAP"
+        }
+      },
+      "Identifier": "ca8f7f53-3c40-486a-9cb0-bb3cdef23438",
+      "Type": "InvokeLambdaFunction",
+      "Transitions": {
+        "NextAction": "6e4a9993-caf8-49c9-b1bb-8f4c7751fea8",
+        "Errors": [
+          {
+            "NextAction": "6e4a9993-caf8-49c9-b1bb-8f4c7751fea8",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "ComparisonValue": "$.External.voiceDecision"
+      },
+      "Identifier": "6e4a9993-caf8-49c9-b1bb-8f4c7751fea8",
+      "Type": "Compare",
+      "Transitions": {
+        "NextAction": "4d34c60f-4536-479c-a470-196e1e8fd864",
+        "Conditions": [
+          {
+            "NextAction": "f14c4ebf-1903-4624-adc3-98af029b17d4",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "authenticated"
+              ]
+            }
+          },
+          {
+            "NextAction": "4d34c60f-4536-479c-a470-196e1e8fd864",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "inconclusive"
+              ]
+            }
+          },
+          {
+            "NextAction": "4d34c60f-4536-479c-a470-196e1e8fd864",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "failed"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "4d34c60f-4536-479c-a470-196e1e8fd864",
+            "ErrorType": "NoMatchingCondition"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "SkipWhenDTMFBufferEnabled": "false",
+        "Text": "Thank you, you are authenticated"
+      },
+      "Identifier": "f14c4ebf-1903-4624-adc3-98af029b17d4",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "b1a015ba-e010-4625-8c92-5d020bc8eaaf",
+        "Errors": [
+          {
+            "NextAction": "b1a015ba-e010-4625-8c92-5d020bc8eaaf",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "SkipWhenDTMFBufferEnabled": "false",
+        "Text": "You are not authenticated, please ask registered user to callback."
+      },
+      "Identifier": "4d34c60f-4536-479c-a470-196e1e8fd864",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "0a626cd9-7cf7-43a9-af00-c7c0143fbfa1",
+        "Errors": [
+          {
+            "NextAction": "0a626cd9-7cf7-43a9-af00-c7c0143fbfa1",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {},
+      "Identifier": "0a626cd9-7cf7-43a9-af00-c7c0143fbfa1",
+      "Type": "DisconnectParticipant",
+      "Transitions": {}
+    },
+    {
+      "Parameters": {},
+      "Identifier": "ee5bd876-dc78-4565-9194-e6dd66f42522",
+      "Type": "EndFlowExecution",
+      "Transitions": {}
+    },
+    {
+      "Parameters": {
+        "MediaStreamingState": "Disabled",
+        "Participants": [
+          {
+            "ParticipantType": "Customer",
+            "MediaDirections": [
+              "To",
+              "From"
+            ]
+          }
+        ],
+        "MediaStreamType": "Audio"
+      },
+      "Identifier": "b1a015ba-e010-4625-8c92-5d020bc8eaaf",
+      "Type": "UpdateContactMediaStreamingBehavior",
+      "Transitions": {
+        "NextAction": "1a1e10b5-1982-440b-8e88-d2873b3833c6",
+        "Errors": [
+          {
+            "NextAction": "1a1e10b5-1982-440b-8e88-d2873b3833c6",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "ContactFlowId": "arn:aws:connect:us-east-1:411035539438:instance/1c5bb064-7b53-4c21-890f-6fd9ff999148/contact-flow/2733889d-7336-458e-87c4-9c342872b038"
+      },
+      "Identifier": "1a1e10b5-1982-440b-8e88-d2873b3833c6",
+      "Type": "TransferToFlow",
+      "Transitions": {
+        "NextAction": "ee5bd876-dc78-4565-9194-e6dd66f42522",
+        "Errors": [
+          {
+            "NextAction": "ee5bd876-dc78-4565-9194-e6dd66f42522",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    }
+  ]
+}
