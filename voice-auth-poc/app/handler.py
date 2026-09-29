@@ -25,6 +25,11 @@ from scoring import cosine, decide, valid_speaker_id
 log = logging.getLogger()
 log.setLevel(logging.INFO)
 
+# With provisioned concurrency this runs in the init phase, off the caller's clock, so the first real
+# request finds torch imported and the model loaded. Left off for enrol and for tests.
+if os.environ.get("PRELOAD_MODEL") == "1":
+    embed.encoder()
+
 TELEPHONY_SR = 8000  # what Connect puts in KVS
 VERIFY_SECONDS = float(os.environ.get("VERIFY_SECONDS", "15"))
 _thresholds: dict[str, float] = {}

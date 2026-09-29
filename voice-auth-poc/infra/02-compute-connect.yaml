@@ -179,7 +179,8 @@ Resources:
       ImageConfig: { Command: ["handler.enrol_handler"] }
       Role: !GetAtt EnrolRole.Arn
       MemorySize: 3008
-      Timeout: 60
+      # Not on the Connect path, so generous: the first cold start pulls a ~3 GB image and loads torch.
+      Timeout: 300
       Architectures: [x86_64]
       Environment:
         Variables:
@@ -202,6 +203,7 @@ Resources:
       Architectures: [x86_64]
       Environment:
         Variables:
+          PRELOAD_MODEL: "1"
           VOICEPRINT_TABLE: { Fn::ImportValue: !Sub "${FoundationStackName}-VoiceprintTable" }
           VERIFICATION_LOG_TABLE: { Fn::ImportValue: !Sub "${FoundationStackName}-VerificationLogTable" }
           THRESHOLD_PARAM_PREFIX: { Fn::ImportValue: !Sub "${FoundationStackName}-ThresholdPrefix" }
