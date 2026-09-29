@@ -34,7 +34,8 @@ TELEPHONY_SR = 8000  # what Connect puts in KVS
 # The caller's answers are spread through a conversation in which the bot talks most of the time, so read a wide
 # window of buffered audio, drop the silence, and score the speech: the first 15 s held only 2-3 s of caller speech.
 VERIFY_MAX_RAW_SECONDS = float(os.environ.get("VERIFY_MAX_RAW_SECONDS", "45"))  # cap on raw audio read
-VERIFY_READ_BUDGET = float(os.environ.get("VERIFY_READ_BUDGET", "3.0"))  # wall-clock cap on the read (Connect gives 8 s)
+VERIFY_LOOKBACK = float(os.environ.get("VERIFY_LOOKBACK", "18"))  # start this many seconds before now; 0 = from the start
+VERIFY_READ_BUDGET = float(os.environ.get("VERIFY_READ_BUDGET", "3.5"))  # wall-clock cap on the read (Connect gives 8 s)
 VERIFY_SPEECH_CAP = float(os.environ.get("VERIFY_SPEECH_CAP", "20"))  # score at most this much net speech
 # Minimum net speech to attempt a score. Below ~2 s an embedding is mostly noise; shorter audio also widens the
 # genuine/impostor score spread, so thresholds calibrated on long clips should be re-checked if this is lowered.
@@ -186,16 +187,35 @@ def _result(
 
 
 def _read_kvs_pcm(arn: str, fragment: str, info: dict | None = None) -> bytes:
+    """Read the most recent VERIFY_LOOKBACK seconds of caller audio (the answers come last in the conversation),
+    falling back to 'everything after the start fragment' if the timestamp read fails or returns nothing.
+    TODO(verify): SERVER_TIMESTAMP semantics when the start time precedes the stream's first fragment."""
+    info = info if info is not None else {}
     kv = boto3.client("kinesisvideo")
     ep = kv.get_data_endpoint(StreamARN=arn, APIName="GET_MEDIA")["DataEndpoint"]
     media = boto3.client("kinesis-video-media", endpoint_url=ep)
-    resp = media.get_media(
-        StreamARN=arn,
-        StartSelector={"StartSelectorType": "FRAGMENT_NUMBER", "AfterFragmentNumber": fragment},
-    )
     want = int(VERIFY_MAX_RAW_SECONDS * TELEPHONY_SR * 2)  # 16-bit mono
     deadline = time.monotonic() + VERIFY_READ_BUDGET
-    return mkv.extract_pcm(resp["Payload"], "AUDIO_FROM_CUSTOMER", max_bytes=want, info=info, deadline=deadline)
+    selectors = []
+    if VERIFY_LOOKBACK > 0:
+        selectors.append(
+            {"StartSelectorType": "SERVER_TIMESTAMP", "StartTimestamp": datetime.now(timezone.utc) - timedelta(seconds=VERIFY_LOOKBACK)}
+        )
+    selectors.append({"StartSelectorType": "FRAGMENT_NUMBER", "AfterFragmentNumber": fragment})
+    pcm = b""
+    for i, selector in enumerate(selectors):
+        try:
+            resp = media.get_media(StreamARN=arn, StartSelector=selector)
+            pcm = mkv.extract_pcm(resp["Payload"], "AUDIO_FROM_CUSTOMER", max_bytes=want, info=info, deadline=deadline)
+        except Exception as exc:  # noqa: BLE001 - try the next selector, keep the reason for the log
+            info["selector_error"] = type(exc).__name__
+            if i == len(selectors) - 1:
+                raise
+            continue
+        info["selector"] = selector["StartSelectorType"]
+        if pcm:
+            return pcm
+    return pcm
 
 
 def verify_handler(event: dict[str, Any], _ctx: Any = None) -> dict[str, str]:
@@ -217,7 +237,7 @@ def verify_handler(event: dict[str, Any], _ctx: Any = None) -> dict[str, str]:
         info: dict = {}
         raw = embed.pcm16_to_float(_read_kvs_pcm(arn, frag, info))
         wav = embed.trim_silence(raw, TELEPHONY_SR)[: int(VERIFY_SPEECH_CAP * TELEPHONY_SR)]
-        detail = f"{embed.audio_stats(raw, wav, TELEPHONY_SR)} stop={info.get('stopped', '?')} blocks={info.get('blocks_selected', '?')}/{info.get('blocks', '?')} tracks={','.join(info.get('tracks', []))}"
+        detail = f"{embed.audio_stats(raw, wav, TELEPHONY_SR)} sel={info.get('selector', '?')} stop={info.get('stopped', '?')} blocks={info.get('blocks_selected', '?')}/{info.get('blocks', '?')} tracks={','.join(info.get('tracks', []))}"
         if embed.speech_seconds(wav, TELEPHONY_SR) < VERIFY_MIN_SPEECH:
             return _finish(contact, _result("inconclusive", sid=sid, reason="insufficient_speech", detail=detail))
 

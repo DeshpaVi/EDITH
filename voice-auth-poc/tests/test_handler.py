@@ -145,3 +145,39 @@ def test_speech_is_capped_before_scoring(aws, monkeypatch):
     monkeypatch.setattr(embed, "embed", lambda w, sr: seen.setdefault("n", len(w)) and np.array([1, 0, 0, 0], dtype=np.float32))
     handler.verify_handler(EVENT)
     assert seen["n"] == int(handler.VERIFY_SPEECH_CAP * 8000)
+
+
+class _FakeMedia:
+    def __init__(self, fail_first=False, empty_first=False):
+        from test_core import stream
+        self.calls, self.fail_first, self.empty_first, self.stream = [], fail_first, empty_first, stream
+
+    def get_media(self, StreamARN, StartSelector):
+        import io
+        self.calls.append(StartSelector["StartSelectorType"])
+        if self.fail_first and len(self.calls) == 1:
+            raise RuntimeError("bad selector")
+        if self.empty_first and len(self.calls) == 1:
+            # a stream with the caller's track but no audio blocks
+            return {"Payload": io.BytesIO(self.stream()[: self.stream().index(b"\xa3")])}
+        return {"Payload": io.BytesIO(self.stream())}
+
+
+def _fake_boto(monkeypatch, media):
+    class KV:
+        def get_data_endpoint(self, **k): return {"DataEndpoint": "https://example.invalid"}
+    monkeypatch.setattr(handler.boto3, "client", lambda name, **k: KV() if name == "kinesisvideo" else media)
+
+
+def test_reads_recent_audio_first(monkeypatch):
+    m = _FakeMedia(); _fake_boto(monkeypatch, m)
+    info = {}
+    assert handler._read_kvs_pcm("arn", "1", info) == b"customer"
+    assert m.calls == ["SERVER_TIMESTAMP"] and info["selector"] == "SERVER_TIMESTAMP"
+
+
+def test_falls_back_to_fragment_number(monkeypatch):
+    for kw in ({"fail_first": True}, {"empty_first": True}):
+        m = _FakeMedia(**kw); _fake_boto(monkeypatch, m)
+        assert handler._read_kvs_pcm("arn", "1", {}) == b"customer"
+        assert m.calls == ["SERVER_TIMESTAMP", "FRAGMENT_NUMBER"]
