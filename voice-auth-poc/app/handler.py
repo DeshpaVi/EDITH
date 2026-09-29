@@ -92,8 +92,11 @@ def enrol_handler(event: dict[str, Any], _ctx: Any = None) -> dict[str, Any]:
         log.info(json.dumps({"event": "delete", "speakerId": sid, "audioObjects": deleted}))
         return {"ok": True, "deletedAudio": deleted}
 
+    if mode == "score":
+        return _score(table, s3, bucket, sid, event)
+
     if mode != "enrol":
-        return {"ok": False, "error": "mode must be enrol or delete"}
+        return {"ok": False, "error": "mode must be enrol, score or delete"}
     if not event.get("consentRef"):
         return {"ok": False, "error": "consentRef is required: no voiceprint without recorded consent"}
     keys = event.get("keys") or []
@@ -129,6 +132,33 @@ def enrol_handler(event: dict[str, Any], _ctx: Any = None) -> dict[str, Any]:
     )
     log.info(json.dumps({"event": "enrol", "speakerId": sid, "samples": len(embs)}))
     return {"ok": True, "samples": len(embs)}
+
+
+def _score(table: Any, s3: Any, bucket: str, sid: str, event: dict[str, Any]) -> dict[str, Any]:
+    """Offline check of the scoring path: raw cosine of each S3 clip against the stored voiceprint.
+    Returns scores only (no embeddings, no decisions); compare them to your thresholds by hand.
+    Impostor probes can be any public-dataset clip; genuine probes must NOT be enrolment clips."""
+    item = table.get_item(Key={"speakerId": sid}).get("Item")
+    if not item:
+        return {"ok": False, "error": "not_enrolled"}
+    enrolled = np.frombuffer(bytes(item["embedding"]), dtype=np.float32)
+    keys = event.get("keys") or []
+    if not keys or not all(k.startswith("enrol/") for k in keys):
+        return {"ok": False, "error": "keys must be a non-empty list under enrol/"}
+    scores: dict[str, Any] = {}
+    for k in keys:
+        try:
+            wav, sr = _read_wav(s3.get_object(Bucket=bucket, Key=k)["Body"].read(), event.get("channel"))
+        except ValueError as exc:
+            scores[k] = f"error: {exc}"
+            continue
+        wav = embed.trim_silence(wav, sr)
+        if embed.speech_seconds(wav, sr) < embed.MIN_SPEECH_SECONDS:
+            scores[k] = "error: insufficient speech"
+            continue
+        scores[k] = round(float(cosine(embed.embed(wav, sr), enrolled)), 4)
+    log.info(json.dumps({"event": "score", "speakerId": sid, "scores": scores}))
+    return {"ok": True, "scores": scores}
 
 
 # ------------------------------- verify ------------------------------------------------

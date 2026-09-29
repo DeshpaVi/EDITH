@@ -96,3 +96,26 @@ def test_stereo_requires_explicit_channel():
 def test_enrol_clip_floor(aws):
     r = handler.enrol_handler({"mode": "enrol", "speakerId": "spk_0009", "consentRef": "c", "keys": ["enrol/spk_0009/a.wav"]})
     assert not r["ok"] and "at least 2" in r["error"]
+
+
+def _wav_bytes(freq, seconds=6, sr=8000):
+    import io, wave
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(sr)
+        w.writeframes((np.sin(np.arange(sr * seconds) * freq) * 8000).astype("<i2").tobytes())
+    return buf.getvalue()
+
+
+def test_score_mode(aws, monkeypatch):
+    monkeypatch.setenv("ENROL_BUCKET", "enrol-bucket")
+    s3 = boto3.client("s3")
+    s3.create_bucket(Bucket="enrol-bucket")
+    s3.put_object(Bucket="enrol-bucket", Key="enrol/probe/g.wav", Body=_wav_bytes(0.05))
+    s3.put_object(Bucket="enrol-bucket", Key="enrol/probe/short.wav", Body=_wav_bytes(0.05, seconds=1))
+    monkeypatch.setattr(embed, "embed", lambda w, sr: np.array([1, 0, 0, 0], dtype=np.float32))
+    r = handler.enrol_handler({"mode": "score", "speakerId": "spk_0007", "keys": ["enrol/probe/g.wav", "enrol/probe/short.wav"]})
+    assert r["ok"] and r["scores"]["enrol/probe/g.wav"] == 1.0
+    assert "insufficient" in r["scores"]["enrol/probe/short.wav"]
+    assert not handler.enrol_handler({"mode": "score", "speakerId": "spk_0007", "keys": ["other/x.wav"]})["ok"]
+    assert handler.enrol_handler({"mode": "score", "speakerId": "spk_0099", "keys": ["enrol/probe/g.wav"]})["error"] == "not_enrolled"

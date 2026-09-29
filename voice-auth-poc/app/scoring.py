@@ -18,7 +18,7 @@ def cosine(a: Sequence[float], b: Sequence[float]) -> float:
     nb = math.sqrt(sum(y * y for y in b))
     if na == 0 or nb == 0:
         raise ValueError("zero-length embedding")
-    return dot / (na * nb)
+    return float(dot / (na * nb))
 
 
 def decide(score: float, low: float, high: float) -> str:
