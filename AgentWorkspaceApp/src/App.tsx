@@ -3,16 +3,20 @@ import { useContact } from './connect/useContact'
 import { AttributePanel } from './components/AttributePanel'
 import { ContactHeader } from './components/ContactHeader'
 import { Notice } from './components/Notice'
+import { FormPanel } from './components/FormPanel'
 import { TranscriptPanel } from './components/TranscriptPanel'
+import { useTranscript } from './transcript/useTranscript'
 
 /**
  * Two panes: the attributes the IVR collected (primary) and the live transcript
- * (secondary). They share the contact but not a data path — attributes come
+ * (secondary), plus a form that slides in when the conversation calls for one. They share the contact but not a data path — attributes come
  * over the workspace's postMessage bridge, the transcript comes from a backend
  * proxy — so one failing leaves the other standing.
  */
 export function App() {
   const { contact, error, bridgeKind, connecting } = useContact()
+  // One poll feeds both the transcript pane and the form suggestions.
+  const transcript = useTranscript(contact)
   const misconfigured = configErrors()
   const warnings = configWarnings()
 
@@ -47,8 +51,9 @@ export function App() {
       <div className="app__body">
         <div className="app__panes">
           <AttributePanel contact={contact} />
-          <TranscriptPanel contact={contact} />
+          <TranscriptPanel contact={contact} view={transcript} />
         </div>
+        <FormPanel key={contact?.contactId ?? 'none'} items={transcript.state.ordered} contact={contact} />
       </div>
     </div>
   )

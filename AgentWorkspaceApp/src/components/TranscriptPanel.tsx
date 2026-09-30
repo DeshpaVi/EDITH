@@ -20,7 +20,7 @@ import { config } from '../config/runtime'
 import type { ContactSnapshot } from '../connect'
 import { itemTimeLabel } from '../transcript/merge'
 import type { CharacterRange, TranscriptItem, TranscriptTurn } from '../transcript/types'
-import { auth, useTranscript } from '../transcript/useTranscript'
+import { auth, type TranscriptView } from '../transcript/useTranscript'
 import { Notice } from './Notice'
 
 const ROLE_LABEL: Record<TranscriptTurn['role'], string> = {
@@ -32,8 +32,8 @@ const ROLE_LABEL: Record<TranscriptTurn['role'], string> = {
   UNKNOWN: 'Unknown',
 }
 
-export function TranscriptPanel({ contact }: { contact: ContactSnapshot | null }) {
-  const { state, status, error, loading, stopped, retry } = useTranscript(contact)
+export function TranscriptPanel({ contact, view }: { contact: ContactSnapshot | null; view: TranscriptView }) {
+  const { state, status, error, loading, stopped, retry } = view
   const [authState, setAuthState] = useState(auth.getState())
   const bodyRef = useRef<HTMLDivElement>(null)
   const atBottomRef = useRef(true)

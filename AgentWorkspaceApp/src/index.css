@@ -361,3 +361,66 @@ button.link {
   white-space: nowrap;
   border: 0;
 }
+
+/* --- Topic form (slide-in) --------------------------------------------- */
+
+.app__body { position: relative; }
+
+.formpanel {
+  position: absolute;
+  inset: 0 0 0 auto;
+  width: min(380px, 100%);
+  z-index: 5;
+  padding: 10px 10px 10px 0;
+  display: flex;
+  animation: formpanel-in 220ms ease-out;
+  box-shadow: -8px 0 18px rgb(0 0 0 / 0.12);
+  background: var(--bg);
+}
+.formpanel__card { flex: 1; min-height: 0; }
+
+/* Wide enough for both panes and the form: sit beside them, cover nothing. */
+@container (min-width: 1180px) {
+  .formpanel { position: static; flex: 0 0 380px; box-shadow: none; background: transparent; }
+}
+
+@keyframes formpanel-in {
+  from { transform: translateX(32px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+.formpanel__body { padding: 10px 12px 12px; }
+.formpanel__why { margin: 0 0 10px; font-size: 12px; color: var(--text-muted); }
+.formpanel__why q, .field__evidence q { font-style: italic; color: var(--text); }
+.formpanel__actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.formpanel__saved { margin: 6px 0 0; font-size: 12px; color: var(--good); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.primary:hover { color: #fff; filter: brightness(1.08); }
+
+.formtabs { display: flex; gap: 4px; padding: 6px 12px 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+.formtabs__tab { border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 6px 8px; font-size: 12px; }
+.formtabs__tab[aria-selected='true'] { border-bottom-color: var(--accent); color: var(--accent); font-weight: 600; }
+.formtabs__dot { display: inline-block; width: 6px; height: 6px; margin-left: 5px; border-radius: 50%; background: var(--accent); }
+
+.field { margin-bottom: 10px; padding: 4px 6px; border-radius: var(--radius-sm); transition: background 600ms ease; }
+.field[data-fresh] { background: var(--good-soft); }
+.field__row { display: flex; align-items: center; gap: 6px; margin-bottom: 3px; }
+.field__row label { font-size: 12px; color: var(--text-muted); flex: 1; }
+.field input, .field select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+}
+.field input:focus-visible, .field select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.field__evidence { margin: 3px 0 0; font-size: 11px; color: var(--text-faint); overflow-wrap: anywhere; }
+
+@media (prefers-reduced-motion: reduce) {
+  .formpanel { animation: none; }
+  .field { transition: none; }
+}

@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "source": "Topic forms that open automatically from the live transcript. Edit this file to change the trigger phrases or the fields; extractors are named in src/forms/extract.ts.",
+  "forms": [
+    {
+      "id": "credit_card",
+      "label": "Credit card enrolment",
+      "triggers": [
+        "credit\\s*cards?",
+        "\\b(?:apply|applying|enrol+|enroll+ing|sign\\s*up)\\b.{0,30}\\bcards?\\b",
+        "\\bnew\\s+card\\b"
+      ],
+      "fields": [
+        { "key": "card_type", "label": "Credit card type", "type": "select", "options": ["Gold", "Platinum"], "extractor": "cardTier" },
+        { "key": "customer_id", "label": "Customer ID", "type": "text", "extractor": "customerId", "prefillFrom": "customer_id" },
+        { "key": "existing_customer", "label": "Existing customer", "type": "select", "options": ["Yes", "No"], "extractor": "existingCustomer" },
+        { "key": "city", "label": "City", "type": "text", "extractor": "ownCity", "prefillFrom": "city" }
+      ]
+    },
+    {
+      "id": "relative",
+      "label": "Relative information",
+      "triggers": [
+        "\\b(?:relatives?|family\\s+members?)\\b",
+        "\\b(?:my|his|her|our)\\s+(?:mother|mom|mum|father|dad|wife|husband|spouse|brother|sister|son|daughter|uncle|aunt|aunty|grandmother|grandfather|grandma|grandpa|cousin|mother-in-law|father-in-law)\\b"
+      ],
+      "fields": [
+        { "key": "relative_name", "label": "Relative name", "type": "text", "extractor": "relativeName" },
+        { "key": "relation", "label": "Relation", "type": "text", "extractor": "relation" },
+        { "key": "age", "label": "Age", "type": "number", "extractor": "age" },
+        { "key": "city", "label": "City", "type": "text", "extractor": "relativeCity" }
+      ]
+    },
+    {
+      "id": "password_reset",
+      "label": "Password reset",
+      "placeholder": true,
+      "triggers": [
+        "\\b(?:reset|change|forgot|forgotten|lost)\\b.{0,25}\\b(?:password|passcode|pin)\\b",
+        "\\bpassword\\b",
+        "\\blocked\\s+out\\b"
+      ],
+      "fields": [
+        { "key": "user_id", "label": "User ID", "type": "text", "extractor": "customerId", "prefillFrom": "customer_id" },
+        { "key": "verify_via", "label": "Send reset link via", "type": "select", "options": ["Email", "SMS"], "extractor": "verifyChannel" },
+        { "key": "reason", "label": "Reason", "type": "select", "options": ["Forgot password", "Account locked", "Password expired"], "extractor": "resetReason" }
+      ]
+    }
+  ]
+}
