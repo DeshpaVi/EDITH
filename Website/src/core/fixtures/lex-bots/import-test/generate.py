@@ -55,18 +55,20 @@ def slot(bot, intent, name, type_name, prompt):
             'multipleValuesSetting': None}
 
 
-def intent(bot, name, desc, utterances, slots, closing):
+def intent(bot, name, desc, utterances, slots, closing, dialog=False, fulfil=False):
     return {'name': name, 'identifier': ident(bot, name), 'description': desc,
             'parentIntentSignature': None,
             'sampleUtterances': [{'utterance': u} for u in utterances],
             'intentConfirmationSetting': None,
-            'intentClosingSetting': {'isActive': True, 'nextStep': None,
-                                     'closingResponse': {'messageGroupsList': [msg(closing)],
-                                                         'allowInterrupt': True}},
+            'intentClosingSetting': None if (dialog or fulfil) else {
+                'isActive': True, 'nextStep': None,
+                'closingResponse': {'messageGroupsList': [msg(closing)], 'allowInterrupt': True}},
             'initialResponseSetting': None, 'inputContexts': None, 'outputContexts': None,
             'kendraConfiguration': None, 'qnAIntentConfiguration': None,
             'bedrockAgentIntentConfiguration': None,
-            'dialogCodeHook': None, 'fulfillmentCodeHook': None,
+            'dialogCodeHook': {'enabled': True} if dialog else None,
+            'fulfillmentCodeHook': {'enabled': True, 'postFulfillmentStatusSpecification': None,
+                                    'fulfillmentUpdatesSpecification': None} if fulfil else None,
             'slotPriorities': [{'priority': i + 1, 'slotName': s[0]} for i, s in enumerate(slots)]}
 
 
@@ -111,28 +113,37 @@ def write_zip(bot, files):
 
 
 # ── Bot 1: PizzaOrderBot (en_US) ─────────────────────────────────────────────
+def pizza_bot(B1, desc, **hooks):
+    sizes = slot_type(B1, 'PizzaSize', 'Pizza sizes', [
+        ('small', ['personal', 'little']), ('medium', ['regular']), ('large', ['big', 'family'])])
+    toppings = slot_type(B1, 'PizzaTopping', 'Pizza toppings', [
+        ('cheese', ['plain', 'margherita']), ('pepperoni', []), ('mushroom', ['mushrooms']), ('veggie', ['vegetarian'])])
+    order_slots = [slot(B1, 'OrderPizza', 'size', 'PizzaSize', 'What size pizza would you like?'),
+                   slot(B1, 'OrderPizza', 'topping', 'PizzaTopping', 'What topping would you like?'),
+                   slot(B1, 'OrderPizza', 'quantity', 'AMAZON.Number', 'How many pizzas?')]
+    order = intent(B1, 'OrderPizza', 'Place a pizza order',
+                   ['I want to order a pizza', 'order a pizza', 'I would like a {size} {topping} pizza',
+                    'get me {quantity} {size} pizzas', 'pizza please'],
+                   [(s['name'],) for s in order_slots], 'Thanks! Your pizza order has been placed.', **hooks)
+    status_slots = [slot(B1, 'CheckOrderStatus', 'orderNumber', 'AMAZON.AlphaNumeric',
+                         'What is your order number?')]
+    status = intent(B1, 'CheckOrderStatus', 'Check the status of an order',
+                    ['where is my order', 'check my order status', 'status of order {orderNumber}',
+                     'track my pizza'],
+                    [(s['name'],) for s in status_slots], 'Your order is on its way.', **hooks)
+    return build(B1, desc, {
+        'en_US': ('English (US)', 'Kimberly', [sizes, toppings],
+                  [(order, order_slots), (status, status_slots)],
+                  "Sorry, I didn't understand that. You can order a pizza or check an order.")})
+
+
 B1 = 'PizzaOrderBot'
-sizes = slot_type(B1, 'PizzaSize', 'Pizza sizes', [
-    ('small', ['personal', 'little']), ('medium', ['regular']), ('large', ['big', 'family'])])
-toppings = slot_type(B1, 'PizzaTopping', 'Pizza toppings', [
-    ('cheese', ['plain', 'margherita']), ('pepperoni', []), ('mushroom', ['mushrooms']), ('veggie', ['vegetarian'])])
-order_slots = [slot(B1, 'OrderPizza', 'size', 'PizzaSize', 'What size pizza would you like?'),
-               slot(B1, 'OrderPizza', 'topping', 'PizzaTopping', 'What topping would you like?'),
-               slot(B1, 'OrderPizza', 'quantity', 'AMAZON.Number', 'How many pizzas?')]
-order = intent(B1, 'OrderPizza', 'Place a pizza order',
-               ['I want to order a pizza', 'order a pizza', 'I would like a {size} {topping} pizza',
-                'get me {quantity} {size} pizzas', 'pizza please'],
-               [(s['name'],) for s in order_slots], 'Thanks! Your pizza order has been placed.')
-status_slots = [slot(B1, 'CheckOrderStatus', 'orderNumber', 'AMAZON.AlphaNumeric',
-                     'What is your order number?')]
-status = intent(B1, 'CheckOrderStatus', 'Check the status of an order',
-                ['where is my order', 'check my order status', 'status of order {orderNumber}',
-                 'track my pizza'],
-                [(s['name'],) for s in status_slots], 'Your order is on its way.')
-bot1 = build(B1, 'Import test bot 1: custom + built-in slot types, 2 intents, 1 locale', {
-    'en_US': ('English (US)', 'Kimberly', [sizes, toppings],
-              [(order, order_slots), (status, status_slots)],
-              "Sorry, I didn't understand that. You can order a pizza or check an order.")})
+bot1 = pizza_bot(B1, 'Import test bot 1: custom + built-in slot types, 2 intents, 1 locale')
+B3 = 'PizzaFulfillmentBot'
+bot3 = pizza_bot(B3, 'Import test bot 3: PizzaOrderBot + fulfillment Lambda hook on every intent', fulfil=True)
+B4 = 'PizzaCodeHookBot'
+bot4 = pizza_bot(B4, 'Import test bot 4: PizzaOrderBot + dialog and fulfillment Lambda hook; the Lambda drives everything',
+                 dialog=True, fulfil=True)
 
 # ── Bot 2: AppointmentBot (en_US + es_US) ────────────────────────────────────
 B2 = 'AppointmentBot'
@@ -177,3 +188,5 @@ bot2 = build(B2, 'Import test bot 2: synonyms, AMAZON.Date/Time/Number, 2 locale
 if __name__ == '__main__':
     write_zip(B1, bot1)
     write_zip(B2, bot2)
+    write_zip(B3, bot3)
+    write_zip(B4, bot4)
