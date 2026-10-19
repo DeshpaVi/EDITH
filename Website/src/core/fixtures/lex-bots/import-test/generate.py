@@ -149,16 +149,17 @@ bot4 = pizza_bot(B4, 'Import test bot 4: PizzaOrderBot + dialog and fulfillment 
 B2 = 'AppointmentBot'
 
 
-def appt_locale(svc_vals, p, u, close_book, close_cancel, fb, svc_name='ServiceType'):
-    svc = slot_type(B2, svc_name, 'Type of service', svc_vals)
-    book_slots = [slot(B2, 'BookAppointment', 'serviceType', svc_name, p['svc']),
-                  slot(B2, 'BookAppointment', 'appointmentDate', 'AMAZON.Date', p['date']),
-                  slot(B2, 'BookAppointment', 'appointmentTime', 'AMAZON.Time', p['time'])]
-    book = intent(B2, 'BookAppointment', 'Book an appointment', u['book'],
-                  [(s['name'],) for s in book_slots], close_book)
-    cancel_slots = [slot(B2, 'CancelAppointment', 'confirmationNumber', 'AMAZON.Number', p['conf'])]
-    cancel = intent(B2, 'CancelAppointment', 'Cancel an appointment', u['cancel'],
-                    [(s['name'],) for s in cancel_slots], close_cancel)
+def appt_locale(svc_vals, p, u, close_book, close_cancel, fb, svc_name='ServiceType', bot=None, **hooks):
+    B2_ = bot or B2
+    svc = slot_type(B2_, svc_name, 'Type of service', svc_vals)
+    book_slots = [slot(B2_, 'BookAppointment', 'serviceType', svc_name, p['svc']),
+                  slot(B2_, 'BookAppointment', 'appointmentDate', 'AMAZON.Date', p['date']),
+                  slot(B2_, 'BookAppointment', 'appointmentTime', 'AMAZON.Time', p['time'])]
+    book = intent(B2_, 'BookAppointment', 'Book an appointment', u['book'],
+                  [(s['name'],) for s in book_slots], close_book, **hooks)
+    cancel_slots = [slot(B2_, 'CancelAppointment', 'confirmationNumber', 'AMAZON.Number', p['conf'])]
+    cancel = intent(B2_, 'CancelAppointment', 'Cancel an appointment', u['cancel'],
+                    [(s['name'],) for s in cancel_slots], close_cancel, **hooks)
     return [svc], [(book, book_slots), (cancel, cancel_slots)], fb
 
 
@@ -185,8 +186,31 @@ bot2 = build(B2, 'Import test bot 2: synonyms, AMAZON.Date/Time/Number, 2 locale
     'en_US': ('English (US)', 'Kimberly', *en[:2], en[2]),
     'es_US': ('Spanish (US)', 'Lupe', *es[:2], es[2])})
 
+def appt_hook_bot(name, desc, **hooks):
+    loc = appt_locale(
+        [('checkup', ['exam', 'physical']), ('cleaning', ['hygiene']), ('consultation', ['consult'])],
+        {'svc': 'What type of appointment do you need?', 'date': 'What date works for you?',
+         'time': 'What time would you like?', 'conf': 'What is your confirmation number?'},
+        {'book': ['book an appointment', 'I need an appointment', 'schedule a {serviceType}',
+                  'I would like a {serviceType} on {appointmentDate}',
+                  'book a {serviceType} at {appointmentTime}'],
+         'cancel': ['cancel my appointment', 'I need to cancel', 'cancel appointment {confirmationNumber}']},
+        'Your appointment is booked.', 'Your appointment has been cancelled.',
+        "Sorry, I didn't catch that. You can book or cancel an appointment.", bot=name, **hooks)
+    return build(name, desc, {'en_US': ('English (US)', 'Kimberly', *loc[:2], loc[2])})
+
+
+B5 = 'AppointmentFulfillmentBot'
+bot5 = appt_hook_bot(B5, 'Import test bot 5: AppointmentBot (en_US) + fulfillment Lambda hook', fulfil=True)
+B6 = 'AppointmentCodeHookBot'
+bot6 = appt_hook_bot(B6, 'Import test bot 6: AppointmentBot (en_US) + dialog and fulfillment Lambda hook',
+                     dialog=True, fulfil=True)
+
+
 if __name__ == '__main__':
     write_zip(B1, bot1)
     write_zip(B2, bot2)
     write_zip(B3, bot3)
     write_zip(B4, bot4)
+    write_zip(B5, bot5)
+    write_zip(B6, bot6)

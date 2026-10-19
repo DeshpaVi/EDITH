@@ -22,3 +22,12 @@ Both are `PizzaOrderBot` with Lambda hooks switched on in the intents. A Lambda 
 | `PizzaCodeHookBot.zip` | `PizzaCodeHookLambda.zip` | dialog + fulfillment | Validates size/topping/quantity (re-elicits bad values), delegates otherwise, then fulfills with a `[codehook-lambda] …` message |
 
 Setup per bot: Lambda console → Create function (Python 3.12, handler `lambda_function.lambda_handler`) → upload the Lambda zip. In Lex: import the bot zip → build the locale → Aliases → TestBotAlias (or a new alias) → en_US → select the Lambda function. Lex adds invoke permission automatically. Then test in the console, e.g. "order a pizza" → large → cheese → 2. The bracketed prefix in the reply proves the Lambda ran; CloudWatch logs print each event.
+
+### Appointment Lambda bots (en_US only)
+
+| Bot zip | Lambda zip | Hooks | Lambda behaviour |
+|---|---|---|---|
+| `AppointmentFulfillmentBot.zip` | `AppointmentFulfillmentLambda.zip` | fulfillment | Closes as Fulfilled with a `[fulfillment-lambda] …` message |
+| `AppointmentCodeHookBot.zip` | `AppointmentCodeHookLambda.zip` | dialog + fulfillment | Validates service type, date (not in the past), time (8am–5pm) and confirmation number; re-elicits bad values; fulfills with a `[codehook-lambda] …` message |
+
+Setup is the same as for the pizza Lambda bots above.
