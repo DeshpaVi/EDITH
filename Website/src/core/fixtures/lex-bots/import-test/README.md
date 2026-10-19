@@ -27,7 +27,7 @@ Setup per bot: Lambda console → Create function (Python 3.12, handler `lambda_
 
 | Bot zip | Lambda zip | Hooks | Lambda behaviour |
 |---|---|---|---|
-| `AppointmentFulfillmentBot.zip` | `AppointmentFulfillmentLambda.zip` | fulfillment | Closes as Fulfilled with a `[fulfillment-lambda] …` message |
-| `AppointmentCodeHookBot.zip` | `AppointmentCodeHookLambda.zip` | dialog + fulfillment | Validates service type, date (not in the past), time (8am–5pm) and confirmation number; re-elicits bad values; fulfills with a `[codehook-lambda] …` message |
+| `appointment_fulfillment_bot.zip` | `AppointmentFulfillmentLambda.zip` | fulfillment | Closes as Fulfilled with a `[fulfillment-lambda] …` message |
+| `appointment_codehook_bot.zip` | `AppointmentCodeHookLambda.zip` | dialog + fulfillment | Validates service type, date (not in the past), time (8am–5pm) and confirmation number; re-elicits bad values; fulfills with a `[codehook-lambda] …` message |
 
 Setup is the same as for the pizza Lambda bots above.

@@ -200,9 +200,9 @@ def appt_hook_bot(name, desc, **hooks):
     return build(name, desc, {'en_US': ('English (US)', 'Kimberly', *loc[:2], loc[2])})
 
 
-B5 = 'AppointmentFulfillmentBot'
+B5 = 'appointment_fulfillment_bot'
 bot5 = appt_hook_bot(B5, 'Import test bot 5: AppointmentBot (en_US) + fulfillment Lambda hook', fulfil=True)
-B6 = 'AppointmentCodeHookBot'
+B6 = 'appointment_codehook_bot'
 bot6 = appt_hook_bot(B6, 'Import test bot 6: AppointmentBot (en_US) + dialog and fulfillment Lambda hook',
                      dialog=True, fulfil=True)
 

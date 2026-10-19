@@ -1,0 +1,167 @@
+{
+  "Version": "2019-10-30",
+  "StartAction": "b93afe6f-c2cb-5a29-bdaf-6cdd39a1a00c",
+  "Metadata": {
+    "entryPointPosition": {
+      "x": 20,
+      "y": 40
+    },
+    "name": "appointment_fulfillment_flow",
+    "description": "Invokes Lex bot appointment_fulfillment_bot (fulfillment Lambda)",
+    "type": "contactFlow",
+    "status": "published",
+    "ActionMetadata": {
+      "b93afe6f-c2cb-5a29-bdaf-6cdd39a1a00c": {
+        "position": {
+          "x": 150,
+          "y": 40
+        }
+      },
+      "824dad95-0596-55b0-9aa5-d3abd8a97fa6": {
+        "position": {
+          "x": 400,
+          "y": 40
+        }
+      },
+      "147c280c-5542-56e2-a42c-e9d687e1ce1b": {
+        "position": {
+          "x": 650,
+          "y": 40
+        }
+      },
+      "d38ca3cb-8494-5060-8c18-cc2e80d484bc": {
+        "position": {
+          "x": 950,
+          "y": 20
+        }
+      },
+      "6f1da56c-f0f4-5081-921f-8f35ac8b7a88": {
+        "position": {
+          "x": 950,
+          "y": 220
+        }
+      },
+      "76346f39-c5f5-530b-806c-404527884d10": {
+        "position": {
+          "x": 1200,
+          "y": 120
+        }
+      }
+    }
+  },
+  "Actions": [
+    {
+      "Parameters": {
+        "LanguageCode": "en-US"
+      },
+      "Identifier": "b93afe6f-c2cb-5a29-bdaf-6cdd39a1a00c",
+      "Type": "UpdateContactData",
+      "Transitions": {
+        "NextAction": "824dad95-0596-55b0-9aa5-d3abd8a97fa6",
+        "Errors": [
+          {
+            "NextAction": "824dad95-0596-55b0-9aa5-d3abd8a97fa6",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "Welcome. I can help you book or cancel an appointment."
+      },
+      "Identifier": "824dad95-0596-55b0-9aa5-d3abd8a97fa6",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "147c280c-5542-56e2-a42c-e9d687e1ce1b",
+        "Errors": [
+          {
+            "NextAction": "147c280c-5542-56e2-a42c-e9d687e1ce1b",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "How can I help you today?",
+        "LexV2Bot": {
+          "AliasArn": "arn:aws:lex:us-east-1:123456789012:bot-alias/FULFILLBOT/TSTALIASID"
+        }
+      },
+      "Identifier": "147c280c-5542-56e2-a42c-e9d687e1ce1b",
+      "Type": "GetParticipantInput",
+      "Transitions": {
+        "NextAction": "6f1da56c-f0f4-5081-921f-8f35ac8b7a88",
+        "Conditions": [
+          {
+            "NextAction": "d38ca3cb-8494-5060-8c18-cc2e80d484bc",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "BookAppointment"
+              ]
+            }
+          },
+          {
+            "NextAction": "d38ca3cb-8494-5060-8c18-cc2e80d484bc",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "CancelAppointment"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "6f1da56c-f0f4-5081-921f-8f35ac8b7a88",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "6f1da56c-f0f4-5081-921f-8f35ac8b7a88",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "Thank you. Goodbye."
+      },
+      "Identifier": "d38ca3cb-8494-5060-8c18-cc2e80d484bc",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "76346f39-c5f5-530b-806c-404527884d10",
+        "Errors": [
+          {
+            "NextAction": "76346f39-c5f5-530b-806c-404527884d10",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "Sorry, I could not help with that. Goodbye."
+      },
+      "Identifier": "6f1da56c-f0f4-5081-921f-8f35ac8b7a88",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "76346f39-c5f5-530b-806c-404527884d10",
+        "Errors": [
+          {
+            "NextAction": "76346f39-c5f5-530b-806c-404527884d10",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {},
+      "Identifier": "76346f39-c5f5-530b-806c-404527884d10",
+      "Type": "DisconnectParticipant",
+      "Transitions": {}
+    }
+  ]
+}
