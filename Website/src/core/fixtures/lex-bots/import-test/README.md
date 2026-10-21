@@ -27,7 +27,16 @@ Setup per bot: Lambda console → Create function (Python 3.12, handler `lambda_
 
 | Bot zip | Lambda zip | Hooks | Lambda behaviour |
 |---|---|---|---|
-| `appointment_fulfillment_bot.zip` | `AppointmentFulfillmentLambda.zip` | fulfillment | Closes as Fulfilled with a `[fulfillment-lambda] …` message |
-| `appointment_codehook_bot.zip` | `AppointmentCodeHookLambda.zip` | dialog + fulfillment | Validates service type, date (not in the past), time (8am–5pm) and confirmation number; re-elicits bad values; fulfills with a `[codehook-lambda] …` message |
+| `appointment_fulfillment_bot.zip` | `AppointmentFulfillmentLambda.zip` | fulfillment | Books/cancels against DynamoDB (see below); replies with `[fulfillment-lambda] …` |
+| `appointment_codehook_bot.zip` | `AppointmentCodeHookLambda.zip` | dialog + fulfillment | Validates slots, checks the appointment exists on cancel, books/cancels against DynamoDB; replies with `[codehook-lambda] …` |
 
 Setup is the same as for the pizza Lambda bots above.
+
+#### DynamoDB-backed appointment Lambdas
+
+Both appointment Lambdas now persist to a table (default name `appointments`, override with env var `TABLE_NAME`; the two bots can share one table — rows carry a `source`).
+
+- Key: `appointmentId` (String). Attributes: `serviceType`, `appointmentDate`, `appointmentTime`, `status` (`BOOKED`/`CANCELLED`), `createdAt`, `cancelledAt`, `source`.
+- Book → new 6-digit `appointmentId` (conditional put, retried on collision); the reply is built from the stored row.
+- Cancel → row must exist and be `BOOKED`; set to `CANCELLED`; the reply shows the stored service/date/time. Unknown / already-cancelled numbers are reported, never invented. The code-hook bot also checks this during the dialog and re-asks for the number.
+- Setup: `aws dynamodb create-table --cli-input-json file://dynamodb/appointments-table.json`; add `dynamodb/lambda-dynamodb-policy.json` (fill in REGION/ACCOUNT_ID) to each Lambda's execution role; set `TABLE_NAME` if you changed the name. Lambda timeout: raise from the 3 s default to ~10 s.
