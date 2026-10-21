@@ -18,7 +18,7 @@ import random
 
 import boto3
 
-TABLE_NAME = os.environ.get('TABLE_NAME', 'appointments')
+TABLE_NAME = os.environ.get('TABLE_NAME', 'appointments').strip()
 SOURCE = 'codehook-bot'
 _table = None
 
