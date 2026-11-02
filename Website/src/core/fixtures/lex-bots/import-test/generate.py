@@ -221,7 +221,10 @@ ASSISTANT_ARN = os.environ.get(
     'ASSISTANT_ARN', 'arn:aws:wisdom:us-east-1:123456789012:assistant/00000000-0000-0000-0000-000000000000')
 
 
-def hotel_bot():
+Q_SIGNATURE = os.environ.get('Q_SIGNATURE', 'AMAZON.QInConnectIntent')  # unconfirmed casing; first try 'QinConnectIntent' was rejected by Lex
+
+
+def hotel_bot(with_q=True):
     menu_text = ', '.join(list(MENU)[:-1]) + ' and ' + list(MENU)[-1]
     food = slot_type(B7, 'FoodItem', 'Hotel menu items', [(k, v[0]) for k, v in MENU.items()])
     slots = [slot(B7, 'OrderFood', 'foodItem', 'FoodItem', f'What would you like to order? We have {menu_text}.'),
@@ -237,17 +240,18 @@ def hotel_bot():
                   f'We currently serve {menu_text}. Would you like to place an order?')
     # AI agent: Amazon Q in Connect answers free-form questions (menu details, ingredients, hotel info).
     q = intent(B7, 'QinConnectIntent', 'Amazon Q in Connect AI agent for general questions', [], [], '')
-    q['parentIntentSignature'] = 'AMAZON.QinConnectIntent'
+    q['parentIntentSignature'] = Q_SIGNATURE
     q['sampleUtterances'] = None
     q['intentClosingSetting'] = None
     q['qInConnectIntentConfiguration'] = {'qInConnectAssistantConfiguration': {'assistantArn': ASSISTANT_ARN}}
     return build(B7, 'Import test bot 7: hotel food ordering - OrderFood (Lambda), ShowMenu, Amazon Q in Connect AI agent', {
         'en_US': ('English (US)', 'Kimberly', [food],
-                  [(order, slots), (menu, []), (q, [])],
+                  [(order, slots), (menu, [])] + ([(q, [])] if with_q else []),
                   "Sorry, I didn't catch that. You can order food, or ask what is on the menu.")})
 
 
 bot7 = hotel_bot()
+bot7_no_q = hotel_bot(with_q=False)
 
 
 if __name__ == '__main__':
@@ -258,3 +262,4 @@ if __name__ == '__main__':
     write_zip(B5, bot5)
     write_zip(B6, bot6)
     write_zip(B7, bot7)
+    write_zip(B7 + '_no_q', {k.replace(B7 + '/', B7 + '_no_q/', 1) if False else k: v for k, v in bot7_no_q.items()})
