@@ -15,6 +15,10 @@ import json, os, sys, uuid
 HERE = os.path.dirname(os.path.abspath(__file__))
 NS = uuid.UUID('6f1c2d3e-0000-4000-8000-00000000e117')
 NAME = 'hotel_food_order_flow'
+AI_ONLY = '--ai-only' in sys.argv
+if AI_ONLY:
+    sys.argv.remove('--ai-only')
+    NAME = 'hotel_ai_agent_flow'
 
 
 def build(alias_arn, assistant_arn):
@@ -32,8 +36,10 @@ def build(alias_arn, assistant_arn):
          'Identifier': ids['lex'], 'Type': 'GetParticipantInput',
          'Transitions': {
              'NextAction': ids['sorry'],
-             'Conditions': [{'NextAction': ids['bye'], 'Condition': {'Operator': 'Equals', 'Operands': [i]}}
-                            for i in ('OrderFood', 'ShowMenu', 'QinConnectIntent')],
+             'Conditions': ([{'NextAction': ids['lex'], 'Condition': {'Operator': 'Equals', 'Operands': ['QinConnectIntent']}}]
+                            if AI_ONLY else
+                            [{'NextAction': ids['bye'], 'Condition': {'Operator': 'Equals', 'Operands': [i]}}
+                             for i in ('OrderFood', 'ShowMenu', 'QinConnectIntent')]),
              'Errors': [{'NextAction': ids['sorry'], 'ErrorType': 'NoMatchingCondition'},
                         {'NextAction': ids['sorry'], 'ErrorType': 'NoMatchingError'}]}},
         {'Parameters': {'Text': 'Thank you. Goodbye.'}, 'Identifier': ids['bye'], 'Type': 'MessageParticipant',
@@ -46,7 +52,7 @@ def build(alias_arn, assistant_arn):
            'sorry': (1200, 220), 'end': (1450, 120)}
     return {'Version': '2019-10-30', 'StartAction': ids['lang'],
             'Metadata': {'entryPointPosition': {'x': 20, 'y': 40}, 'name': NAME,
-                         'description': 'Invokes Lex bot hotel_food_order_bot with an Amazon Q in Connect session',
+                         'description': ('Invokes Lex bot hotel_ai_agent_bot; AI agent answers every turn (loops)' if AI_ONLY else 'Invokes Lex bot hotel_food_order_bot with an Amazon Q in Connect session'),
                          'type': 'contactFlow', 'status': 'published',
                          'ActionMetadata': {ids[k]: {'position': {'x': x, 'y': y}} for k, (x, y) in pos.items()}},
             'Actions': a}
@@ -54,7 +60,7 @@ def build(alias_arn, assistant_arn):
 
 if __name__ == '__main__':
     r, acct, bot, alias, asst = sys.argv[1:6] if len(sys.argv) == 6 else (
-        'us-east-1', '123456789012', 'HOTELBOT01', 'TSTALIASID', '00000000-0000-0000-0000-000000000000')
+        'us-east-1', '123456789012', ('HOTELAIBOT1' if AI_ONLY else 'HOTELBOT01'), 'TSTALIASID', '00000000-0000-0000-0000-000000000000')
     flow = build(f'arn:aws:lex:{r}:{acct}:bot-alias/{bot}/{alias}', f'arn:aws:wisdom:{r}:{acct}:assistant/{asst}')
     path = os.path.join(HERE, f'{NAME}.json')
     json.dump(flow, open(path, 'w'), indent=2)

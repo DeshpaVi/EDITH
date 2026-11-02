@@ -254,6 +254,24 @@ bot7 = hotel_bot()
 bot7_no_q = hotel_bot(with_q=False)
 
 
+# ── Bot 8: hotel_ai_agent_bot — Amazon Q in Connect AI agent is the ONLY responder ───────────────
+B8 = 'hotel_ai_agent_bot'
+
+
+def ai_only_bot():
+    q = intent(B8, 'QinConnectIntent', 'Amazon Q in Connect AI agent answers everything', [], [], '')
+    q['parentIntentSignature'] = Q_SIGNATURE
+    q['sampleUtterances'] = None
+    q['intentClosingSetting'] = None
+    q['qInConnectIntentConfiguration'] = {'qInConnectAssistantConfiguration': {'assistantArn': ASSISTANT_ARN}}
+    return build(B8, 'Import test bot 8: AI-agent-only hotel bot; every reply must come from Amazon Q in Connect', {
+        'en_US': ('English (US)', 'Kimberly', [], [(q, [])],
+                  '[lex-fallback] This reply did NOT come from the AI agent.')})
+
+
+bot8 = ai_only_bot()
+
+
 if __name__ == '__main__':
     write_zip(B1, bot1)
     write_zip(B2, bot2)
@@ -262,4 +280,5 @@ if __name__ == '__main__':
     write_zip(B5, bot5)
     write_zip(B6, bot6)
     write_zip(B7, bot7)
+    write_zip(B8, bot8)
     write_zip(B7 + '_no_q', {k.replace(B7 + '/', B7 + '_no_q/', 1) if False else k: v for k, v in bot7_no_q.items()})

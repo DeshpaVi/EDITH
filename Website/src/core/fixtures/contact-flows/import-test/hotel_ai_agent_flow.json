@@ -1,0 +1,180 @@
+{
+  "Version": "2019-10-30",
+  "StartAction": "768d4022-7a26-5220-a69f-a5e540850782",
+  "Metadata": {
+    "entryPointPosition": {
+      "x": 20,
+      "y": 40
+    },
+    "name": "hotel_ai_agent_flow",
+    "description": "Invokes Lex bot hotel_ai_agent_bot; AI agent answers every turn (loops)",
+    "type": "contactFlow",
+    "status": "published",
+    "ActionMetadata": {
+      "768d4022-7a26-5220-a69f-a5e540850782": {
+        "position": {
+          "x": 150,
+          "y": 40
+        }
+      },
+      "70b6eb64-0d01-5ca2-8d36-84d1a90b81f9": {
+        "position": {
+          "x": 400,
+          "y": 40
+        }
+      },
+      "7957ad55-8423-5641-ad16-5862dea362d5": {
+        "position": {
+          "x": 650,
+          "y": 40
+        }
+      },
+      "57ce7244-03d9-570e-a22b-958705f9bcd7": {
+        "position": {
+          "x": 900,
+          "y": 40
+        }
+      },
+      "c9ee66ec-34bf-5a81-96c7-d38f14cf3a2f": {
+        "position": {
+          "x": 1200,
+          "y": 20
+        }
+      },
+      "61493aeb-3d55-5b3a-8e18-af1b8da21d92": {
+        "position": {
+          "x": 1200,
+          "y": 220
+        }
+      },
+      "383aafbe-7b48-5f94-8163-094c1fb99a9a": {
+        "position": {
+          "x": 1450,
+          "y": 120
+        }
+      }
+    }
+  },
+  "Actions": [
+    {
+      "Parameters": {
+        "LanguageCode": "en-US"
+      },
+      "Identifier": "768d4022-7a26-5220-a69f-a5e540850782",
+      "Type": "UpdateContactData",
+      "Transitions": {
+        "NextAction": "70b6eb64-0d01-5ca2-8d36-84d1a90b81f9",
+        "Errors": [
+          {
+            "NextAction": "70b6eb64-0d01-5ca2-8d36-84d1a90b81f9",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "Welcome to hotel room service."
+      },
+      "Identifier": "70b6eb64-0d01-5ca2-8d36-84d1a90b81f9",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "7957ad55-8423-5641-ad16-5862dea362d5",
+        "Errors": [
+          {
+            "NextAction": "7957ad55-8423-5641-ad16-5862dea362d5",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "WisdomAssistantArn": "arn:aws:wisdom:us-east-1:123456789012:assistant/00000000-0000-0000-0000-000000000000"
+      },
+      "Identifier": "7957ad55-8423-5641-ad16-5862dea362d5",
+      "Type": "CreateWisdomSession",
+      "Transitions": {
+        "NextAction": "57ce7244-03d9-570e-a22b-958705f9bcd7",
+        "Errors": [
+          {
+            "NextAction": "57ce7244-03d9-570e-a22b-958705f9bcd7",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "What would you like? You can order food or ask about the menu.",
+        "LexV2Bot": {
+          "AliasArn": "arn:aws:lex:us-east-1:123456789012:bot-alias/HOTELAIBOT1/TSTALIASID"
+        }
+      },
+      "Identifier": "57ce7244-03d9-570e-a22b-958705f9bcd7",
+      "Type": "GetParticipantInput",
+      "Transitions": {
+        "NextAction": "61493aeb-3d55-5b3a-8e18-af1b8da21d92",
+        "Conditions": [
+          {
+            "NextAction": "57ce7244-03d9-570e-a22b-958705f9bcd7",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "QinConnectIntent"
+              ]
+            }
+          }
+        ],
+        "Errors": [
+          {
+            "NextAction": "61493aeb-3d55-5b3a-8e18-af1b8da21d92",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "61493aeb-3d55-5b3a-8e18-af1b8da21d92",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "Thank you. Goodbye."
+      },
+      "Identifier": "c9ee66ec-34bf-5a81-96c7-d38f14cf3a2f",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "383aafbe-7b48-5f94-8163-094c1fb99a9a",
+        "Errors": [
+          {
+            "NextAction": "383aafbe-7b48-5f94-8163-094c1fb99a9a",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Text": "Sorry, I could not help with that. Goodbye."
+      },
+      "Identifier": "61493aeb-3d55-5b3a-8e18-af1b8da21d92",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "383aafbe-7b48-5f94-8163-094c1fb99a9a",
+        "Errors": [
+          {
+            "NextAction": "383aafbe-7b48-5f94-8163-094c1fb99a9a",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {},
+      "Identifier": "383aafbe-7b48-5f94-8163-094c1fb99a9a",
+      "Type": "DisconnectParticipant",
+      "Transitions": {}
+    }
+  ]
+}
