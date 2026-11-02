@@ -49,4 +49,4 @@ Files: `hotel_food_order_bot.zip`, `HotelFoodOrderLambda.zip` (DynamoDB table `h
 
 Setup: create the table and give the Lambda `dynamodb:PutItem`; import and build the bot; set `assistantArn` on `QinConnectIntent` to your Q in Connect assistant (the zip carries a placeholder; regenerate with `ASSISTANT_ARN=... python3 -I generate.py`); attach the Lambda to the alias. **The Q intent only works inside a Connect flow** (the session ARN comes from Connect), so test the whole thing through the flow, not the Lex test window. In the Lex window, OrderFood and ShowMenu work; QinConnectIntent will not answer.
 
-The `qInConnectIntentConfiguration` key and `AMAZON.QinConnectIntent` signature follow the Lex V2 API docs and have not been confirmed against a real export (`TODO(source-schema)`).
+The Q intent's parent signature is `AMAZON.QInConnectIntent` (capital I). The lowercase-i spelling used in the AWS docs page title is rejected by Lex import. Confirmed by a real import of `hotel_food_order_bot.zip`. `hotel_food_order_bot_no_q.zip` is the same bot without the Q intent.

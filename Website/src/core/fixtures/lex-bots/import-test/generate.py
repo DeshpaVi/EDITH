@@ -221,7 +221,7 @@ ASSISTANT_ARN = os.environ.get(
     'ASSISTANT_ARN', 'arn:aws:wisdom:us-east-1:123456789012:assistant/00000000-0000-0000-0000-000000000000')
 
 
-Q_SIGNATURE = os.environ.get('Q_SIGNATURE', 'AMAZON.QInConnectIntent')  # unconfirmed casing; first try 'QinConnectIntent' was rejected by Lex
+Q_SIGNATURE = os.environ.get('Q_SIGNATURE', 'AMAZON.QInConnectIntent')  # confirmed by a real Lex import; 'QinConnectIntent' (lowercase i) is rejected
 
 
 def hotel_bot(with_q=True):
