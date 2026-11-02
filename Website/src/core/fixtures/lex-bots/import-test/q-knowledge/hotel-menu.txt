@@ -1,0 +1,14 @@
+Hotel Room Service Menu
+
+Room service is available 24 hours a day. Orders are delivered to the guest's room.
+Every order gets an order ID. Preparation and delivery time depends on the dish.
+Each extra portion of the same dish adds about 5 minutes.
+
+Pizza - about 25 minutes
+Burger - about 15 minutes
+Noodles - about 15 minutes
+Fried rice - about 15 minutes
+Pasta - about 20 minutes
+Sandwich - about 10 minutes
+Salad - about 10 minutes
+Soup - about 10 minutes

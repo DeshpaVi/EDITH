@@ -40,3 +40,13 @@ Both appointment Lambdas now persist to a table (default name `appointments`, ov
 - Book → new 6-digit `appointmentId` (conditional put, retried on collision); the reply is built from the stored row.
 - Cancel → row must exist and be `BOOKED`; set to `CANCELLED`; the reply shows the stored service/date/time. Unknown / already-cancelled numbers are reported, never invented. The code-hook bot also checks this during the dialog and re-asks for the number.
 - Setup: `aws dynamodb create-table --cli-input-json file://dynamodb/appointments-table.json`; add `dynamodb/lambda-dynamodb-policy.json` (fill in REGION/ACCOUNT_ID) to each Lambda's execution role; set `TABLE_NAME` if you changed the name. Lambda timeout: raise from the 3 s default to ~10 s.
+
+## hotel_food_order_bot (Amazon Q in Connect AI agent + order Lambda)
+
+en_US only. Intents: `OrderFood` (slots foodItem / quantity / roomNumber; fulfillment Lambda), `ShowMenu` (static menu reply), `QinConnectIntent` (`AMAZON.QinConnectIntent`, the Amazon Q in Connect AI agent for free-form questions), plus Fallback. Menu: pizza, burger, noodles, fried rice, pasta, sandwich, salad, soup.
+
+Files: `hotel_food_order_bot.zip`, `HotelFoodOrderLambda.zip` (DynamoDB table `hotel_orders`, key `orderId` String; env `TABLE_NAME`, `TIMEZONE`), `q-knowledge/hotel-menu.txt` (menu document for the Q in Connect knowledge base), and `../../contact-flows/import-test/hotel_food_order_flow.json`.
+
+Setup: create the table and give the Lambda `dynamodb:PutItem`; import and build the bot; set `assistantArn` on `QinConnectIntent` to your Q in Connect assistant (the zip carries a placeholder; regenerate with `ASSISTANT_ARN=... python3 -I generate.py`); attach the Lambda to the alias. **The Q intent only works inside a Connect flow** (the session ARN comes from Connect), so test the whole thing through the flow, not the Lex test window. In the Lex window, OrderFood and ShowMenu work; QinConnectIntent will not answer.
+
+The `qInConnectIntentConfiguration` key and `AMAZON.QinConnectIntent` signature follow the Lex V2 API docs and have not been confirmed against a real export (`TODO(source-schema)`).

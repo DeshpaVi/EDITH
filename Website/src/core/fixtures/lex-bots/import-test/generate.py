@@ -207,6 +207,49 @@ bot6 = appt_hook_bot(B6, 'Import test bot 6: AppointmentBot (en_US) + dialog and
                      dialog=True, fulfil=True)
 
 
+# ── Bot 7: hotel_food_order_bot (en_US) — Amazon Q in Connect AI agent + order Lambda ─────────────
+# Menu: name -> (synonyms, prep minutes). Keep in sync with lambda/hotel-order/lambda_function.py
+# and q-knowledge/hotel-menu.txt (checked by the assertions below).
+MENU = {
+    'pizza': (['pizzas'], 25), 'burger': (['burgers', 'hamburger'], 15),
+    'noodles': (['noodle', 'chow mein'], 15), 'fried rice': (['rice'], 15),
+    'pasta': (['spaghetti'], 20), 'sandwich': (['sandwiches', 'club sandwich'], 10),
+    'salad': (['salads'], 10), 'soup': (['soups'], 10),
+}
+B7 = 'hotel_food_order_bot'
+ASSISTANT_ARN = os.environ.get(
+    'ASSISTANT_ARN', 'arn:aws:wisdom:us-east-1:123456789012:assistant/00000000-0000-0000-0000-000000000000')
+
+
+def hotel_bot():
+    menu_text = ', '.join(list(MENU)[:-1]) + ' and ' + list(MENU)[-1]
+    food = slot_type(B7, 'FoodItem', 'Hotel menu items', [(k, v[0]) for k, v in MENU.items()])
+    slots = [slot(B7, 'OrderFood', 'foodItem', 'FoodItem', f'What would you like to order? We have {menu_text}.'),
+             slot(B7, 'OrderFood', 'quantity', 'AMAZON.Number', 'How many would you like?'),
+             slot(B7, 'OrderFood', 'roomNumber', 'AMAZON.Number', 'What is your room number?')]
+    order = intent(B7, 'OrderFood', 'Order food to a hotel room',
+                   ['I want to order food', 'order food', 'room service', 'I would like to order a {foodItem}',
+                    'order {quantity} {foodItem}', 'I want {quantity} {foodItem} to room {roomNumber}',
+                    'can I get a {foodItem}'],
+                   [(x['name'],) for x in slots], '', fulfil=True)
+    menu = intent(B7, 'ShowMenu', 'List the available food', ['show me the menu', 'what food do you have',
+                  'what is available', 'what can I order', 'menu please'], [],
+                  f'We currently serve {menu_text}. Would you like to place an order?')
+    # AI agent: Amazon Q in Connect answers free-form questions (menu details, ingredients, hotel info).
+    q = intent(B7, 'QinConnectIntent', 'Amazon Q in Connect AI agent for general questions', [], [], '')
+    q['parentIntentSignature'] = 'AMAZON.QinConnectIntent'
+    q['sampleUtterances'] = None
+    q['intentClosingSetting'] = None
+    q['qInConnectIntentConfiguration'] = {'qInConnectAssistantConfiguration': {'assistantArn': ASSISTANT_ARN}}
+    return build(B7, 'Import test bot 7: hotel food ordering - OrderFood (Lambda), ShowMenu, Amazon Q in Connect AI agent', {
+        'en_US': ('English (US)', 'Kimberly', [food],
+                  [(order, slots), (menu, []), (q, [])],
+                  "Sorry, I didn't catch that. You can order food, or ask what is on the menu.")})
+
+
+bot7 = hotel_bot()
+
+
 if __name__ == '__main__':
     write_zip(B1, bot1)
     write_zip(B2, bot2)
@@ -214,3 +257,4 @@ if __name__ == '__main__':
     write_zip(B4, bot4)
     write_zip(B5, bot5)
     write_zip(B6, bot6)
+    write_zip(B7, bot7)
