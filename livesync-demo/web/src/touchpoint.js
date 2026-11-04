@@ -91,10 +91,15 @@ const ACTIONS = [
 async function boot() {
   if (!API || API.startsWith("REPLACE_")) throw new Error("Set apiBase in web/public/config.js");
   const cfg = await fetch(`${API}/config`).then((r) => r.json());
-  const { deploymentKey, apiKey } = await fetch(`${API}/livesync-token`).then((r) => {
-    if (!r.ok) throw new Error(`livesync-token failed: ${r.status}`);
-    return r.json();
-  });
+  // Live Sync keys are optional: without them the widget runs as a plain Connect chat.
+  let liveSyncKeys = null;
+  try {
+    const r = await fetch(`${API}/livesync-token`);
+    if (!r.ok) throw new Error(`status ${r.status}`);
+    liveSyncKeys = await r.json();
+  } catch (err) {
+    console.warn("[livesync-demo] Live Sync keys unavailable, starting plain chat:", err.message);
+  }
 
   const touchpoint = await create({
     config: {
@@ -106,11 +111,11 @@ async function boot() {
     },
     input: "text",
     windowSize: "floating",
-    liveSync: { deploymentKey, apiKey },
+    ...(liveSyncKeys && { liveSync: { deploymentKey: liveSyncKeys.deploymentKey, apiKey: liveSyncKeys.apiKey } }),
   });
 
   // Advertise the actions the agent may take (README: sent once a contact exists).
-  await touchpoint.sendContext({ actions: ACTIONS });
+  if (liveSyncKeys) await touchpoint.sendContext({ actions: ACTIONS });
 
   // TODO(acxd-schema): Live Sync Script steps (acxd/script.definition.mjs) are signalled by the
   // page via touchpoint.sendStep({ stepId, scriptId, apiKey, context }). Not wired yet: confirm
