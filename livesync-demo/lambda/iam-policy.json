@@ -1,0 +1,10 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "connect:StartChatContact",
+      "Resource": "arn:aws:connect:<REGION>:<ACCOUNT_ID>:instance/<CONNECT_INSTANCE_ID>/contact-flow/<CONTACT_FLOW_ID>"
+    }
+  ]
+}

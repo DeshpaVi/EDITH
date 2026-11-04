@@ -5,7 +5,7 @@
   "engines": { "node": ">=18" },
   "scripts": {
     "build:web": "esbuild web/src/touchpoint.js --bundle --format=esm --outfile=web/public/touchpoint.bundle.js",
-    "start": "node --env-file=.env server/index.mjs",
+    "start": "node server/static.mjs",
     "dev": "npm run build:web && npm start",
     "acxd:script": "node --env-file=.env acxd/upsert-script.mjs",
     "acxd:script:dry": "node acxd/upsert-script.mjs --dry-run",
@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "@amazon-connect-touchpoint/web": "*",
-    "@aws-sdk/client-connect": "^3.600.0",
     "amazon-connect-acxd-sdk": "*"
   },
   "devDependencies": {
