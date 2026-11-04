@@ -1,8 +1,8 @@
-// AWS Lambda (Node.js 20.x) behind an API Gateway HTTP API (payload format 2.0).
+// AWS Lambda (Node.js 20.x or 24.x) behind an API Gateway HTTP API (payload format 2.0).
 //   GET  /config          non-secret Connect identifiers
 //   GET  /livesync-token  Live Sync deployment key + API key
 //   POST /start-chat      Connect StartChatContact -> participant credentials
-// @aws-sdk/client-connect is bundled in the Node.js 20 Lambda runtime; no packaging needed.
+// @aws-sdk/client-connect is bundled in the Node.js Lambda runtimes (20.x and 24.x); no packaging needed.
 import { ConnectClient, StartChatContactCommand } from "@aws-sdk/client-connect";
 
 const env = (k) => process.env[k] ?? "";

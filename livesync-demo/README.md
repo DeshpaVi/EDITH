@@ -79,7 +79,7 @@ and **API key**.
 Create the API (do this after step 5 so you have the contact flow ID):
 1. **IAM role** for the Lambda: attach `AWSLambdaBasicExecutionRole` plus `lambda/iam-policy.json`
    (fill in region, account, instance and flow IDs).
-2. **Lambda:** runtime Node.js 20.x, handler `handler.handler`, upload `lambda/handler.mjs`
+2. **Lambda:** runtime Node.js 20.x or 24.x, handler `handler.handler`, upload `lambda/handler.mjs`
    (the AWS SDK v3 is included in the runtime). Environment variables:
 
    | Variable | Value |
