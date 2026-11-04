@@ -55,16 +55,20 @@ export const handler = async (event) => {
       const out = await connect.send(new StartChatContactCommand({
         InstanceId: env("CONNECT_INSTANCE_ID"),
         ContactFlowId: env("CONNECT_CONTACT_FLOW_ID"),
-        ParticipantDetails: { DisplayName: String(body.displayName ?? "Census visitor").slice(0, 256) },
-        // Demo only; do not put real PII in attributes.
-        Attributes: { source: "census-2030-demo", page: String(body.page ?? "").slice(0, 200) },
-        SupportedMessagingContentTypes: ["text/plain", "text/markdown"],
+        ParticipantDetails: { DisplayName: String(body.participantDisplayName ?? "Census visitor").slice(0, 256) },
+        // Demo only; do not put real PII in attributes. Touchpoint sends `contactAttributes`.
+        Attributes: { source: "census-2030-demo", ...(body.contactAttributes ?? {}) },
+        SupportedMessagingContentTypes: body.supportedMessagingContentTypes ?? ["text/plain", "text/markdown"],
       }));
-      // TODO(acxd-schema): confirm the field names Touchpoint reads from this response.
+      // Touchpoint's ChatDetails type is { contactId, participantId, participantToken }.
+      // TODO(source-schema): unconfirmed whether Touchpoint also unwraps the AWS sample's
+      // { data: { startChatResult } } shape, so both are returned. Remove one once confirmed.
+      const result = { ContactId: out.ContactId, ParticipantId: out.ParticipantId, ParticipantToken: out.ParticipantToken };
       return reply(200, {
-        ContactId: out.ContactId,
-        ParticipantId: out.ParticipantId,
-        ParticipantToken: out.ParticipantToken,
+        contactId: out.ContactId,
+        participantId: out.ParticipantId,
+        participantToken: out.ParticipantToken,
+        data: { startChatResult: result },
         region: env("AWS_REGION"),
       }, origin);
     }

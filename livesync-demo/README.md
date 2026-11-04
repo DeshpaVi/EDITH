@@ -24,7 +24,7 @@ verified from the build sandbox. Every unverified assumption is marked `TODO(acx
 
 | Where | What to confirm |
 | --- | --- |
-| `web/src/touchpoint.js` | `Touchpoint` export name and `init()` option names (the doc itself says "confirm") |
+| `web/src/touchpoint.js` | Export is `create()` (confirmed, v1.0.5). Still unconfirmed: the Live Sync action names must match those declared on the Canvas Live Sync node, and whether Script steps need explicit `sendStep()` calls |
 | `web/src/touchpoint.js`, `lambda/handler.mjs` | response shape Touchpoint expects from the start-chat endpoint |
 | `acxd/script.definition.mjs` | shape of `trigger.query` (`{selector}` is a guess); `stateModifications` operand shape (left out) |
 | `acxd/lib.mjs`, `upsert-script.mjs` | response id fields (`liveSyncScriptId`, `buildId`, `deploymentId`) and the List response key |
