@@ -1,0 +1,22 @@
+{
+  "name": "census-2030-livesync-demo",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "build:web": "esbuild web/src/touchpoint.js --bundle --format=esm --outfile=web/public/touchpoint.bundle.js",
+    "start": "node --env-file=.env server/index.mjs",
+    "dev": "npm run build:web && npm start",
+    "acxd:script": "node --env-file=.env acxd/upsert-script.mjs",
+    "acxd:script:dry": "node acxd/upsert-script.mjs --dry-run",
+    "acxd:deploy": "node --env-file=.env acxd/build-and-deploy.mjs"
+  },
+  "dependencies": {
+    "@amazon-connect-touchpoint/web": "*",
+    "@aws-sdk/client-connect": "^3.600.0",
+    "amazon-connect-acxd-sdk": "*"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  }
+}

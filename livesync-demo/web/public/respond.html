@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Respond — Census 2030 Demo</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="demo-banner">Demo website for testing Amazon Connect ACXD Live Sync. Not an official government site. Do not enter real personal information.</div>
+  <header class="site">
+    <div class="wrap">
+      <a class="brand" href="/"><span class="seal" aria-hidden="true"></span>Census 2030</a>
+      <nav>
+        <a href="/">Home</a>
+        <a href="/respond.html" aria-current="page">Respond</a>
+        <a href="/faq.html">FAQ</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <h1 data-livesync="respond-title" style="color:var(--navy);margin-top:32px">Respond to the census</h1>
+    <div class="notice">This is a practice form. Nothing is submitted or stored.</div>
+
+    <form class="census" id="census-form" novalidate>
+      <fieldset>
+        <legend>Your household</legend>
+        <label for="household-size">How many people live at this address?</label>
+        <input id="household-size" name="householdSize" type="number" min="1" max="30" inputmode="numeric" data-livesync="household-size" required>
+        <p class="hint">Include everyone who lives and sleeps here most of the time, babies included.</p>
+
+        <label for="tenure">Is this home owned or rented?</label>
+        <select id="tenure" name="tenure" data-livesync="tenure">
+          <option value="">Select one</option>
+          <option>Owned with a mortgage</option>
+          <option>Owned free and clear</option>
+          <option>Rented</option>
+          <option>Occupied without rent</option>
+        </select>
+      </fieldset>
+
+      <fieldset>
+        <legend>Your address</legend>
+        <label for="street">Street address</label>
+        <input id="street" name="street" type="text" autocomplete="off" data-livesync="street">
+        <label for="zip">ZIP code</label>
+        <input id="zip" name="zip" type="text" inputmode="numeric" maxlength="5" autocomplete="off" data-livesync="zip">
+      </fieldset>
+
+      <div class="help-row">
+        <button class="btn btn-primary" type="submit" id="submit-census" data-livesync="submit-census">Submit my response</button>
+        <button class="btn btn-outline" type="button" id="need-help" data-livesync="need-help">Talk to a person</button>
+      </div>
+      <p id="submitted" class="notice" hidden>Thanks! (Demo only — nothing was sent.)</p>
+    </form>
+  </main>
+
+  <footer class="site"><div class="wrap">Census 2030 demo · Built for ACXD Live Sync testing</div></footer>
+  <script>
+    document.getElementById('census-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      document.getElementById('submitted').hidden = false;
+    });
+  </script>
+  <script type="module" src="/touchpoint.bundle.js"></script>
+</body>
+</html>

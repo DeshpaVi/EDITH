@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Census 2030 — Demo Site</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="demo-banner">Demo website for testing Amazon Connect ACXD Live Sync. Not an official government site. Do not enter real personal information.</div>
+  <header class="site">
+    <div class="wrap">
+      <a class="brand" href="/"><span class="seal" aria-hidden="true"></span>Census 2030</a>
+      <nav>
+        <a href="/" aria-current="page">Home</a>
+        <a href="/respond.html">Respond</a>
+        <a href="/faq.html">FAQ</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <div class="hero">
+      <div class="wrap">
+        <h1 data-livesync="hero-title">Be counted in 2030.</h1>
+        <p>Every ten years, the census shapes funding for schools, roads and hospitals in your community. It takes about ten minutes.</p>
+        <a class="btn btn-primary" id="start-census" data-livesync="start-census" href="/respond.html">Start the census</a>
+        <a class="btn btn-ghost" href="/faq.html">How it works</a>
+      </div>
+    </div>
+
+    <div class="wrap">
+      <div class="cards">
+        <div class="card" data-livesync="step-1"><div class="num">1</div><h3>Get ready</h3><p>Have your address and the number of people living there on April 1.</p></div>
+        <div class="card" data-livesync="step-2"><div class="num">2</div><h3>Respond</h3><p>Answer a few short questions online, by phone, or with our virtual guide.</p></div>
+        <div class="card" data-livesync="step-3"><div class="num">3</div><h3>Done</h3><p>Your answers are confidential and used only for statistics.</p></div>
+      </div>
+
+      <section class="block">
+        <h2>Why it matters</h2>
+        <div class="stats">
+          <div class="stat"><b>$2.8T</b>federal funds guided by census data (demo figure)</div>
+          <div class="stat"><b>435</b>congressional seats apportioned</div>
+          <div class="stat"><b>10 min</b>average time to respond (demo figure)</div>
+        </div>
+        <p>Stuck? Open the assistant in the corner — it can talk you through each page and highlight where to type.</p>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site"><div class="wrap">Census 2030 demo · Built for ACXD Live Sync testing · <a href="/faq.html">FAQ</a></div></footer>
+  <script type="module" src="/touchpoint.bundle.js"></script>
+</body>
+</html>
