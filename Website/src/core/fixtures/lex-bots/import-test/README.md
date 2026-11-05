@@ -62,6 +62,6 @@ To prove a reply came from the agent, give the agent's AI prompt this rule: "Beg
 Files: `hotel_food_order_bot_fixed.zip`, `../../contact-flows/import-test/hotel_menu_lex_test_fixed.json`, updated `HotelFoodOrderLambda.zip`.
 
 - Flow: one Q in Connect session (no custom agent forced, so the instance default self-service agent, which searches the KB, answers); no `x-amz-lex:q-in-connect:ai-agent-arn` session attribute; QinConnectIntent / OrderFood loop back to the Lex block (not through voice/session blocks, which recreated the Wisdom session every turn); no transfer to queue.
-- Bot: ShowMenu removed (menu questions fall through to the Q intent / KB); the "let me transfer to food order dep" closing message on QinConnectIntent removed.
+- Bot: ShowMenu removed (menu questions fall through to the Q intent / KB); the "let me transfer to food order dep" closing message on QinConnectIntent replaced with "Is there anything else I can help you with?" (the closing response must stay active: post-fulfilment steps use CloseIntent, and Lex refuses to build otherwise).
 - Lambda: answers DialogCodeHook invocations with Delegate (the console enables dialog hooks when a Lambda is attached), so only fulfilment places orders.
 - Custom agent `hotel-order-menu` has no tools (Tools 0), so it cannot search the KB; do not pin it until a KB tool is attached.
