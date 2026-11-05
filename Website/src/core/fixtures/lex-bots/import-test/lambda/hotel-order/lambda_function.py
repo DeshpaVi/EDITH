@@ -8,6 +8,7 @@ Expected time = now + prep minutes for the item (+5 min per extra unit), shown a
 
 Env: TABLE_NAME (default "hotel_orders"), TIMEZONE (default "UTC", e.g. "Asia/Kolkata").
 IAM: dynamodb:PutItem on the table. Table key: orderId (String).
+DialogCodeHook invocations are answered with Delegate; only FulfillmentCodeHook places an order.
 Replies carry "[hotel-lambda]" so a successful invocation is obvious.
 """
 import datetime
@@ -71,8 +72,17 @@ def close(event, text, state='Fulfilled'):
             'messages': [{'contentType': 'PlainText', 'content': f'[hotel-lambda] {text}'}]}
 
 
+def delegate(event):
+    return {'sessionState': {'sessionAttributes': event['sessionState'].get('sessionAttributes') or {},
+                             'dialogAction': {'type': 'Delegate'}, 'intent': event['sessionState']['intent']}}
+
+
 def lambda_handler(event, context):
     print(event)
+    # The console enables the dialog code hook on intents/slots when a Lambda is attached to the alias.
+    # Those calls arrive with invocationSource DialogCodeHook: let Lex continue; only fulfil on fulfilment.
+    if event.get('invocationSource') == 'DialogCodeHook':
+        return delegate(event)
     intent = event['sessionState']['intent']
     try:
         if intent['name'] != 'OrderFood':

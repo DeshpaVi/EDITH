@@ -56,3 +56,12 @@ The Q intent's parent signature is `AMAZON.QInConnectIntent` (capital I). The lo
 `hotel_ai_agent_bot.zip` has just `QinConnectIntent` plus a Fallback whose text starts `[lex-fallback]`. Anything not answered by the Amazon Q in Connect AI agent is therefore visibly not from the agent. Flow: `../../contact-flows/import-test/hotel_ai_agent_flow.json` (loops back to the bot after each AI answer). Requires a working knowledge base association on the assistant, and the Q intent only works through a Connect flow.
 
 To prove a reply came from the agent, give the agent's AI prompt this rule: "Begin every reply with [AI-AGENT]." Lambda replies start `[hotel-lambda]` and Lex fallback replies start `[lex-fallback]`, so the prefix identifies the source.
+
+### Fixes after testing hotel_food_order_bot through a Connect flow
+
+Files: `hotel_food_order_bot_fixed.zip`, `../../contact-flows/import-test/hotel_menu_lex_test_fixed.json`, updated `HotelFoodOrderLambda.zip`.
+
+- Flow: one Q in Connect session (no custom agent forced, so the instance default self-service agent, which searches the KB, answers); no `x-amz-lex:q-in-connect:ai-agent-arn` session attribute; QinConnectIntent / OrderFood loop back to the Lex block (not through voice/session blocks, which recreated the Wisdom session every turn); no transfer to queue.
+- Bot: ShowMenu removed (menu questions fall through to the Q intent / KB); the "let me transfer to food order dep" closing message on QinConnectIntent removed.
+- Lambda: answers DialogCodeHook invocations with Delegate (the console enables dialog hooks when a Lambda is attached), so only fulfilment places orders.
+- Custom agent `hotel-order-menu` has no tools (Tools 0), so it cannot search the KB; do not pin it until a KB tool is attached.
