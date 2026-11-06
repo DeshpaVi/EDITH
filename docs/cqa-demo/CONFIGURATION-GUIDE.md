@@ -2,9 +2,7 @@
 
 Source: client call-flow diagram (`Census_CQA_Demo_Call_Flow_.pptx`) and your exports
 (`CQA_ACXD_Chat` contact flow, `SafetyEscalation` flow, Safety / Toxicity / Prompt-injection guardrails).
-Scope: English and Spanish, phone channel, authentication by Census ID only (no voice biometrics, no zip or SSN). French is out of scope.
-
-Note: the Authentication prompts above drop the zip/SSN part of the slide wording because the POC authenticates on Census ID only; the client should confirm this trimmed text.
+Scope: English and Spanish, phone channel, authentication by Census ID plus either home zip code or last four digits of SSN, checked against a DynamoDB table (no voice biometrics). French is out of scope.
 
 Legend used below: **[export]** = confirmed from your export, **[doc]** = from the ACXD skill/Admin Guide
 notes, **[verify]** = not confirmed anywhere; check in the console (Test tab) before relying on it.
@@ -47,23 +45,25 @@ Names are case-sensitive. Do not create `nlx_userId`.
 | `stuckPoint` | text | e.g. `authentication`, `intent_recognition` |
 | `transferSummary` | text | already mapped by the contact flow [export] |
 
-### 3.2 Data request `verifyCensusId` (Resources > Data requests)
+### 3.2 Data request `verifyCensusAuth` (Resources > Data requests)
 
-Authentication is by **Census ID only**. The IDs live in a DynamoDB table; a small Lambda
-(`verify-census-auth/`) looks the ID up, and ACXD calls it as an **External** data request.
+The caller's records live in a DynamoDB table; a small Lambda (`verify-census-auth/`) checks them and ACXD calls it as an
+**External** data request. Verified means: the Census ID exists **and** the zip code **or** the last four SSN digits match that record.
 
-1. **DynamoDB**: create table `CensusIds`, partition key `censusId` (String), on-demand capacity. Add a demo record:
+1. **DynamoDB**: create table `CensusIds`, partition key `censusId` (String), on-demand capacity. Add a demo record
+   (`ssnLastFour` here is a made-up demo value; use any 4 digits):
    ```bash
-   aws dynamodb put-item --table-name CensusIds --item '{"censusId":{"S":"12345"}}'
+   aws dynamodb put-item --table-name CensusIds \
+     --item '{"censusId":{"S":"12345"},"zipCode":{"S":"411018"},"ssnLastFour":{"S":"6789"}}'
    ```
 2. **Lambda**: deploy `verify-census-auth/index.mjs` (Node.js 22, bundled AWS SDK v3), env `TABLE_NAME=CensusIds`
    and `API_KEY=<random string>`. Give its role `dynamodb:GetItem` on the table. Enable a **Function URL**.
 3. Resources > Secrets: `demo_api_key` = the same string, **Sensitive on** [doc].
 4. Create the data request: implementation **External**, method **POST**, URL = the Function URL,
    header `x-api-key` = `{{secrets.demo_api_key}}` (sensitive) [doc].
-5. Request model: `censusId` (string, **sensitive**). Response model: `verified` (boolean). Mark the request **Sensitive** [doc].
-6. Run **Test**: `12345` → `verified: true`; any other ID → `false`.
-   [verify] the exact body ACXD posts; the Lambda expects a top-level `censusId`. If Test shows another shape, adjust `parseBody`, not the flow.
+5. Request model: `censusId`, `zipCode`, `ssnLastFour` (all string, **sensitive**). Response model: `verified` (boolean). Mark the request **Sensitive** [doc].
+6. Run **Test**: `12345` + `411018` → `true`; `12345` + `6789` as last four → `true`; any wrong value → `false`.
+   [verify] the exact body ACXD posts; the Lambda expects top-level `censusId`, `zipCode`, `ssnLastFour`. If Test shows another shape, adjust `parseBody`, not the flow.
 
 ### 3.3 Slots (Resources > Slots)
 
@@ -73,6 +73,8 @@ Slot names are alphabetic only, 3-30 chars [doc]. Built-in slot ids are undocume
 | Slot | Type | Regex | Sensitive |
 |---|---|---|---|
 | `censusId` | Freeform text | `^[0-9]+$` | yes |
+| `zipCode` | Freeform text | `^[0-9]{5}$` | yes |
+| `ssnLastFour` | Freeform text | `^[0-9]{4}$` | yes |
 | `YesNo` (custom slot **type**) | values `yes` (synonyms: yes, yeah, yep, sure, please) / `no` (no, nope, that's all, that is all) | — | no |
 
 For Spanish, add `sí`, `claro`, `no` synonyms and the Spanish translation of the choices.
@@ -86,7 +88,7 @@ For Spanish, add the `es-US` content or confirm auto-translation (open item A).
 
 Already created (Prompt injection, Toxicity, Safety). Just confirm all three are attached to the application (step 3.8).
 Order: Safety first (strictest), then Prompt injection, then Toxicity. Only the first triggered rule's action applies [doc].
-Add one **output** guardrail only if the client wants Census-ID masking on echoed text (not required by the diagram).
+Add one **output** guardrail only if the client wants Census ID / SSN masking on echoed text (not required by the diagram).
 
 ### 3.6 Flows (Resources > Flows > New flow)
 
@@ -109,18 +111,18 @@ Flow names: no spaces or special characters. Give every flow an **AI description
 
 #### 3.6.1 `Authentication` flow
 
-AI description: "Verifies the caller's identity with their Census ID."
+AI description: "Verifies the caller's identity with a Census ID plus either a home zip code or the last four digits of the SSN."
 
-1. **Basic**: **To proceed, we need to verify your identity, can you please provide your Census ID?**
+1. **Basic**: **To proceed, we need to verify your identity, can you please provide your Census ID and either your home zip code or the last four digits of your SSN?**
 2. **Loop (Range)** from 1 to **3** (set the range in the node's settings); three attempts is the client's maximum.
-   Paths: **Next** → **User input** (no prompt text of its own; slot `censusId`), **Completed** → step 8.
-   Phone settings on the User input node: **Allow DTMF input on** (caller can key the ID), DTMF end key `#`; interruption allowed.
-3. **Data request** node → `verifyCensusId`, mapping the `censusId` slot into the request. Paths: Success / Failure / Timeout / In progress.
+   Paths: **Next** → **User input** (no prompt text of its own; slots `censusId`, `zipCode`, `ssnLastFour`), **Completed** → step 8.
+   Phone settings on the User input node: **Allow DTMF input on** (caller can key the ID), DTMF end key `#`, maximum digits sized for the longest field; interruption allowed.
+3. **Data request** node → `verifyCensusAuth`, mapping the three slots into the request. Paths: Success / Failure / Timeout / In progress.
    Set **In progress** wait message/time so the caller hears no dead air (limit 0-30,000 ms) [doc].
 4. Success → **Split** on `verified` = true.
 5. true → **Define/state modification**: `isAuthenticated` = true → **Redirect** back to `CensusEnumeration`.
 6. false → step 7.
-7. **Basic**, Auth Failure message. **I'm sorry, I didn't quite get that. Can you please provide your Census ID?**
+7. **Basic**, Auth Failure message. **I'm sorry, I didn't quite get that. Can you please provide your Census ID and either your home zip code or the last four digits of your SSN?**
    → back to the Loop node. This matches the diagram, where the Auth Failure prompt also plays before the hand-off to an agent on the third miss.
 8. Loop **Completed** (and data-request Failure / Timeout) → set `stuckPoint` = `authentication`, `customerIntent` = `enumeration`
    → **Redirect** `Escalation`.
@@ -202,7 +204,7 @@ Place `escalation_requested`, `task_completed`, `automated` in the flows [doc].
 
 | Path | Say / do | Expect |
 |---|---|---|
-| Happy | "Can I complete my 2030 census over the phone?" → `12345` | authenticated, enumeration content, Anything else? → No → closing → disconnect |
+| Happy | "Can I complete my 2030 census over the phone?" → `12345` + `411018` (or last four `6789`) | authenticated, enumeration content, Anything else? → No → closing → disconnect |
 | Alt 1 | Several FAQ questions, answering Yes to "Anything else?" | KB answers, no authentication prompt, loops via `HowCanIHelp` |
 | Alt 2 | Authenticate, abandon part-way, say "agent" | Escalation, agent sees `transferSummary`, `customerIntent=enumeration`, `stuckPoint` |
 | Alt 3 | Spanish; intent enumeration; give wrong ID three times | after the third failure → Escalation, `stuckPoint=authentication` |
