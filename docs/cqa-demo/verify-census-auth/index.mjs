@@ -1,13 +1,8 @@
-// Demo-only Census authentication check, called by an ACXD "External" data request.
-// Request : POST JSON { censusId, zipCode?, ssnLastFour? }
+// Demo Census ID check, called by an ACXD "External" data request.
+// Request : POST JSON { censusId }
 // Response: 200 JSON { verified: boolean }
-// No PII is logged and the response never says which field was wrong.
-
-const demo = () => ({
-  censusId: process.env.DEMO_CENSUS_ID ?? "12345",
-  zipCode: process.env.DEMO_ZIP ?? "411018",
-  ssnLastFour: process.env.DEMO_SSN4 ?? "", // empty = SSN path always fails until configured
-});
+// Looks the ID up in the DynamoDB table named by TABLE_NAME (partition key: censusId, String).
+// No PII is logged.
 
 const reply = (statusCode, body) => ({
   statusCode,
@@ -23,9 +18,8 @@ const parseBody = (event) => {
   return JSON.parse(raw);
 };
 
-export const handler = async (event) => {
-  const expectedKey = process.env.API_KEY;
-  if (expectedKey && event.headers?.["x-api-key"] !== expectedKey) {
+export const makeHandler = (exists, env = process.env) => async (event) => {
+  if (env.API_KEY && event.headers?.["x-api-key"] !== env.API_KEY) {
     return reply(401, { error: "unauthorized" });
   }
 
@@ -36,11 +30,21 @@ export const handler = async (event) => {
     return reply(400, { error: "invalid JSON body" });
   }
 
-  const d = demo();
-  const id = String(input.censusId ?? "").trim();
-  const zip = String(input.zipCode ?? "").trim();
-  const ssn = String(input.ssnLastFour ?? "").trim();
+  const censusId = String(input.censusId ?? "").trim();
+  if (!censusId) return reply(200, { verified: false });
 
-  const secondFactor = (zip && zip === d.zipCode) || (ssn && d.ssnLastFour && ssn === d.ssnLastFour);
-  return reply(200, { verified: Boolean(id && id === d.censusId && secondFactor) });
+  return reply(200, { verified: await exists(censusId) });
 };
+
+// Production lookup; the AWS SDK v3 is bundled in the Lambda Node.js runtime.
+let client;
+const existsInDynamo = async (censusId) => {
+  const { DynamoDBClient, GetItemCommand } = await import("@aws-sdk/client-dynamodb");
+  client ??= new DynamoDBClient({});
+  const { Item } = await client.send(
+    new GetItemCommand({ TableName: process.env.TABLE_NAME, Key: { censusId: { S: censusId } } }),
+  );
+  return Boolean(Item);
+};
+
+export const handler = makeHandler(existsInDynamo);

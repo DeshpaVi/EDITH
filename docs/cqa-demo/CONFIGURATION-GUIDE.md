@@ -2,7 +2,9 @@
 
 Source: client call-flow diagram (`Census_CQA_Demo_Call_Flow_.pptx`) and your exports
 (`CQA_ACXD_Chat` contact flow, `SafetyEscalation` flow, Safety / Toxicity / Prompt-injection guardrails).
-Scope: English and Spanish. French is out of scope for now.
+Scope: English and Spanish, phone channel, authentication by Census ID only (no voice biometrics, no zip or SSN). French is out of scope.
+
+Note: the Authentication prompts above drop the zip/SSN part of the slide wording because the POC authenticates on Census ID only; the client should confirm this trimmed text.
 
 Legend used below: **[export]** = confirmed from your export, **[doc]** = from the ACXD skill/Admin Guide
 notes, **[verify]** = not confirmed anywhere; check in the console (Test tab) before relying on it.
@@ -41,28 +43,27 @@ Names are case-sensitive. Do not create `nlx_userId`.
 | Name | Type | Notes |
 |---|---|---|
 | `isAuthenticated` | boolean | **Disable** "Allow frontend updates" so only flows can set it |
-| `authAttempts` | number | only if you use a counter instead of the Loop node |
 | `customerIntent` | text | e.g. `enumeration`, `faq` |
 | `stuckPoint` | text | e.g. `authentication`, `intent_recognition` |
 | `transferSummary` | text | already mapped by the contact flow [export] |
 
-### 3.2 Data request `verifyCensusAuth` (Resources > Data requests)
+### 3.2 Data request `verifyCensusId` (Resources > Data requests)
 
-Static data requests return a fixed response, so they cannot check the caller's input.
-The demo needs 12345 / 411018 to pass and anything else to fail, so use **External** pointing at the
-tiny Lambda in `verify-census-auth/` (tests included, run `node --test`).
+Authentication is by **Census ID only**. The IDs live in a DynamoDB table; a small Lambda
+(`verify-census-auth/`) looks the ID up, and ACXD calls it as an **External** data request.
 
-1. Deploy `verify-census-auth/index.mjs` as a Lambda (Node.js 22) with a **Function URL**. Set env vars
-   `API_KEY` (any random string). Optional: `DEMO_CENSUS_ID` / `DEMO_ZIP` / `DEMO_SSN4` to override
-   the defaults `12345` / `411018` / (none).
-2. Resources > Secrets: create `demo_api_key` = the same string, **Sensitive on** [doc].
-3. Create the data request: implementation **External**, method **POST**, URL = Function URL,
+1. **DynamoDB**: create table `CensusIds`, partition key `censusId` (String), on-demand capacity. Add a demo record:
+   ```bash
+   aws dynamodb put-item --table-name CensusIds --item '{"censusId":{"S":"12345"}}'
+   ```
+2. **Lambda**: deploy `verify-census-auth/index.mjs` (Node.js 22, bundled AWS SDK v3), env `TABLE_NAME=CensusIds`
+   and `API_KEY=<random string>`. Give its role `dynamodb:GetItem` on the table. Enable a **Function URL**.
+3. Resources > Secrets: `demo_api_key` = the same string, **Sensitive on** [doc].
+4. Create the data request: implementation **External**, method **POST**, URL = the Function URL,
    header `x-api-key` = `{{secrets.demo_api_key}}` (sensitive) [doc].
-4. Request model: `censusId` (string, **sensitive**), `zipCode` (string, **sensitive**),
-   `ssnLastFour` (string, **sensitive**). Response model: `verified` (boolean). Mark the request **Sensitive** [doc].
-5. Run **Test** with `12345 / 411018` → `verified: true`, and a wrong zip → `false`.
-   [verify] the exact body ACXD posts; the Lambda expects top-level `censusId`, `zipCode`, `ssnLastFour`.
-   If Test shows another shape, adjust `parseBody` in the Lambda, not the flow.
+5. Request model: `censusId` (string, **sensitive**). Response model: `verified` (boolean). Mark the request **Sensitive** [doc].
+6. Run **Test**: `12345` → `verified: true`; any other ID → `false`.
+   [verify] the exact body ACXD posts; the Lambda expects a top-level `censusId`. If Test shows another shape, adjust `parseBody`, not the flow.
 
 ### 3.3 Slots (Resources > Slots)
 
@@ -72,8 +73,6 @@ Slot names are alphabetic only, 3-30 chars [doc]. Built-in slot ids are undocume
 | Slot | Type | Regex | Sensitive |
 |---|---|---|---|
 | `censusId` | Freeform text | `^[0-9]+$` | yes |
-| `zipCode` | Freeform text | `^[0-9]{5}$` | yes |
-| `ssnLastFour` | Freeform text | `^[0-9]{4}$` | yes |
 | `YesNo` (custom slot **type**) | values `yes` (synonyms: yes, yeah, yep, sure, please) / `no` (no, nope, that's all, that is all) | — | no |
 
 For Spanish, add `sí`, `claro`, `no` synonyms and the Spanish translation of the choices.
@@ -87,7 +86,7 @@ For Spanish, add the `es-US` content or confirm auto-translation (open item A).
 
 Already created (Prompt injection, Toxicity, Safety). Just confirm all three are attached to the application (step 3.8).
 Order: Safety first (strictest), then Prompt injection, then Toxicity. Only the first triggered rule's action applies [doc].
-Add one **output** guardrail only if the client wants SSN/Census-ID masking on echoed text (not required by the diagram).
+Add one **output** guardrail only if the client wants Census-ID masking on echoed text (not required by the diagram).
 
 ### 3.6 Flows (Resources > Flows > New flow)
 
@@ -110,18 +109,18 @@ Flow names: no spaces or special characters. Give every flow an **AI description
 
 #### 3.6.1 `Authentication` flow
 
-AI description: "Verifies the caller's identity with a Census ID plus either a home zip code or the last four digits of the SSN."
+AI description: "Verifies the caller's identity with their Census ID."
 
-1. **Basic**: **To proceed, we need to verify your identity, can you please provide your Census ID and either your home zip code or the last four digits of your SSN?**
+1. **Basic**: **To proceed, we need to verify your identity, can you please provide your Census ID?**
 2. **Loop (Range)** from 1 to **3** (set the range in the node's settings); three attempts is the client's maximum.
-   Paths: **Next** → **User input** (no prompt text of its own; slots `censusId`, `zipCode`, `ssnLastFour`), **Completed** → step 8.
-   Voice settings on the User input node: **Allow DTMF input on**, DTMF end key `#`, maximum digits sized for the longest field; interruption allowed.
-3. **Data request** node → `verifyCensusAuth`, mapping the three slots into the request. Paths: Success / Failure / Timeout / In progress.
-   Set **In progress** wait message/time so voice has no dead air (limit 0-30,000 ms) [doc].
+   Paths: **Next** → **User input** (no prompt text of its own; slot `censusId`), **Completed** → step 8.
+   Phone settings on the User input node: **Allow DTMF input on** (caller can key the ID), DTMF end key `#`; interruption allowed.
+3. **Data request** node → `verifyCensusId`, mapping the `censusId` slot into the request. Paths: Success / Failure / Timeout / In progress.
+   Set **In progress** wait message/time so the caller hears no dead air (limit 0-30,000 ms) [doc].
 4. Success → **Split** on `verified` = true.
 5. true → **Define/state modification**: `isAuthenticated` = true → **Redirect** back to `CensusEnumeration`.
 6. false → step 7.
-7. **Basic**, Auth Failure message. Use the wording you approved: **I'm sorry, I didn't quite get that. Can you please provide your Census ID and either your home zip code or the last four digits of your SSN?**
+7. **Basic**, Auth Failure message. **I'm sorry, I didn't quite get that. Can you please provide your Census ID?**
    → back to the Loop node. This matches the diagram, where the Auth Failure prompt also plays before the hand-off to an agent on the third miss.
 8. Loop **Completed** (and data-request Failure / Timeout) → set `stuckPoint` = `authentication`, `customerIntent` = `enumeration`
    → **Redirect** `Escalation`.
@@ -139,7 +138,7 @@ Escalation message to the caller: the client has not given wording. Do not inven
 
 ### 3.7 Languages (Application > Settings)
 
-1. Add `es-US` to the application languages; keep `en-US` as main. Set a **voice** per language under language settings [doc].
+1. Add `es-US` to the application languages; keep `en-US` as main. Set a text-to-speech **voice** per language under language settings [doc].
 2. Translations: translate every flow message, slot value, and KB entry (the Translations page). Greeting, authentication and closing wording
    is client-approved text. Use a **human-reviewed** Spanish translation, not machine output, for those three.
 3. See open item A for the language-detection behaviour.
@@ -171,7 +170,7 @@ Place `escalation_requested`, `task_completed`, `automated` in the flows [doc].
 ## 4. Amazon Connect steps
 
 1. **Routing profile / queue**: confirm `BasicQueue` has an agent in its routing profile (it is the transfer target in your export).
-2. **Import** `contact-flow/CQA_ACXD_Voice.json` (Flows > Create flow > Save dropdown > Import flow). It is `CQA_ACXD_Chat` with four changes:
+2. **Import** `contact-flow/CQA_ACXD_Call.json` (Flows > Create flow > Save dropdown > Import flow). It is `CQA_ACXD_Chat` with four changes:
 
    | Change | Why |
    |---|---|
@@ -181,11 +180,11 @@ Place `escalation_requested`, `task_completed`, `automated` in the flows [doc].
    | Audio filler on | the authentication data request sits in the critical path [doc] |
 
    The Agentic CX block, workspace / application / alias IDs, speech engine and queue ARN are untouched, so the file imports into the same Connect instance as your export.
-3. **Add a Set voice block** before the Agentic CX block (console only; the voice JSON is not in your export). Choose the provider, language and persona.
+3. **Add a Set voice block** before the Agentic CX block (console only; not in your export). This only picks the text-to-speech voice the caller hears; there is no voice biometrics in this POC.
    The Spanish voice is set in ACXD (3.7), not here.
-4. **Wording owned by the client** (kept as in your export, review before the demo): Timeout text still says "please send a message"; for voice use "please say something", subject to client approval.
-5. The analytics block in the flow is chat-only. On a voice call it takes its ChannelMismatch error path and continues to the Agentic CX block;
-   configure voice recording and Contact Lens separately if the demo needs them.
+4. **Wording owned by the client** (kept as in your export, review before the demo): Timeout text still says "please send a message"; for a phone call use "please say something", subject to client approval.
+5. The analytics block in the flow is chat-only. On a phone call it takes its ChannelMismatch error path and continues to the Agentic CX block;
+   configure call recording and Contact Lens separately if the demo needs them.
 6. **Save and Publish**, then associate the flow with the demo phone number (Channels > Phone numbers).
 7. After this first publish, new ACXD builds go live without republishing the contact flow [doc].
 
@@ -203,7 +202,7 @@ Place `escalation_requested`, `task_completed`, `automated` in the flows [doc].
 
 | Path | Say / do | Expect |
 |---|---|---|
-| Happy | "Can I complete my 2030 census over the phone?" → `12345`, `411018` | authenticated, enumeration content, Anything else? → No → closing → disconnect |
+| Happy | "Can I complete my 2030 census over the phone?" → `12345` | authenticated, enumeration content, Anything else? → No → closing → disconnect |
 | Alt 1 | Several FAQ questions, answering Yes to "Anything else?" | KB answers, no authentication prompt, loops via `HowCanIHelp` |
 | Alt 2 | Authenticate, abandon part-way, say "agent" | Escalation, agent sees `transferSummary`, `customerIntent=enumeration`, `stuckPoint` |
 | Alt 3 | Spanish; intent enumeration; give wrong ID three times | after the third failure → Escalation, `stuckPoint=authentication` |

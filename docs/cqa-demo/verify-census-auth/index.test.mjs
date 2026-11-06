@@ -1,37 +1,28 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { handler } from "./index.mjs";
+import { makeHandler } from "./index.mjs";
 
-const call = async (body, headers = {}) => {
+const table = new Set(["12345"]);
+const handler = makeHandler(async (id) => table.has(id), { API_KEY: "k" });
+
+const call = async (body, headers = { "x-api-key": "k" }) => {
   const res = await handler({ body: JSON.stringify(body), headers });
   return { status: res.statusCode, body: JSON.parse(res.body) };
 };
 
-test("valid census id + zip verifies", async () => {
-  assert.deepEqual(await call({ censusId: "12345", zipCode: "411018" }), { status: 200, body: { verified: true } });
+test("known census id verifies", async () => {
+  assert.deepEqual(await call({ censusId: "12345" }), { status: 200, body: { verified: true } });
 });
-test("wrong zip fails", async () => {
-  assert.equal((await call({ censusId: "12345", zipCode: "99999" })).body.verified, false);
+test("unknown census id fails", async () => {
+  assert.equal((await call({ censusId: "99999" })).body.verified, false);
 });
-test("wrong census id fails", async () => {
-  assert.equal((await call({ censusId: "00000", zipCode: "411018" })).body.verified, false);
-});
-test("missing second factor fails", async () => {
-  assert.equal((await call({ censusId: "12345" })).body.verified, false);
-});
-test("ssn path fails until DEMO_SSN4 is set, then works", async () => {
-  assert.equal((await call({ censusId: "12345", ssnLastFour: "" })).body.verified, false);
-  process.env.DEMO_SSN4 = "6789";
-  assert.equal((await call({ censusId: "12345", ssnLastFour: "6789" })).body.verified, true);
-  delete process.env.DEMO_SSN4;
+test("empty / missing id fails without a lookup", async () => {
+  assert.equal((await call({})).body.verified, false);
+  assert.equal((await call({ censusId: "  " })).body.verified, false);
 });
 test("bad JSON -> 400", async () => {
-  const res = await handler({ body: "{", headers: {} });
-  assert.equal(res.statusCode, 400);
+  assert.equal((await handler({ body: "{", headers: { "x-api-key": "k" } })).statusCode, 400);
 });
-test("API_KEY enforced when set", async () => {
-  process.env.API_KEY = "k";
-  assert.equal((await call({ censusId: "12345", zipCode: "411018" })).status, 401);
-  assert.equal((await call({ censusId: "12345", zipCode: "411018" }, { "x-api-key": "k" })).status, 200);
-  delete process.env.API_KEY;
+test("wrong or missing API key -> 401", async () => {
+  assert.equal((await call({ censusId: "12345" }, {})).status, 401);
 });
