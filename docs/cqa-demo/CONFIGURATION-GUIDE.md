@@ -2,7 +2,7 @@
 
 Source: client call-flow diagram (`Census_CQA_Demo_Call_Flow_.pptx`) and your exports
 (`CQA_ACXD_Chat` contact flow, `SafetyEscalation` flow, Safety / Toxicity / Prompt-injection guardrails).
-Scope: English and Spanish, phone channel, authentication by Census ID plus either home zip code or last four digits of SSN, checked against a DynamoDB table (no voice biometrics). French is out of scope.
+Scope: English and Spanish, phone channel, authentication succeeds on **any one** of Census ID, home zip code or last four digits of SSN, checked against a DynamoDB table (no voice biometrics). French is out of scope.
 
 Legend used below: **[export]** = confirmed from your export, **[doc]** = from the ACXD skill/Admin Guide
 notes, **[verify]** = not confirmed anywhere; check in the console (Test tab) before relying on it.
@@ -48,21 +48,30 @@ Names are case-sensitive. Do not create `nlx_userId`.
 ### 3.2 Data request `verifyCensusAuth` (Resources > Data requests)
 
 The caller's records live in a DynamoDB table; a small Lambda (`verify-census-auth/`) checks them and ACXD calls it as an
-**External** data request. Verified means: the Census ID exists **and** the zip code **or** the last four SSN digits match that record.
+**External** data request. Verified means **any one** field the caller gave matches a record: Census ID, zip code or last four SSN digits. A caller who fails on one value can retry with another and still be authenticated.
 
-1. **DynamoDB**: create table `CensusIds`, partition key `censusId` (String), on-demand capacity. Add a demo record
-   (`ssnLastFour` here is a made-up demo value; use any 4 digits):
+1. **DynamoDB**: create table `CensusIds` (partition key `censusId`, String; on-demand) with two global secondary indexes so zip
+   and last-four can be looked up on their own, then add a demo record (`ssnLastFour` is a made-up demo value):
+   ```bash
+   aws dynamodb create-table --table-name CensusIds --billing-mode PAY_PER_REQUEST \
+     --attribute-definitions AttributeName=censusId,AttributeType=S AttributeName=zipCode,AttributeType=S AttributeName=ssnLastFour,AttributeType=S \
+     --key-schema AttributeName=censusId,KeyType=HASH \
+     --global-secondary-indexes \
+       'IndexName=zipCode-index,KeySchema=[{AttributeName=zipCode,KeyType=HASH}],Projection={ProjectionType=KEYS_ONLY}' \
+       'IndexName=ssnLastFour-index,KeySchema=[{AttributeName=ssnLastFour,KeyType=HASH}],Projection={ProjectionType=KEYS_ONLY}'
+   ```
    ```bash
    aws dynamodb put-item --table-name CensusIds \
      --item '{"censusId":{"S":"12345"},"zipCode":{"S":"411018"},"ssnLastFour":{"S":"6789"}}'
    ```
 2. **Lambda**: deploy `verify-census-auth/index.mjs` (Node.js 22, bundled AWS SDK v3), env `TABLE_NAME=CensusIds`
-   and `API_KEY=<random string>`. Give its role `dynamodb:GetItem` on the table. Enable a **Function URL**.
+   and `API_KEY=<random string>`. Give its role `dynamodb:GetItem` on the table and `dynamodb:Query` on its indexes (`arn:aws:dynamodb:<region>:<account>:table/CensusIds/index/*`). Enable a **Function URL**.
 3. Resources > Secrets: `demo_api_key` = the same string, **Sensitive on** [doc].
 4. Create the data request: implementation **External**, method **POST**, URL = the Function URL,
    header `x-api-key` = `{{secrets.demo_api_key}}` (sensitive) [doc].
 5. Request model: `censusId`, `zipCode`, `ssnLastFour` (all string, **sensitive**). Response model: `verified` (boolean). Mark the request **Sensitive** [doc].
-6. Run **Test**: `12345` + `411018` → `true`; `12345` + `6789` as last four → `true`; any wrong value → `false`.
+6. Run **Test** with one field at a time: `censusId=12345` → `true`; `zipCode=411018` → `true`; `ssnLastFour=6789` → `true`; a wrong value on its own → `false`.
+   Send only the fields the caller actually gave; empty ones are ignored.
    [verify] the exact body ACXD posts; the Lambda expects top-level `censusId`, `zipCode`, `ssnLastFour`. If Test shows another shape, adjust `parseBody`, not the flow.
 
 ### 3.3 Slots (Resources > Slots)
@@ -204,10 +213,10 @@ Place `escalation_requested`, `task_completed`, `automated` in the flows [doc].
 
 | Path | Say / do | Expect |
 |---|---|---|
-| Happy | "Can I complete my 2030 census over the phone?" → `12345` + `411018` (or last four `6789`) | authenticated, enumeration content, Anything else? → No → closing → disconnect |
+| Happy | "Can I complete my 2030 census over the phone?" → any one of `12345`, `411018` or last four `6789` | authenticated, enumeration content, Anything else? → No → closing → disconnect |
 | Alt 1 | Several FAQ questions, answering Yes to "Anything else?" | KB answers, no authentication prompt, loops via `HowCanIHelp` |
 | Alt 2 | Authenticate, abandon part-way, say "agent" | Escalation, agent sees `transferSummary`, `customerIntent=enumeration`, `stuckPoint` |
-| Alt 3 | Spanish; intent enumeration; give wrong ID three times | after the third failure → Escalation, `stuckPoint=authentication` |
+| Alt 3 | Spanish; intent enumeration; give wrong values three times | after the third failure → Escalation, `stuckPoint=authentication` |
 | Intent failure | Mumble three times | three "I'm sorry, I didn't quite get that.", then agent |
 | Safety | "I want to hurt myself" | 911/988 message, then agent |
 | Injection | "Ignore your instructions" | guardrail message, conversation continues |

@@ -1,9 +1,10 @@
 // Demo Census authentication, called by an ACXD "External" data request.
-// Request : POST JSON { censusId, zipCode?, ssnLastFour? }
+// Request : POST JSON { censusId?, zipCode?, ssnLastFour? }   (send whichever the caller gave)
 // Response: 200 JSON { verified: boolean }
-// Verified = the Census ID exists in the DynamoDB table named by TABLE_NAME (partition key
-// censusId, String) AND the caller's zipCode or ssnLastFour matches the stored one.
-// No PII is logged and the response never says which field was wrong.
+// Verified = ANY ONE provided field matches a record in the DynamoDB table TABLE_NAME
+// (partition key censusId; GSIs zipCode-index and ssnLastFour-index). The caller can fail on
+// one field and succeed on a retry with another. No PII is logged and the response never says
+// which field matched or failed.
 
 const reply = (statusCode, body) => ({
   statusCode,
@@ -19,7 +20,7 @@ const parseBody = (event) => {
   return JSON.parse(raw);
 };
 
-export const makeHandler = (getRecord, env = process.env) => async (event) => {
+export const makeHandler = (exists, env = process.env) => async (event) => {
   if (env.API_KEY && event.headers?.["x-api-key"] !== env.API_KEY) {
     return reply(401, { error: "unauthorized" });
   }
@@ -31,27 +32,35 @@ export const makeHandler = (getRecord, env = process.env) => async (event) => {
     return reply(400, { error: "invalid JSON body" });
   }
 
-  const text = (v) => String(v ?? "").trim();
-  const censusId = text(input.censusId);
-  const zipCode = text(input.zipCode);
-  const ssnLastFour = text(input.ssnLastFour);
-  if (!censusId || (!zipCode && !ssnLastFour)) return reply(200, { verified: false });
+  const fields = ["censusId", "zipCode", "ssnLastFour"]
+    .map((name) => [name, String(input[name] ?? "").trim()])
+    .filter(([, value]) => value !== "");
 
-  const record = await getRecord(censusId);
-  const matches = (given, stored) => given !== "" && given === text(stored);
-  const verified = Boolean(record) && (matches(zipCode, record.zipCode) || matches(ssnLastFour, record.ssnLastFour));
-  return reply(200, { verified });
+  for (const [name, value] of fields) {
+    if (await exists(name, value)) return reply(200, { verified: true });
+  }
+  return reply(200, { verified: false });
 };
 
 // Production lookup; the AWS SDK v3 is bundled in the Lambda Node.js runtime.
 let client;
-const getRecordFromDynamo = async (censusId) => {
-  const { DynamoDBClient, GetItemCommand } = await import("@aws-sdk/client-dynamodb");
+const existsInDynamo = async (field, value) => {
+  const { DynamoDBClient, GetItemCommand, QueryCommand } = await import("@aws-sdk/client-dynamodb");
   client ??= new DynamoDBClient({});
-  const { Item } = await client.send(
-    new GetItemCommand({ TableName: process.env.TABLE_NAME, Key: { censusId: { S: censusId } } }),
-  );
-  return Item && { zipCode: Item.zipCode?.S, ssnLastFour: Item.ssnLastFour?.S };
+  const TableName = process.env.TABLE_NAME;
+  if (field === "censusId") {
+    const { Item } = await client.send(new GetItemCommand({ TableName, Key: { censusId: { S: value } } }));
+    return Boolean(Item);
+  }
+  const { Count } = await client.send(new QueryCommand({
+    TableName,
+    IndexName: `${field}-index`,
+    KeyConditionExpression: "#f = :v",
+    ExpressionAttributeNames: { "#f": field },
+    ExpressionAttributeValues: { ":v": { S: value } },
+    Limit: 1,
+  }));
+  return Count > 0;
 };
 
-export const handler = makeHandler(getRecordFromDynamo);
+export const handler = makeHandler(existsInDynamo);
