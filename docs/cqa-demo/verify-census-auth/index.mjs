@@ -1,10 +1,12 @@
 // Demo Census authentication, called by an ACXD "External" data request.
-// Request : POST JSON { censusId?, zipCode?, ssnLastFour? }   (send whichever the caller gave)
+// Request : POST JSON { authValue }   (whatever the caller said: Census ID, zip code or SSN last four)
 // Response: 200 JSON { verified: boolean }
-// Verified = ANY ONE provided field matches a record in the DynamoDB table TABLE_NAME
-// (partition key censusId; GSIs zipCode-index and ssnLastFour-index). The caller can fail on
-// one field and succeed on a retry with another. No PII is logged and the response never says
-// which field matched or failed.
+// Verified = authValue matches ANY ONE of censusId / zipCode / ssnLastFour in the DynamoDB table
+// TABLE_NAME (partition key censusId; GSIs zipCode-index and ssnLastFour-index). The caller can
+// fail with one value and succeed on a retry with another. No PII is logged and the response never
+// says which field matched.
+
+const FIELDS = ["censusId", "zipCode", "ssnLastFour"];
 
 const reply = (statusCode, body) => ({
   statusCode,
@@ -32,12 +34,11 @@ export const makeHandler = (exists, env = process.env) => async (event) => {
     return reply(400, { error: "invalid JSON body" });
   }
 
-  const fields = ["censusId", "zipCode", "ssnLastFour"]
-    .map((name) => [name, String(input[name] ?? "").trim()])
-    .filter(([, value]) => value !== "");
+  const authValue = String(input.authValue ?? "").trim();
+  if (!authValue) return reply(200, { verified: false });
 
-  for (const [name, value] of fields) {
-    if (await exists(name, value)) return reply(200, { verified: true });
+  for (const field of FIELDS) {
+    if (await exists(field, authValue)) return reply(200, { verified: true });
   }
   return reply(200, { verified: false });
 };

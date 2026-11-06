@@ -26,7 +26,7 @@ notes, **[verify]** = not confirmed anywhere; check in the console (Test tab) be
 | Detect Spanish / Set en_US / es_US | Application languages `en-US` + `es-US` — see open item A |
 | Utterance recognized? N → "I'm sorry, I didn't quite get that." ×3 → agent | Application `thresholds.incomprehensionCount = 3` + `repeatOnIncomprehension` + default flow **Fallback** → `Escalation` flow [doc] |
 | Authentication required for intent? | FAQ flow: none. Enumeration flow: first node is a **Split** on context variable `isAuthenticated` [doc: split = business-rule branch] |
-| Authentication prompt, Auth Failure ×3 | `Authentication` flow: **Loop (Range)** capped at 3 → `user_input` → `data_request` → **Split** |
+| Authentication prompt, Auth Failure ×3 | `Authentication` flow: **Loop (Range)** capped at 3 → `user_choice` (one `authValue` slot) → `data_request` → **Split** |
 | Perform self-service (FAQ / enumeration) | existing KB flows; enumeration gated by authentication |
 | Anything else? Y/N | `AnythingElse` flow: `user_choice` Yes/No |
 | Closing + Disconnect | `basic` → `end`; Connect disconnects (section 5) |
@@ -48,7 +48,7 @@ Names are case-sensitive. Do not create `nlx_userId`.
 ### 3.2 Data request `verifyCensusAuth` (Resources > Data requests)
 
 The caller's records live in a DynamoDB table; a small Lambda (`verify-census-auth/`) checks them and ACXD calls it as an
-**External** data request. Verified means **any one** field the caller gave matches a record: Census ID, zip code or last four SSN digits. A caller who fails on one value can retry with another and still be authenticated.
+**External** data request. Verified means the value the caller gave (`authValue`) matches **any one** of Census ID, zip code or last four SSN digits. (One slot, because a User choice node cannot take several slots of the same type.) A caller who fails on one value can retry with another and still be authenticated.
 
 1. **DynamoDB**: create table `CensusIds` (partition key `censusId`, String; on-demand) with two global secondary indexes so zip
    and last-four can be looked up on their own, then add a demo record (`ssnLastFour` is a made-up demo value):
@@ -69,10 +69,9 @@ The caller's records live in a DynamoDB table; a small Lambda (`verify-census-au
 3. Resources > Secrets: `demo_api_key` = the same string, **Sensitive on** [doc].
 4. Create the data request: implementation **External**, method **POST**, URL = the Function URL,
    header `x-api-key` = `{{secrets.demo_api_key}}` (sensitive) [doc].
-5. Request model: `censusId`, `zipCode`, `ssnLastFour` (all string, **sensitive**). Response model: `verified` (boolean). Mark the request **Sensitive** [doc].
-6. Run **Test** with one field at a time: `censusId=12345` → `true`; `zipCode=411018` → `true`; `ssnLastFour=6789` → `true`; a wrong value on its own → `false`.
-   Send only the fields the caller actually gave; empty ones are ignored.
-   [verify] the exact body ACXD posts; the Lambda expects top-level `censusId`, `zipCode`, `ssnLastFour`. If Test shows another shape, adjust `parseBody`, not the flow.
+5. Request model: one field `authValue` (string, **sensitive**). Response model: `verified` (boolean). Mark the request **Sensitive** [doc].
+6. Run **Test** with `authValue`: `12345` → `true`; `411018` → `true`; `6789` → `true`; `00000` → `false`.
+   [verify] the exact body ACXD posts; the Lambda expects a top-level `authValue`. If Test shows another shape, adjust `parseBody`, not the flow.
 
 ### 3.3 Slots (Resources > Slots)
 
@@ -81,9 +80,7 @@ Slot names are alphabetic only, 3-30 chars [doc]. Built-in slot ids are undocume
 
 | Slot | Type | Regex | Sensitive |
 |---|---|---|---|
-| `censusId` | Freeform text | `^[0-9]+$` | yes |
-| `zipCode` | Freeform text | `^[0-9]{5}$` | yes |
-| `ssnLastFour` | Freeform text | `^[0-9]{4}$` | yes |
+| `authValue` | Freeform text | `^[0-9]+$` | yes |
 | `YesNo` (custom slot **type**) | values `yes` (synonyms: yes, yeah, yep, sure, please) / `no` (no, nope, that's all, that is all) | — | no |
 
 For Spanish, add `sí`, `claro`, `no` synonyms and the Spanish translation of the choices.
@@ -124,9 +121,9 @@ AI description: "Verifies the caller's identity with a Census ID plus either a h
 
 1. **Basic**: **To proceed, we need to verify your identity, can you please provide your Census ID and either your home zip code or the last four digits of your SSN?**
 2. **Loop (Range)** from 1 to **3** (set the range in the node's settings); three attempts is the client's maximum.
-   Paths: **Next** → **User input** (no prompt text of its own; slots `censusId`, `zipCode`, `ssnLastFour`), **Completed** → step 8.
-   Phone settings on the User input node: **Allow DTMF input on** (caller can key the ID), DTMF end key `#`, maximum digits sized for the longest field; interruption allowed.
-3. **Data request** node → `verifyCensusAuth`, mapping the three slots into the request. Paths: Success / Failure / Timeout / In progress.
+   Paths: **Next** → **User choice** (no prompt text, no options; additional slot `authValue`, attached to the flow in Settings > Attached slots), **Completed** → step 8.
+   Phone settings on the User choice node: **Allow DTMF input on** (caller can key the ID), DTMF end key `#`, maximum digits sized for the longest field; interruption allowed.
+3. **Data request** node → `verifyCensusAuth`, mapping the `authValue` slot into the request. Paths: Success / Failure / Timeout / In progress.
    Set **In progress** wait message/time so the caller hears no dead air (limit 0-30,000 ms) [doc].
 4. Success → **Split** on `verified` = true.
 5. true → **Define/state modification**: `isAuthenticated` = true → **Redirect** back to `CensusEnumeration`.
@@ -207,7 +204,7 @@ Place `escalation_requested`, `task_completed`, `automated` in the flows [doc].
 | B | The routing behaviour of `HowCanIHelp` ending the flow and the next utterance reaching an intent flow | Test tab: say "Can I complete my census over the phone?" after the greeting |
 | C | Environments / alias naming (`Development` alias in the Agentic CX block) | Deploy tab |
 | D | Redirect-back behaviour (3.6.1) | Test tab |
-| E | Node-level JSON for `user_input`, `data_request`, `user_choice`, `split`, `loop`, `knowledge_base` | Not provided as JSON on purpose. Your `SafetyEscalation` export only covers `start`, `basic`, `escalate`. Export one flow containing those node types and I will generate importable flow JSON. |
+| E | Node-level JSON for `user_input`, `data_request`, `split`, `loop`, `knowledge_base` | Not provided as JSON on purpose. Your `SafetyEscalation` export only covers `start`, `basic`, `escalate`. Export one flow containing those node types and I will generate importable flow JSON. |
 
 ## 6. Test matrix (the five slide-2 scenarios, English/Spanish)
 

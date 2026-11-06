@@ -12,26 +12,23 @@ const call = async (body, headers = { "x-api-key": "k" }) => {
 };
 const verified = async (body) => (await call(body)).body.verified;
 
-test("each field alone verifies", async () => {
-  assert.deepEqual(await call({ censusId: "12345" }), { status: 200, body: { verified: true } });
-  assert.equal(await verified({ zipCode: "411018" }), true);
-  assert.equal(await verified({ ssnLastFour: "6789" }), true);
+test("a census id, zip or last four given as authValue each verify", async () => {
+  assert.deepEqual(await call({ authValue: "12345" }), { status: 200, body: { verified: true } });
+  assert.equal(await verified({ authValue: "411018" }), true);
+  assert.equal(await verified({ authValue: "6789" }), true);
 });
-test("wrong census id then retry with zip (separate calls) verifies", async () => {
-  assert.equal(await verified({ censusId: "00000" }), false);
-  assert.equal(await verified({ zipCode: "411018" }), true);
+test("wrong value then retry with another value verifies (separate calls)", async () => {
+  assert.equal(await verified({ authValue: "00000" }), false);
+  assert.equal(await verified({ authValue: "411018" }), true);
 });
-test("one wrong field plus one correct field still verifies", async () => {
-  assert.equal(await verified({ censusId: "00000", zipCode: "411018" }), true);
+test("unknown value fails", async () => {
+  assert.equal(await verified({ authValue: "99999" }), false);
 });
-test("all wrong fails", async () => {
-  assert.equal(await verified({ censusId: "00000", zipCode: "99999", ssnLastFour: "0000" }), false);
-});
-test("nothing / blank values fail without a lookup", async () => {
+test("missing or blank authValue fails without a lookup", async () => {
   assert.equal(await verified({}), false);
-  assert.equal(await verified({ censusId: " ", zipCode: "", ssnLastFour: " " }), false);
+  assert.equal(await verified({ authValue: "  " }), false);
 });
 test("bad JSON -> 400; wrong API key -> 401", async () => {
   assert.equal((await handler({ body: "{", headers: { "x-api-key": "k" } })).statusCode, 400);
-  assert.equal((await call({ censusId: "12345" }, {})).status, 401);
+  assert.equal((await call({ authValue: "12345" }, {})).status, 401);
 });
