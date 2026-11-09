@@ -17,6 +17,18 @@
       "NoEcho": true,
       "MinLength": 24,
       "Description": "Bearer token consultants enter in the tool. Stored in Secrets Manager. Generate a long random value."
+    },
+    "CodeBucket": {
+      "Type": "String",
+      "AllowedPattern": "[0-9A-Za-z._-]*[0-9A-Za-z_-]",
+      "ConstraintDescription": "Only the bucket name: no s3://, no ARN, no slash, no spaces.",
+      "Description": "Bucket NAME only, in this stack's region, holding extractor.zip."
+    },
+    "CodeKey": {
+      "Type": "String",
+      "Default": "extractor.zip",
+      "AllowedPattern": "[^\\s]+",
+      "Description": "S3 key of the zip (index.mjs, contract.mjs, converse.mjs and package.json at its root)."
     }
   },
   "Resources": {
@@ -82,7 +94,14 @@
             "Arn"
           ]
         },
-        "Code": "./",
+        "Code": {
+          "S3Bucket": {
+            "Ref": "CodeBucket"
+          },
+          "S3Key": {
+            "Ref": "CodeKey"
+          }
+        },
         "Environment": {
           "Variables": {
             "MODEL_ID": {

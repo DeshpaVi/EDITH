@@ -9,14 +9,14 @@ the output schema are fixed in `contract.mjs`, so the endpoint cannot be used as
 1. Enable model access in Amazon Bedrock for a Claude model that supports tool use and vision in your region, and note its
    model id or inference-profile id. **It is not defaulted: confirm the id yourself.**
 2. Generate a long random access token (for example `openssl rand -hex 32`).
-3. Package and deploy (from this folder):
+3. Zip `index.mjs`, `contract.mjs`, `converse.mjs` and `package.json` (at the root of the zip) as `extractor.zip`, upload it to an S3 bucket in the
+   stack's region, then deploy `template.json` (console: CloudFormation, Create stack, upload the template; or the CLI):
    ```bash
-   aws cloudformation package --template-file template.json --s3-bucket <YOUR_BUCKET> --output-template-file packaged.json
-   aws cloudformation deploy --template-file packaged.json --stack-name journey-extractor --capabilities CAPABILITY_IAM \
-     --parameter-overrides ModelId=<MODEL_ID> AllowedOrigin=<https://your-site-or-http://localhost:5173> AccessToken=<TOKEN>
+   aws cloudformation deploy --template-file template.json --stack-name journey-extractor --capabilities CAPABILITY_IAM \
+     --parameter-overrides ModelId=<MODEL_ID> AllowedOrigin=<https://your-site> AccessToken=<TOKEN> CodeBucket=<BUCKET_NAME> CodeKey=extractor.zip
    aws cloudformation describe-stacks --stack-name journey-extractor --query "Stacks[0].Outputs"
    ```
-4. In the tool, paste the `ExtractorUrl` output and the access token (or set `VITE_EXTRACTOR_URL`).
+4. In the tool, paste the `ExtractorUrl` output and the access token on the Journey page (or build with `VITE_EXTRACTOR_URL` to prefill it).
 
 ## Notes
 
