@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { loadFiles, runMigration, type LoadedFile, type MigrationResult } from './migration/loadFiles'
 import { MigrationReport } from './components/MigrationReport'
+import { ImplementationSection } from './implementation/ImplementationSection'
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -930,6 +931,7 @@ export default function App() {
       <Features />
       <Stats />
       <IVRMigrationSection />
+      <ImplementationSection />
       <JourneySection />
       <ConversionSection />
       <Testimonials />

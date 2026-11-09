@@ -57,8 +57,30 @@ may therefore not run on the authentication-failure path (it is set as the Fallb
 the Debugger on a failed authentication: does the Generative text run, and does `transferSummary` reach the agent? The
 emitter redirects to the `Escalation` flow by id.
 
-Not yet built: the LLM extractor and its backend, the checklist UI, deploying from the app, a Connect-side CloudFormation
-resource.
+## 0c. Slice 3 status (checklist and bundle UI)
+
+Built in `Website/src/implementation/` and added to the page as `<ImplementationSection />` (after the IVR migration section):
+1. **Journey:** load the Census CQA example or upload journey JSON (validated, errors shown with paths). Diagram and deck
+   upload arrives with the extractor.
+2. **Checklist:** required items locked, recommended switchable, dependencies kept with a plain-language notice, schema status
+   badges, "needs a human decision" first, assumptions collapsed.
+3. **Bundle:** details form (application name, table, identifier attributes, knowledge base id, safety message, main prompt,
+   guardrail wording), then generate, preview any file, download one file or everything as a zip. Skipped items, warnings,
+   blockers and console steps are listed.
+4. **Connect flow:** form for the ids that exist only after deployment, validated, then generate and download the contact flow.
+The ACXD API key is never requested or shown anywhere.
+
+Structure: all logic is in `controller.ts` (pure, 25 tests); `theme.ts` holds every colour and style; `ui.tsx` the primitives;
+`ImplementationSection.tsx` the screens. A look-and-feel rework only touches `theme.ts` and `ui.tsx` (and the layout in the
+section file).
+
+Verification: React and Vite could not be installed here, so the UI has **not** been built with Vite or run in a real React.
+The components type-check against a loose stand-in for React's types, and were driven end to end (load, toggle, generate,
+preview, validation errors, contact flow) with a throwaway test renderer and screenshotted in Chromium. Run
+`npm run dev` and click through once on a machine with the dependencies. The `zipFiles` test ran against a stand-in for
+`fflate`, so it should be re-run for real.
+
+Not yet built: the LLM extractor and its backend, deploying from the app, a Connect-side CloudFormation resource.
 
 ## 1. The product (unchanged, see `CLAUDE.md`)
 
