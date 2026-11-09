@@ -293,6 +293,31 @@ describe('Amazon Connect contact flow', () => {
   })
 })
 
+describe('console mode (deployed by hand in the CloudFormation console)', () => {
+  const j = journey()
+  const c = emitBundle(j, selection(j), options({ mode: 'console' }))
+  const managed = emitBundle(j, selection(j), options({ mode: 'managed' }))
+  it('uses the same template as managed mode: a secret ARN and the provisioner from S3, no key parameter', () => {
+    expect(c.template).toEqual(managed.template)
+    expect(JSON.stringify(c.template)).not.toContain('NoEcho')
+  })
+  it('ships no provisioner folder and a README with console steps and no CLI packaging', () => {
+    expect(Object.keys(c.files).some((f) => f.startsWith('provisioner/'))).toBe(false)
+    const readme = c.files['README.md']
+    expect(readme).toContain('Deploy in the CloudFormation console')
+    expect(readme).toContain('AcxdApiKeySecretArn')
+    expect(readme).toContain('Explore table items')
+    expect(readme).not.toContain('aws cloudformation package')
+    expect(readme).not.toContain('deployed from the tool')
+  })
+  it('validates the bucket parameter so a pasted s3:// path is refused before anything is created', () => {
+    const p = c.template.Parameters as Record<string, { AllowedPattern?: string }>
+    const ok = new RegExp(`^(?:${p.ProvisionerCodeBucket.AllowedPattern})$`)
+    expect(ok.test('journeyforge-code-123456789012')).toBe(true)
+    for (const bad of ['s3://bucket', 'arn:aws:s3:::bucket', 'bucket/', 'bucket.', 'my bucket']) expect(ok.test(bad)).toBe(false)
+  })
+})
+
 describe('managed mode (deployed by the tool)', () => {
   const j = journey()
   const managed = emitBundle(j, selection(j), options({ mode: 'managed' }))

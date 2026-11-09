@@ -15,7 +15,7 @@
     "ArtifactBucket": {
       "Type": "String",
       "Description": "Bucket holding the provisioner package (the tool's ArtifactBucket).",
-      "AllowedPattern": ".+"
+      "AllowedPattern": "[0-9A-Za-z._-]*[0-9A-Za-z_-]"
     }
   },
   "Resources": {

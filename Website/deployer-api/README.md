@@ -30,32 +30,33 @@ This function can create IAM roles, Lambda functions and secrets in customer acc
   Put a real authorizer in front before exposing it, and review the roles in `customer-role.template.json` against your
   own least-privilege standard.
 
-## Set up
+## Set up (console route; the same steps with the CLI work too)
 
-1. **Publish the provisioner package** (needs npm and AWS access): `BUCKET=<artifacts-bucket> KEY=provisioner/v1.zip ../provisioner/build.sh`.
-   Pin the `amazon-connect-acxd-sdk` version in `provisioner/package.json` first. To let customer accounts read it, add a
-   bucket policy such as:
+The roles that customers install have fixed names under the path `/edith/`, so their ARNs are known in advance and the deployer
+can be installed first, in one pass: `arn:aws:iam::<TARGET_ACCOUNT>:role/edith/EdithDeployRole` and `.../EdithStackRole`.
+For a first test the target account can be the same account as the deployer.
+
+1. **Publish the provisioner package** (needs npm and AWS access; CloudShell has both): from the website source folder,
+   `BUCKET=<artifacts-bucket> KEY=provisioner/v1.zip ./provisioner/build.sh`. Pin the `amazon-connect-acxd-sdk` version in
+   `provisioner/package.json` once you know a version that works. Another account can read it only through a bucket policy such as:
    ```json
    { "Effect": "Allow", "Principal": { "AWS": "arn:aws:iam::<CUSTOMER_ACCOUNT>:role/edith/EdithStackRole" },
      "Action": "s3:GetObject", "Resource": "arn:aws:s3:::<artifacts-bucket>/provisioner/*" }
    ```
-2. **Deploy the deployer** in the tool's account:
-   ```bash
-   aws cloudformation package --template-file template.json --s3-bucket <BUCKET> --output-template-file packaged.json
-   aws cloudformation deploy --template-file packaged.json --stack-name edith-deployer --capabilities CAPABILITY_IAM \
-     --parameter-overrides AllowedOrigin=<site origin> AccessToken=<random token> ArtifactBucket=<bucket> ArtifactKey=provisioner/v1.zip \
-     TargetRoleArns=<role arns, comma separated> TargetsJson='<json>'
-   aws cloudformation describe-stacks --stack-name edith-deployer --query "Stacks[0].Outputs"
-   ```
-   Order matters for the roles: install the customer role first (next step) to know its ARNs, or deploy twice.
-3. **In each customer account**, an administrator creates the secret and installs the roles:
-   ```bash
-   aws secretsmanager create-secret --name acxd-api-key --secret-string "<ACXD API key>"   # the key stays in their account
-   aws cloudformation deploy --template-file customer-role.template.json --stack-name edith-deploy-role --capabilities CAPABILITY_NAMED_IAM \
-     --parameter-overrides DeployerRoleArn=<DeployerRoleArn output> ExternalId=<random value> ArtifactBucket=<bucket>
-   ```
-   Then add the target to `TargetsJson`: `{"id","label","roleArn","externalId","region","stackRoleArn"}` using that stack's outputs.
-4. In the tool's **Deploy** step, paste the `DeployerUrl` and the token, load the targets, and follow the screen.
+   The deployer also stores large templates in this bucket (`templates/`), which the customer's deploy role reads.
+2. **Upload the deployer code**: zip `index.mjs`, `cfn.mjs`, `confirm.mjs`, `policy.mjs` and `package.json` (at the zip's root) as
+   `deployer.zip` and put it in a bucket in the stack's region.
+3. **Create the deployer stack** (CloudFormation console, upload `template.json`, or the CLI) in the tool's account. Parameters:
+   `AllowedOrigin` (the site's address, no trailing slash), `AccessToken` (random, 24+ characters), `DeployerCodeBucket`,
+   `DeployerCodeKey`, `ArtifactBucket` and `ArtifactKey` (from step 1), `TargetRoleArns` (the deploy role ARN, comma separated for
+   several), and `TargetsJson`:
+   `[{"id":"mine","label":"My account","roleArn":"arn:aws:iam::<ACCOUNT>:role/edith/EdithDeployRole","externalId":"<random 16+ chars>","region":"us-east-1","stackRoleArn":"arn:aws:iam::<ACCOUNT>:role/edith/EdithStackRole"}]`.
+   Acknowledge IAM. Copy the outputs `DeployerUrl` and `DeployerRoleArn`.
+4. **In each target account**, an administrator installs `customer-role.template.json` (CloudFormation console; acknowledge that it
+   creates named IAM resources). Parameters: `DeployerRoleArn` (from step 3), `ExternalId` (the same value as in `TargetsJson`),
+   `ArtifactBucket`. The ACXD key stays in that account: Secrets Manager, Store a new secret, Other type, Plaintext, paste the key;
+   copy the secret's ARN for the template's `AcxdApiKeySecretArn` parameter.
+5. In the tool's **Deploy** step, paste the `DeployerUrl` and the token, load the targets, and follow the screen.
 
 ## Notes
 

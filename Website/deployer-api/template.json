@@ -24,12 +24,25 @@
     "ArtifactBucket": {
       "Type": "String",
       "Description": "Bucket holding the published provisioner package.",
-      "AllowedPattern": ".+"
+      "AllowedPattern": "[0-9A-Za-z._-]*[0-9A-Za-z_-]",
+      "ConstraintDescription": "Only the bucket name: no s3://, no ARN, no slash, no spaces."
     },
     "ArtifactKey": {
       "Type": "String",
       "Description": "Key of the published provisioner package.",
       "AllowedPattern": ".+"
+    },
+    "DeployerCodeBucket": {
+      "Type": "String",
+      "AllowedPattern": "[0-9A-Za-z._-]*[0-9A-Za-z_-]",
+      "ConstraintDescription": "Only the bucket name: no s3://, no ARN, no slash, no spaces.",
+      "Description": "Bucket NAME only, in this stack's region, holding deployer.zip."
+    },
+    "DeployerCodeKey": {
+      "Type": "String",
+      "Default": "deployer.zip",
+      "AllowedPattern": "[^\\s]+",
+      "Description": "S3 key of the zip (index.mjs, cfn.mjs, confirm.mjs, policy.mjs and package.json at its root)."
     }
   },
   "Resources": {
@@ -117,7 +130,14 @@
             "Arn"
           ]
         },
-        "Code": "./",
+        "Code": {
+          "S3Bucket": {
+            "Ref": "DeployerCodeBucket"
+          },
+          "S3Key": {
+            "Ref": "DeployerCodeKey"
+          }
+        },
         "Environment": {
           "Variables": {
             "ACCESS_TOKEN": {

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { IDS } from '../core/checklist'
 import {
   parseJourneyText, startSession, toggleItem, effectiveSelection, describeChecklist, defaultDetails,
-  generateBundle, zipFiles, handBackAttributes, defaultContactFlowForm, generateContactFlow,
+  generateBundle, zipFiles, handBackAttributes, defaultContactFlowForm, generateContactFlow, composeQueueArn,
 } from './controller'
 import type { Session } from './controller'
 import census from '../core/journey/fixtures/census-cqa.journey.json'
@@ -191,6 +191,19 @@ describe('contact flow form', () => {
   it('rejects a queue ARN that is not a Connect queue', () => {
     const r = generateContactFlow({ ...filled(), queueArn: 'arn:aws:s3:::bucket' })
     expect(r.ok).toBe(false)
+  })
+
+  it('builds the queue ARN from region, account, instance id and queue id when no ARN is pasted', () => {
+    const parts = { region: 'us-east-1', accountId: '111122223333', instanceId: 'abc', queueId: 'def' }
+    expect(composeQueueArn(parts)).toBe('arn:aws:connect:us-east-1:111122223333:instance/abc/queue/def')
+    expect(composeQueueArn({ ...parts, queueId: ' ' })).toBe('')
+    expect(composeQueueArn(undefined)).toBe('')
+    const r = generateContactFlow({ ...filled(), queueArn: '', queueParts: parts })
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.json).toContain('instance/abc/queue/def')
+    const missing = generateContactFlow({ ...filled(), queueArn: '', queueParts: { ...parts, instanceId: '' } })
+    expect(missing.ok).toBe(false)
+    if (!missing.ok) expect(missing.errors.join(' ')).toContain('instance id')
   })
 
   it('produces importable flow JSON', () => {

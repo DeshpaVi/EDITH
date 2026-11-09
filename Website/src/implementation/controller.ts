@@ -164,7 +164,7 @@ function parseGuardrail(label: string, text: string, errors: string[]): Guardrai
 }
 
 /** Checks the form, then emits the bundle for the current selection. Returns every problem at once. */
-export function generateBundle(session: Session, details: Details, provisionerFiles: Record<string, string>, mode: 'cli' | 'managed' = 'cli'): BuildResult {
+export function generateBundle(session: Session, details: Details, provisionerFiles: Record<string, string>, mode: 'cli' | 'managed' | 'console' = 'cli'): BuildResult {
   const errors: string[] = []
   const auth = stepsOfKind(session.journey, 'authentication')[0]
   const name = details.applicationName.trim()
@@ -222,8 +222,19 @@ export interface ContactFlowForm {
   applicationId: string
   aliasId: string
   queueArn: string
+  /** Optional: the parts of the queue ARN, used to build it when `queueArn` is empty. The instance id is the one in the Connect instance ARN. */
+  queueParts?: QueueParts
   queueName: string
   attributes: string[]
+}
+
+export interface QueueParts { region: string; accountId: string; instanceId: string; queueId: string }
+
+/** arn:aws:connect:<region>:<account>:instance/<instance-id>/queue/<queue-id>, or '' while any part is missing. */
+export function composeQueueArn(p: QueueParts | undefined): string {
+  if (!p) return ''
+  const [region, accountId, instanceId, queueId] = [p.region, p.accountId, p.instanceId, p.queueId].map((x) => x.trim())
+  return region && accountId && instanceId && queueId ? `arn:aws:connect:${region}:${accountId}:instance/${instanceId}/queue/${queueId}` : ''
 }
 
 /** Hand-back attributes: the context variables the escalation path fills (not internal state like isAuthenticated). */
@@ -243,6 +254,7 @@ export function defaultContactFlowForm(session: Session): ContactFlowForm {
     applicationId: '',
     aliasId: '',
     queueArn: '',
+    queueParts: { region: '', accountId: '', instanceId: '', queueId: '' },
     queueName: '',
     attributes: handBackAttributes(session),
   }
@@ -260,8 +272,9 @@ export function generateContactFlow(form: ContactFlowForm): ContactFlowResult {
   need(form.applicationId, 'ACXD application id (a stack output)')
   need(form.aliasId, 'Deployment alias id (Deploy tab, after deploying)')
   need(form.queueName, 'Queue name')
-  if (!/^arn:aws[a-z-]*:connect:[a-z0-9-]+:\d{12}:instance\/[^/]+\/queue\/[^/]+$/.test(form.queueArn.trim())) {
-    errors.push('Queue ARN must look like arn:aws:connect:<region>:<account>:instance/<instance-id>/queue/<queue-id>.')
+  const queueArn = form.queueArn.trim() || composeQueueArn(form.queueParts)
+  if (!/^arn:aws[a-z-]*:connect:[a-z0-9-]+:\d{12}:instance\/[^/]+\/queue\/[^/]+$/.test(queueArn)) {
+    errors.push('Give the queue ARN (arn:aws:connect:<region>:<account>:instance/<instance-id>/queue/<queue-id>), or fill in region, account id, Connect instance id and queue id.')
   }
   if (errors.length > 0) return { ok: false, errors }
   const flow = emitAgenticContactFlow({
@@ -270,7 +283,7 @@ export function generateContactFlow(form: ContactFlowForm): ContactFlowResult {
     workspaceId: form.workspaceId.trim(),
     applicationId: form.applicationId.trim(),
     aliasId: form.aliasId.trim(),
-    queueArn: form.queueArn.trim(),
+    queueArn,
     queueName: form.queueName.trim(),
     attributes: form.attributes,
   })

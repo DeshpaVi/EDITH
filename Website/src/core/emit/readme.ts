@@ -15,6 +15,8 @@ export interface ReadmeInput {
   tableName?: string
   /** Deployed by the tool: the CLI deploy steps do not apply. */
   managed?: boolean
+  /** Deployed by hand in the CloudFormation console (managed-style template: secret ARN and code in S3). */
+  console?: boolean
 }
 
 /** Deterministic deploy guide shipped with the bundle. Contains no secrets. */
@@ -25,7 +27,25 @@ export function renderReadme(i: ReadmeInput): string {
     'Generated from the customer journey. It creates AWS resources and the ACXD resources in one CloudFormation stack.',
     'The ACXD resources are created by a Lambda-backed custom resource (the provisioner) using your ACXD API key.',
     '',
-    ...(i.managed
+    ...(i.console
+      ? [
+          '## Before you start',
+          '',
+          '- The ACXD workspace id, and an ACXD API key (`acxd_live_...`) for a programmatic user with access to that workspace.',
+          '- A Secrets Manager secret **in this account and region** whose plaintext value is the ACXD API key: Secrets Manager, Store a new secret, Other type of secret, Plaintext, paste the key, name it (for example `acxd-api-key`), store it, and copy its ARN. The key is never typed into this template or any parameter.',
+          '- The provisioner package in an S3 bucket **in the same region**: in AWS CloudShell, unpack the website source and run `BUCKET=<your bucket> KEY=provisioner/v1.zip ./provisioner/build.sh` (see `provisioner/README` in the website source). Note the bucket name and key.',
+          '',
+          '## Deploy in the CloudFormation console',
+          '',
+          '1. CloudFormation, Create stack, With new resources, Upload a template file, choose `template.json`.',
+          '2. Stack name: anything. Parameters: `AcxdWorkspaceId`, `AcxdApiKeySecretArn` (the ARN above), `ProvisionerCodeBucket` (bucket name only), `ProvisionerCodeKey`' + (hasTable ? ', and `TableName`' : '') + '.',
+          '3. Acknowledge that IAM resources are created, then Submit. Wait for CREATE_COMPLETE.',
+          '4. Outputs tab: copy `AcxdApplicationId` (the Connect contact flow needs it). If the stack fails, open the AcxdProvision resource in Events, then the provisioner Lambda log group in CloudWatch.',
+          '',
+          'After the deployment finishes:',
+          '',
+        ]
+      : i.managed
       ? [
           '## Deploy',
           '',
@@ -66,15 +86,15 @@ export function renderReadme(i: ReadmeInput): string {
     '',
         ]),
   )
-  let step = i.managed ? 1 : 5
+  let step = i.managed || i.console ? 1 : 5
   if (hasTable) {
     const fields = i.identifierFields ?? []
     const item = Object.fromEntries(fields.map((f) => [f, { S: `<${f}>` }]))
     L.push(
       `${step++}. Seed the respondent table with real or demo records (one item per respondent; every identifier is a string attribute):`,
-      '   ```bash',
-      `   aws dynamodb put-item --table-name ${i.tableName ?? 'RespondentRecords'} --item '${JSON.stringify(item)}'`,
-      '   ```',
+      ...(i.console
+        ? [`   DynamoDB console, Tables, ${i.tableName ?? 'RespondentRecords'}, Explore table items, Create item. Add a string attribute for each of: ${fields.join(', ')}.`]
+        : ['   ```bash', `   aws dynamodb put-item --table-name ${i.tableName ?? 'RespondentRecords'} --item '${JSON.stringify(item)}'`, '   ```']),
       '',
     )
   }

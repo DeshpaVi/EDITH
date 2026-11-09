@@ -162,6 +162,7 @@ export function ChecklistStep({ session, readSummary, onChange, onNext }: { sess
 export function BundleStep({ session, details, onDetails, result, onResult, isExample }: { session: Session; details: Details; onDetails: (d: Details) => void; result: BuildResult | null; onResult: (r: BuildResult) => void; isExample: boolean }) {
   const set = <K extends keyof Details>(key: K, value: Details[K]) => onDetails({ ...details, [key]: value })
   const [preview, setPreview] = useState('README.md')
+  const [mode, setMode] = useState<'console' | 'cli'>('console')
   const useExampleWording = () =>
     onDetails({ ...details, guardrails: { safety: JSON.stringify(exampleSafety, null, 2), promptInjection: JSON.stringify(exampleInjection, null, 2), toxicity: JSON.stringify(exampleToxicity, null, 2) } })
 
@@ -185,7 +186,15 @@ export function BundleStep({ session, details, onDetails, result, onResult, isEx
         <Field label="Safety guardrail (JSON)"><TextArea value={details.guardrails.safety} onChange={(v) => set('guardrails', { ...details.guardrails, safety: v })} rows={3} /></Field>
         <Field label="Prompt injection guardrail (JSON)"><TextArea value={details.guardrails.promptInjection} onChange={(v) => set('guardrails', { ...details.guardrails, promptInjection: v })} rows={3} /></Field>
         <Field label="Toxicity guardrail (JSON)"><TextArea value={details.guardrails.toxicity} onChange={(v) => set('guardrails', { ...details.guardrails, toxicity: v })} rows={3} /></Field>
-        <Button onClick={() => onResult(generateBundle(session, details, provisionerFiles))}>Generate bundle</Button>
+        <Field label="How will you deploy it?" hint={mode === 'console'
+          ? 'CloudFormation console: you create a Secrets Manager secret holding the ACXD API key and upload the provisioner package to S3 once. The key is never typed into the template.'
+          : 'AWS CLI: the ACXD API key is a hidden template parameter and the provisioner is packaged from the bundle (needs Node and the CLI).'}>
+          <select value={mode} onChange={(e) => { setMode(e.target.value as 'console' | 'cli'); onDetails({ ...details }) }} style={{ width: '100%', padding: 10, borderRadius: 10, background: color.input, color: color.text, border: `1px solid ${color.border}` }}>
+            <option value="console">CloudFormation console (recommended)</option>
+            <option value="cli">AWS CLI</option>
+          </select>
+        </Field>
+        <Button onClick={() => onResult(generateBundle(session, details, provisionerFiles, mode))}>Generate bundle</Button>
         {result && !result.ok && <Problems items={result.errors} />}
       </Panel>
 
@@ -242,7 +251,19 @@ export function ContactFlowStep({ session, prefill, onGenerated }: { session: Se
       <Field label="ACXD application id (stack output)"><TextInput value={form.applicationId} onChange={(v) => set('applicationId', v)} /></Field>
       <Field label="Deployment alias id"><TextInput value={form.aliasId} onChange={(v) => set('aliasId', v)} /></Field>
       <Field label="Escalation queue name"><TextInput value={form.queueName} onChange={(v) => set('queueName', v)} /></Field>
-      <Field label="Escalation queue ARN" hint="arn:aws:connect:<region>:<account>:instance/<instance-id>/queue/<queue-id>"><TextInput value={form.queueArn} onChange={(v) => set('queueArn', v)} /></Field>
+      <Field label="Escalation queue ARN" hint="Paste the queue's ARN from the Connect console, or fill in the four parts below and it is built for you."><TextInput value={form.queueArn} onChange={(v) => set('queueArn', v)} placeholder="arn:aws:connect:<region>:<account>:instance/<instance-id>/queue/<queue-id>" /></Field>
+      {form.queueArn.trim() === '' && (
+        <div style={{ borderLeft: `3px solid ${color.border}`, paddingLeft: 12, marginBottom: 16 }}>
+          <p style={{ ...muted, fontSize: 13, marginTop: 0 }}>
+            Or build it from parts. The Connect <strong>instance id</strong> is the last part of the instance ARN (Amazon Connect console, your instance, Overview). The flow you generate is imported into that same instance; the id is used here only inside the queue ARN.
+          </p>
+          {(['region', 'accountId', 'instanceId', 'queueId'] as const).map((k) => (
+            <Field key={k} label={{ region: 'Connect region', accountId: 'AWS account id', instanceId: 'Connect instance id', queueId: 'Queue id' }[k]}>
+              <TextInput value={form.queueParts?.[k] ?? ''} onChange={(v) => set('queueParts', { region: '', accountId: '', instanceId: '', queueId: '', ...form.queueParts, [k]: v })} />
+            </Field>
+          ))}
+        </div>
+      )}
       <p style={{ ...muted, fontSize: 13 }}>Hand-back attributes: {form.attributes.join(', ') || 'none'}</p>
       <Button onClick={() => { const r = generateContactFlow(form); setOut(r); if (r.ok) onGenerated?.() }}>Generate contact flow</Button>
       {out && !out.ok && <Problems items={out.errors} />}

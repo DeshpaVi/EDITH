@@ -65,8 +65,13 @@ export function buildTemplate(input: TemplateInput): CfnTemplate {
       Description: 'ARN of a Secrets Manager secret in this account whose value is the ACXD API key. Create it yourself; the key is never passed to the deploy tool.',
       AllowedPattern: 'arn:aws[a-z-]*:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:.+',
     }
-    parameters.ProvisionerCodeBucket = { Type: 'String', Description: 'S3 bucket holding the provisioner package (set by the deploy tool).', AllowedPattern: '.+' }
-    parameters.ProvisionerCodeKey = { Type: 'String', Description: 'S3 key of the provisioner package (set by the deploy tool).', AllowedPattern: '.+' }
+    parameters.ProvisionerCodeBucket = {
+      Type: 'String',
+      Description: 'Bucket NAME only, in this region, holding the provisioner package (filled in by the deploy tool; typed by you in the console).',
+      AllowedPattern: '[0-9A-Za-z._-]*[0-9A-Za-z_-]',
+      ConstraintDescription: 'Only the bucket name: no s3://, no ARN, no slash, no spaces.',
+    }
+    parameters.ProvisionerCodeKey = { Type: 'String', Description: 'S3 key of the provisioner package.', AllowedPattern: '[^\\s]+' }
   } else {
     parameters.AcxdApiKey = {
       Type: 'String',

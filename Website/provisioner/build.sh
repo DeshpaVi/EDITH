@@ -10,4 +10,5 @@ rm -rf build && mkdir build
 cp index.mjs package.json build/
 (cd build && npm install --omit=dev --no-audit --no-fund && zip -qr ../provisioner.zip .)
 aws s3 cp provisioner.zip "s3://${BUCKET}/${KEY}"
+echo "ACXD SDK in this package: $(cd build && npm ls amazon-connect-acxd-sdk --depth=0 2>/dev/null | grep amazon-connect-acxd-sdk || echo unknown)"
 echo "Uploaded s3://${BUCKET}/${KEY}. Pin the SDK version in package.json before using this for a customer."

@@ -14,13 +14,14 @@
     },
     "ProvisionerCodeBucket": {
       "Type": "String",
-      "Description": "S3 bucket holding the provisioner package (set by the deploy tool).",
-      "AllowedPattern": ".+"
+      "Description": "Bucket NAME only, in this region, holding the provisioner package (filled in by the deploy tool; typed by you in the console).",
+      "AllowedPattern": "[0-9A-Za-z._-]*[0-9A-Za-z_-]",
+      "ConstraintDescription": "Only the bucket name: no s3://, no ARN, no slash, no spaces."
     },
     "ProvisionerCodeKey": {
       "Type": "String",
-      "Description": "S3 key of the provisioner package (set by the deploy tool).",
-      "AllowedPattern": ".+"
+      "Description": "S3 key of the provisioner package.",
+      "AllowedPattern": "[^\\s]+"
     },
     "TableName": {
       "Type": "String",
