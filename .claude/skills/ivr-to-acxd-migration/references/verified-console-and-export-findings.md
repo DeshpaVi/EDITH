@@ -202,6 +202,24 @@ These items in the documentation-derived references were **wrong or misleading i
 | Node `metadata` and `childNodes[].conditions` undocumented | Confirmed for start, basic, escalate, redirect, loop, split, data_request, generative_text and generative_journey (see Export JSON shapes) |
 | Guardrail action names to be confirmed | `modify`, `flag`, `route` confirmed (`mask` not yet seen) |
 
+## Verified by the first programmatic deployment (SDK `amazon-connect-acxd-sdk` 0.3.0, real workspace)
+
+Source: a CloudFormation custom resource creating the Census build through the SDK, with the SDK's real export list and ACXD's own Build validation.
+
+**SDK commands (Command classes exported by 0.3.0):**
+- Full Create / Update / Delete / List and (except where noted) Get exist for: Application, DataRequest, Flow, Guardrail, Secret, SlotType.
+- **ContextVariable and AnalyticsTag have no Get**: Create, Update, Delete, List only. Check existence with the list call and match on `name`; the identifier is the name.
+- Application also has Builds, Deployments and BuildDiff commands. There is `TestGuardrail` and `ListGuardrailEvents`.
+- Every command is built as `new sdk[`<Verb><Kind>Command`](input)`; a missing one fails as "is not a constructor". Check names against the export list before relying on a documented command.
+- SDK version matters: pin it. Print it in the build.
+
+**Workspace-level objects that flows and guardrails reference must exist before the application builds.** ACXD's Build validation reports "Unavailable reference" for each missing one, and creating a flow or guardrail that points at a missing object succeeds silently. Found so far:
+- **Analytics tags**: guardrail rules carry `tags: [{label}]`. The tag must exist (Create `name` letters/digits/underscores up to 36, `type` positive|negative|neutral, `description` up to 64). A guardrail export does not say a tag's `type`.
+- **Custom slot types**: an attached slot's `type: "Freeformtext"` is a *custom* slot type (listed under "Custom" in the slot dropdown, next to `YesNo`), not a built-in. Built-ins are `NLX.Date, Duration, Email, Name, Number, Ordinal, AlphaNumeric, PhoneNumber, Text, Time, Url`. `Freeformtext` has **0 values**, one language, sensitive off, no description. A flow whose slot type is missing shows "Unknown value" (red) in Attached slots.
+- Rule: collect every workspace-level reference from the generated flows and guardrails, and create it first. Do not delete shared ones (tags, slot types) when a stack is deleted.
+
+**Application:** creating flows and guardrails does not build or deploy anything. Console steps remain after the stack: Manage default behavior (Incomprehension to the Escalation flow), then Deploy > Build, then deploy and note the deployment alias.
+
 ## Still not verified
 
 - Flow JSON for `user_choice`, `user_input`, `knowledge_base`, `define`, `transform`, `live sync`, `multimodal`,
@@ -213,4 +231,6 @@ These items in the documentation-derived references were **wrong or misleading i
 - How the application picks `Authentication` over the Journey: flow **Routing** (`aiDescription`) or only the Journey exit.
 - Spanish: language detection and switching in an ACXD-only design, per-language voices, translations.
 - The Connect Set voice block JSON; the imported voice flow on a real phone call.
-- Application-level and Data request / Slot type / Context variable **export** shapes (flows and guardrails only so far).
+- Application-level and Data request / Context variable **export** shapes (flows, guardrails and one slot type's settings so far).
+- Whether the SDK accepts `CreateSlotType` with `values: []` (the console shows a 0-value slot type; first run of the provisioner will tell) and the analytics tag `type` used by the Census workspace.
+- Remaining first-run mismatches in command *inputs* (field names) for data requests, flows, guardrails and the application.
