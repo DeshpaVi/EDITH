@@ -75,6 +75,23 @@ export function createAcxdApi(client, sdk) {
   return {
     /** Create or update by name. Returns the resource id (a server id for guardrails and applications). */
     async ensure(kind, key, payload) {
+      try {
+        return await ensureOne(kind, key, payload)
+      } catch (err) {
+        throw withContext(err, `${kind} "${key}"`)
+      }
+    },
+    /** Delete if present; a missing resource is not an error. */
+    async remove(kind, key, name) {
+      try {
+        return await removeOne(kind, key, name)
+      } catch (err) {
+        throw withContext(err, `${kind} "${key}"`)
+      }
+    },
+  }
+
+  async function ensureOne(kind, key, payload) {
       const k = KINDS[kind]
       const existing = await findExisting(kind, key, payload[k.nameField] ?? key)
       if (existing === null) {
@@ -84,9 +101,9 @@ export function createAcxdApi(client, sdk) {
       const { [k.keyField]: _omit, ...rest } = payload
       await send(kind, 'Update', { [k.idField]: existing, ...rest })
       return existing
-    },
-    /** Delete if present; a missing resource is not an error. */
-    async remove(kind, key, name) {
+  }
+
+  async function removeOne(kind, key, name) {
       const k = KINDS[kind]
       const existing = await findExisting(kind, key, name ?? key)
       if (existing === null) return false
@@ -97,8 +114,15 @@ export function createAcxdApi(client, sdk) {
         throw err
       }
       return true
-    },
   }
+}
+
+/** Keeps the SDK error's type and says which resource it was about (the SDK message alone, e.g. "name is not in the expected format", does not). */
+function withContext(err, what) {
+  const wrapped = new Error(`${what}: ${err?.message ?? 'failed'}`)
+  wrapped.type = err?.type
+  wrapped.name = err?.name ?? 'Error'
+  return wrapped
 }
 
 /**

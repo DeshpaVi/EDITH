@@ -269,3 +269,10 @@ test('the Freeformtext slot type is created with no values, and is not deleted w
   await deprovision(spec(), { ...fakeApi(), remove: async (k) => calls.push(k) })
   assert.ok(!calls.includes('slotType'))
 })
+
+test('an SDK error says which resource it was about and keeps its type', async () => {
+  const sdk = { GetSecretCommand: class {}, CreateSecretCommand: class {} }
+  const client = { send: async (cmd) => { if (cmd instanceof sdk.GetSecretCommand) throw Object.assign(new Error('missing'), { type: 'ResourceNotFoundException' }); throw Object.assign(new Error('name is not in the expected format.'), { type: 'ValidationException' }) } }
+  const api = createAcxdApi(client, sdk)
+  await assert.rejects(() => api.ensure('secret', 'bad name', { name: 'bad name' }), (err) => err.message === 'secret "bad name": name is not in the expected format.' && err.type === 'ValidationException')
+})
