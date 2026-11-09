@@ -132,10 +132,22 @@ export interface Details {
   guardrails: { safety: string; promptInjection: string; toxicity: string }
 }
 
+/**
+ * ACXD rejected an application name with parentheses ("name is not in the expected format") although its documentation says only "1 to 100
+ * characters". Until the real rule is known, names are limited to letters, digits, spaces, hyphens and underscores.
+ */
+export const APPLICATION_NAME = /^[A-Za-z0-9][A-Za-z0-9 _-]{0,99}$/
+
+/** A safe default application name from a journey title: other characters become spaces. */
+export function applicationNameFrom(title: string): string {
+  const cleaned = title.replace(/[^A-Za-z0-9 _-]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/^[^A-Za-z0-9]+/, '')
+  return (cleaned || 'Journey').slice(0, 100).trim()
+}
+
 export function defaultDetails(journey: Journey): Details {
   const auth = stepsOfKind(journey, 'authentication')[0]
   return {
-    applicationName: journey.title.slice(0, 100),
+    applicationName: applicationNameFrom(journey.title),
     tableName: 'RespondentRecords',
     identifierFields: auth ? auth.identifiers.map(attributeName) : [],
     knowledgeBaseId: '',
@@ -168,7 +180,7 @@ export function generateBundle(session: Session, details: Details, provisionerFi
   const errors: string[] = []
   const auth = stepsOfKind(session.journey, 'authentication')[0]
   const name = details.applicationName.trim()
-  if (name.length < 1 || name.length > 100) errors.push('Application name must be 1 to 100 characters.')
+  if (!APPLICATION_NAME.test(name)) errors.push('Application name must be 1 to 100 characters: letters, digits, spaces, hyphens and underscores only (ACXD rejects other characters such as parentheses).')
 
   const selected = new Set(effectiveSelection(session).selected)
   const hasTable = [...selected].some((id) => id.startsWith('dynamodb.table'))

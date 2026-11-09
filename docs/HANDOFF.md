@@ -265,3 +265,7 @@ First deploy failed at the first ACXD calls: `GetContextVariableCommand` does no
 ## 0m. Two gaps found by ACXD's own Build validation (real workspace)
 
 Build failed with "Unavailable reference" for (1) the analytics tags (`safety`, `promptinjection`, `toxicity`) that guardrail rules reference, and (2) the slot type `Freeformtext` that the Authentication flow attaches. Both are workspace-level objects that exist in the source workspace and not in a new one. Now created by the provisioner, before the guardrails and the flows: `analyticsTags` (type 'negative' is an assumption; description <= 64 chars) and `slotTypes` (`Freeformtext`: no values, sensitive off, journey languages; read from the source workspace). Neither is deleted with the stack (shared). General lesson for the app: a journey implementation also needs every workspace-level object its flows reference; collect them from the generated flows rather than assuming they exist.
+
+## 0n. Application name rule
+
+Update failed with `ValidationException: name is not in the expected format` at the application step: the bundle form had defaulted the application name to the journey title, which contains parentheses. Now `applicationNameFrom()` sanitizes the default and `generateBundle` refuses names outside `[A-Za-z0-9 _-]` (1 to 100). The same run showed the analytics tags, the `Freeformtext` slot type (`values: []`) and in-place updates of flows, data request, context variables and guardrails all work against the real SDK.

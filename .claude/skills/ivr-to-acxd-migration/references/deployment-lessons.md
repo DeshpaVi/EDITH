@@ -13,7 +13,8 @@ real failure or surprise; the fix is in the code and the check is in a test. Use
 3. A new workspace does not contain what the source workspace had. Export every referenced object from the source (slot type settings,
    tag names and types), not only the flows.
 4. Creating resources does not deploy them: Manage default behavior, Build, deploy, deployment alias are console steps.
-5. Do not delete shared workspace objects (tags, slot types) when a stack is deleted.
+5. **Validate names in the app, not at deploy time.** ACXD rejected an application name with parentheses; the form defaulted to the journey title. Sanitize defaults and refuse bad input in the form. Keep the application name the same across updates.
+6. Do not delete shared workspace objects (tags, slot types) when a stack is deleted.
 
 ## Amazon Bedrock
 6. **The AWS account type matters.** An account billed through a channel partner (reseller or distributor) can be refused Anthropic models:

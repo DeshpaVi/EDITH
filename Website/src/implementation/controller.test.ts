@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { IDS } from '../core/checklist'
 import {
   parseJourneyText, startSession, toggleItem, effectiveSelection, describeChecklist, defaultDetails,
-  generateBundle, zipFiles, handBackAttributes, defaultContactFlowForm, generateContactFlow, composeQueueArn,
+  generateBundle, zipFiles, handBackAttributes, defaultContactFlowForm, generateContactFlow, composeQueueArn, applicationNameFrom, APPLICATION_NAME,
 } from './controller'
 import type { Session } from './controller'
 import census from '../core/journey/fixtures/census-cqa.journey.json'
@@ -102,7 +102,7 @@ describe('generating the bundle', () => {
   it('defaults the details from the journey', () => {
     const d = defaultDetails(session().journey)
     expect(d.identifierFields).toEqual(['censusId', 'homeZipCode', 'lastFourDigitsOfSsn'])
-    expect(d.applicationName).toBe('2030 Census Questionnaire Assistance (CQA) demo')
+    expect(d.applicationName).toBe('2030 Census Questionnaire Assistance CQA demo')
   })
 
   it('produces the bundle files for a valid form', () => {
@@ -162,6 +162,24 @@ describe('zip download', () => {
     expect(zipFiles(files)).toEqual(a)
     const text = new TextDecoder('latin1').decode(a)
     for (const name of Object.keys(files)) expect(text).toContain(name)
+  })
+})
+
+describe('application name', () => {
+  const details = () => ({ ...defaultDetails(session().journey), tableName: 'CensusIds', identifierFields: ['censusId', 'zipCode', 'ssnLastFour'], knowledgeBaseId: 'kb-1' })
+  it('turns a journey title into a name ACXD accepts', () => {
+    expect(applicationNameFrom('2030 Census Questionnaire Assistance (CQA) demo')).toBe('2030 Census Questionnaire Assistance CQA demo')
+    expect(applicationNameFrom('  (Q&A)  flow / v2 ')).toBe('Q A flow v2')
+    expect(applicationNameFrom('***')).toBe('Journey')
+    expect(applicationNameFrom('x'.repeat(150))).toHaveLength(100)
+    for (const t of ['CQA Demo', 'A (b)', 'ünï', '']) expect(APPLICATION_NAME.test(applicationNameFrom(t))).toBe(true)
+  })
+
+  it('refuses a name with characters ACXD rejects, before anything is generated', () => {
+    const r = generateBundle(session(), { ...details(), applicationName: '2030 Census (CQA) demo', tableName: 'CensusIds' }, provisioner)
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errors.join(' ')).toContain('parentheses')
+    expect(generateBundle(session(), { ...details(), applicationName: 'CQA Demo' }, provisioner).ok).toBe(true)
   })
 })
 

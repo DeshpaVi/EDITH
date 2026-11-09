@@ -220,6 +220,11 @@ Source: a CloudFormation custom resource creating the Census build through the S
 
 **Application:** creating flows and guardrails does not build or deploy anything. Console steps remain after the stack: Manage default behavior (Incomprehension to the Escalation flow), then Deploy > Build, then deploy and note the deployment alias.
 
+**Names (real validation, `ValidationException: name is not in the expected format`):**
+- An **application name with parentheses is rejected** ("2030 Census Questionnaire Assistance (CQA) demo"); "CQA Demo" is accepted. The documentation says only "1 to 100 characters". Until the full rule is known, use letters, digits, spaces, hyphens and underscores.
+- Renaming an application through an update creates a different application: keep the name stable across stack updates.
+- Worked in the same run (the provisioner reached the application step without error): creating the three analytics tags, creating the `Freeformtext` slot type with `values: []`, and updating the flows, data request, context variables and guardrails in place.
+
 ## Still not verified
 
 - Flow JSON for `user_choice`, `user_input`, `knowledge_base`, `define`, `transform`, `live sync`, `multimodal`,
@@ -232,5 +237,5 @@ Source: a CloudFormation custom resource creating the Census build through the S
 - Spanish: language detection and switching in an ACXD-only design, per-language voices, translations.
 - The Connect Set voice block JSON; the imported voice flow on a real phone call.
 - Application-level and Data request / Context variable **export** shapes (flows, guardrails and one slot type's settings so far).
-- Whether the SDK accepts `CreateSlotType` with `values: []` (the console shows a 0-value slot type; first run of the provisioner will tell) and the analytics tag `type` used by the Census workspace.
+- The analytics tag `type` used by the Census workspace (the SDK accepted `negative`); the full application name rule.
 - Remaining first-run mismatches in command *inputs* (field names) for data requests, flows, guardrails and the application.
