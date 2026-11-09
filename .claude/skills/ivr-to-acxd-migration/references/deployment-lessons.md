@@ -31,7 +31,8 @@ real failure or surprise; the fix is in the code and the check is in a test. Use
 11. Managed policy ids (CloudFront cache policies) are easy to misremember: pin them in a test against the documented values.
 12. Break circular references (distribution, Cognito client, Lambda) by passing ids through an SSM parameter read at run time.
 13. A custom resource that throws on Delete leaves the stack stuck: make failures name the command and the similar exports, and keep Delete tolerant.
-14. Keep a failed first deploy cheap: the rollback should leave nothing behind except shared objects.
+14. **Inline Lambda code (`ZipFile`) is `index.js` loaded as CommonJS.** `export const handler` fails with `Runtime.UserCodeSyntaxError: Unexpected token 'export'` and the Function URL answers **502**. Use `exports.handler`. Test the generated source the way Lambda loads it, not with the keyword stripped. A 502 from a Function URL means the function crashed: read its log group first.
+15. Keep a failed first deploy cheap: the rollback should leave nothing behind except shared objects.
 
 ## Web hosting
 15. Static hosting plus a hash router needs no rewrite rules. A login needs a real check at the edge: CloudFront Function with a signed cookie,

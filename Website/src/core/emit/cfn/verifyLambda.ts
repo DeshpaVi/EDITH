@@ -2,6 +2,9 @@
  * Source of the verification Lambda, embedded in the template as inline code (CloudFormation's
  * ZipFile limit is 4096 characters, so this must stay small; a test enforces it).
  *
+ * Inline code (CloudFormation `ZipFile`) is saved by Lambda as index.js and loaded as CommonJS: use `exports.handler`, never `export`/`import`
+ * statements (a real deployment failed with "SyntaxError: Unexpected token 'export'"). Dynamic `import()` is fine.
+ *
  * Generic: the identifier fields come from the IDENTIFIER_FIELDS env var. The first field is the
  * table's partition key; each other field has a global secondary index named "<field>-index".
  * Request { authValue }, response { verified }. Verified when authValue matches ANY ONE field.
@@ -34,7 +37,7 @@ export const VERIFY_LAMBDA_SOURCE = [
   '  }));',
   '  return Count > 0;',
   '};',
-  'export const handler = async (event) => {',
+  'exports.handler = async (event) => {',
   '  if (process.env.API_KEY && (event.headers || {})["x-api-key"] !== process.env.API_KEY) return reply(401, { error: "unauthorized" });',
   '  let input;',
   '  try { input = parseBody(event); } catch { return reply(400, { error: "invalid JSON body" }); }',

@@ -128,10 +128,14 @@ describe('CloudFormation template', () => {
   })
 
   it('verification Lambda source rejects a missing key and bad JSON without touching the table', async () => {
-    const run = new Function(`${VERIFY_LAMBDA_SOURCE.replace('export const handler', 'const handler')}; return handler`)
+    // Loaded the way Lambda loads inline code: as CommonJS, with no export or import statements.
+    expect(VERIFY_LAMBDA_SOURCE).not.toMatch(/^\s*(export|import)\s/m)
+    const mod = { exports: {} as Record<string, unknown> }
+    new Function('exports', 'module', VERIFY_LAMBDA_SOURCE)(mod.exports, mod)
     process.env.API_KEY = 'k'
     process.env.IDENTIFIER_FIELDS = 'censusId'
-    const handler = run() as (e: unknown) => Promise<{ statusCode: number; body: string }>
+    const handler = mod.exports.handler as (e: unknown) => Promise<{ statusCode: number; body: string }>
+    expect(typeof handler).toBe('function')
     expect((await handler({ headers: {}, body: '{}' })).statusCode).toBe(401)
     expect((await handler({ headers: { 'x-api-key': 'k' }, body: '{' })).statusCode).toBe(400)
     expect(JSON.parse((await handler({ headers: { 'x-api-key': 'k' }, body: '{"authValue":"  "}' })).body)).toEqual({ verified: false })
