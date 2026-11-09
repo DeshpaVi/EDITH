@@ -29,13 +29,22 @@ const isNotFound = (err) => err && (err.type === 'ResourceNotFoundException' || 
  * @param {object} sdk the SDK module namespace (for the *Command classes)
  */
 export function createAcxdApi(client, sdk) {
-  const send = (kind, verb, input) => client.send(new sdk[`${verb}${KINDS[kind].name}Command`](input))
+  /** The command class for a verb and kind. A missing one is reported by name, with the SDK's similar exports, instead of a bare TypeError. */
+  const command = (verb, name) => {
+    const className = `${verb}${name}Command`
+    if (typeof sdk[className] !== 'function') {
+      const similar = Object.keys(sdk).filter((k) => k.includes(name)).sort().join(', ') || 'none'
+      throw new Error(`The ACXD SDK has no ${className}. Exports containing "${name}": ${similar}.`)
+    }
+    return sdk[className]
+  }
+  const send = (kind, verb, input) => client.send(new (command(verb, KINDS[kind].name))(input))
 
   async function listAll(kind) {
     const items = []
     let nextToken
     do {
-      const page = await client.send(new sdk[`List${KINDS[kind].name}sCommand`](nextToken ? { nextToken } : {}))
+      const page = await client.send(new (command('List', `${KINDS[kind].name}s`))(nextToken ? { nextToken } : {}))
       items.push(...(page.items ?? []))
       nextToken = page.nextToken
     } while (nextToken)

@@ -201,3 +201,9 @@ test('invalid spec JSON is a clean FAILED response', async () => {
   await makeHandler(depsFor(fakeApi(), sent))(e)
   assert.equal(sent[0].Status, 'FAILED')
 })
+
+test('a command the SDK does not export is reported by name with the similar exports, not as a bare TypeError', async () => {
+  const sdk = { GetSecretsCommand: class {}, ListSecretsCommand: class {} }
+  const api = createAcxdApi({ send: async () => ({}) }, sdk)
+  await assert.rejects(() => api.ensure('secret', 'my_secret', { name: 'my_secret' }), /no GetSecretCommand.*GetSecretsCommand, ListSecretsCommand/)
+})
