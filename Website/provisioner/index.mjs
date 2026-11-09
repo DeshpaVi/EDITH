@@ -18,6 +18,8 @@ export const KINDS = {
   dataRequest: { name: 'DataRequest', idField: 'dataRequestIdentifier', keyField: 'dataRequestId', lookup: 'get' },
   flow: { name: 'Flow', idField: 'flowIdentifier', keyField: 'flowId', lookup: 'get' },
   // Server-assigned ids: find an existing one by name through the list call.
+  // Workspace-level labels that guardrail rules reference; the SDK has Create/Update/Delete/List but no Get, and the identifier is the name.
+  analyticsTag: { name: 'AnalyticsTag', idField: 'name', keyField: 'name', lookup: 'list', nameField: 'name' },
   guardrail: { name: 'Guardrail', idField: 'guardrailIdentifier', keyField: 'guardrailId', lookup: 'list', nameField: 'name' },
   application: { name: 'Application', idField: 'applicationIdentifier', keyField: 'applicationId', lookup: 'list', nameField: 'name' },
 }
@@ -121,6 +123,11 @@ export async function provision(spec, api, log = () => {}) {
   for (const f of spec.flows) {
     log(`flow ${f.flowId}`)
     await api.ensure('flow', f.flowId, f)
+  }
+  // Tags first: a guardrail rule that references a missing tag fails the application's build validation. Never deleted (shared labels).
+  for (const t of spec.analyticsTags ?? []) {
+    log(`analytics tag ${t.name}`)
+    await api.ensure('analyticsTag', t.name, t)
   }
   const guardrailIds = {}
   for (const g of spec.guardrails) {

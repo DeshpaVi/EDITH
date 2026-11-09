@@ -1,6 +1,7 @@
 {
   "source": "Object.keys(await import('amazon-connect-acxd-sdk')) in the provisioner package, SDK 0.3.0 (read from the user's CloudShell); Command classes only",
   "commands": [
+    "CreateAnalyticsTagCommand",
     "CreateApplicationBuildCommand",
     "CreateApplicationCommand",
     "CreateApplicationDeploymentCommand",
@@ -9,6 +10,8 @@
     "CreateFlowCommand",
     "CreateGuardrailCommand",
     "CreateSecretCommand",
+    "CreateSlotTypeCommand",
+    "DeleteAnalyticsTagCommand",
     "DeleteApplicationCommand",
     "DeleteApplicationDeploymentCommand",
     "DeleteContextVariableCommand",
@@ -16,6 +19,7 @@
     "DeleteFlowCommand",
     "DeleteGuardrailCommand",
     "DeleteSecretCommand",
+    "DeleteSlotTypeCommand",
     "GetApplicationBuildCommand",
     "GetApplicationBuildDiffCommand",
     "GetApplicationCommand",
@@ -24,6 +28,8 @@
     "GetFlowCommand",
     "GetGuardrailCommand",
     "GetSecretCommand",
+    "GetSlotTypeCommand",
+    "ListAnalyticsTagsCommand",
     "ListApplicationBuildsCommand",
     "ListApplicationDeploymentsCommand",
     "ListApplicationsCommand",
@@ -33,13 +39,16 @@
     "ListGuardrailEventsCommand",
     "ListGuardrailsCommand",
     "ListSecretsCommand",
+    "ListSlotTypesCommand",
     "TestGuardrailCommand",
+    "UpdateAnalyticsTagCommand",
     "UpdateApplicationCommand",
     "UpdateApplicationDeploymentCommand",
     "UpdateContextVariableCommand",
     "UpdateDataRequestCommand",
     "UpdateFlowCommand",
     "UpdateGuardrailCommand",
-    "UpdateSecretCommand"
+    "UpdateSecretCommand",
+    "UpdateSlotTypeCommand"
   ]
 }

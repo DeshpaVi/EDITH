@@ -39,6 +39,18 @@ export interface GuardrailContent {
   toxicity?: GuardrailDefinition
 }
 
+/**
+ * Guardrail rules are labelled with analytics tags, which are workspace-level objects that must exist before the application builds
+ * (ACXD's Build reports "Unavailable reference" otherwise). The provisioner creates them first and never deletes them: they are shared
+ * labels that other applications may use.
+ */
+export interface AnalyticsTagPayload {
+  name: string
+  /** TODO(acxd-schema): the sentiment of a tag the source workspace used is not in the guardrail export; these are all flagged events, so 'negative'. */
+  type: 'positive' | 'negative' | 'neutral'
+  description: string
+}
+
 export interface AcxdSpec {
   /** Values are read from Secrets Manager by the provisioner at deploy time; never stored here. */
   secrets: Array<{ name: string; sourceSecretArn: string }>
@@ -46,6 +58,7 @@ export interface AcxdSpec {
   dataRequests: DataRequestPayload[]
   flows: FlowJson[]
   guardrails: GuardrailDefinition[]
+  analyticsTags: AnalyticsTagPayload[]
   application: {
     name: string
     description: string
@@ -193,6 +206,22 @@ export function buildAcxdSpec(journey: Journey, selected: ReadonlySet<string>, o
     }
   }
 
+  // --- analytics tags referenced by the guardrail rules --------------------------------------------
+  const analyticsTags: AnalyticsTagPayload[] = []
+  for (const g of guardrails) {
+    for (const rule of Array.isArray(g.rules) ? (g.rules as Array<{ tags?: Array<{ label?: unknown }> }>) : []) {
+      for (const tag of rule.tags ?? []) {
+        const label = tag.label
+        if (typeof label !== 'string' || analyticsTags.some((t) => t.name === label)) continue
+        if (!/^[A-Za-z0-9_]{1,36}$/.test(label)) {
+          warnings.push(`Guardrail ${g.name} uses the analytics tag "${label}", which ACXD does not allow as a tag name (letters, digits and underscores, up to 36); create it in the console.`)
+          continue
+        }
+        analyticsTags.push({ name: label, type: 'negative', description: `Raised by the ${g.name} guardrail`.slice(0, 64) })
+      }
+    }
+  }
+
   // --- application --------------------------------------------------------------------------------
   const intentRetry = stepsOfKind(journey, 'intent_capture')[0]?.retry.maxAttempts
   const defaultFlows: Record<string, { flowId: string }> = {}
@@ -223,6 +252,7 @@ export function buildAcxdSpec(journey: Journey, selected: ReadonlySet<string>, o
     dataRequests,
     flows,
     guardrails,
+    analyticsTags,
     application: {
       name: opts.applicationName,
       description: `Generated from the journey "${journey.title}".`,

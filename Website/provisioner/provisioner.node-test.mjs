@@ -8,6 +8,7 @@ const spec = () => ({
   dataRequests: [{ dataRequestId: 'verifyAuth', type: 'object' }],
   flows: [{ flowId: 'Escalation' }, { flowId: 'Authentication' }, { flowId: 'MainConversation' }],
   guardrails: [{ name: 'Safety' }, { name: 'Toxicity' }],
+  analyticsTags: [{ name: 'safety', type: 'negative', description: 'd' }, { name: 'toxicity', type: 'negative', description: 'd' }],
   application: {
     name: 'CQA Demo',
     description: 'd',
@@ -40,7 +41,8 @@ test('provision creates resources in dependency order', async () => {
   const api = fakeApi()
   await provision(spec(), api)
   const order = api.calls.filter((c) => c[0] === 'ensure').map((c) => c[1])
-  assert.deepEqual(order, ['secret', 'contextVariable', 'contextVariable', 'dataRequest', 'flow', 'flow', 'flow', 'guardrail', 'guardrail', 'application'])
+  assert.deepEqual(order, ['secret', 'contextVariable', 'contextVariable', 'dataRequest', 'flow', 'flow', 'flow', 'analyticsTag', 'analyticsTag', 'guardrail', 'guardrail', 'application'])
+  assert.ok(order.indexOf('analyticsTag') < order.indexOf('guardrail'), 'tags exist before the guardrails that reference them')
   assert.deepEqual(
     api.calls.filter((c) => c[1] === 'flow').map((c) => c[2]),
     ['Escalation', 'Authentication', 'MainConversation'],
@@ -79,9 +81,9 @@ function fakeSdk(store) {
   const log = []
   const notFound = () => Object.assign(new Error('missing'), { type: 'ResourceNotFoundException' })
   const sdk = {}
-  for (const name of ['Secret', 'ContextVariable', 'DataRequest', 'Flow', 'Guardrail', 'Application']) {
-    // The real SDK (0.3.0) has no GetContextVariableCommand.
-    for (const verb of name === 'ContextVariable' ? ['Create', 'Update', 'Delete'] : ['Create', 'Get', 'Update', 'Delete']) sdk[`${verb}${name}Command`] = class { constructor(input) { this.verb = verb; this.kind = name; this.input = input } }
+  for (const name of ['Secret', 'ContextVariable', 'DataRequest', 'Flow', 'Guardrail', 'Application', 'AnalyticsTag']) {
+    // The real SDK (0.3.0) has no GetContextVariableCommand or GetAnalyticsTagCommand.
+    for (const verb of name === 'ContextVariable' || name === 'AnalyticsTag' ? ['Create', 'Update', 'Delete'] : ['Create', 'Get', 'Update', 'Delete']) sdk[`${verb}${name}Command`] = class { constructor(input) { this.verb = verb; this.kind = name; this.input = input } }
     sdk[`List${name}sCommand`] = class { constructor(input) { this.verb = 'List'; this.kind = name; this.input = input } }
   }
   const client = {
@@ -231,4 +233,20 @@ test('every SDK command the provisioner can call exists in the real SDK 0.3.0 ex
     const lookup = k.lookup === 'get' ? `Get${k.name}Command` : `List${k.name}sCommand`
     for (const c of [lookup, `Create${k.name}Command`, `Update${k.name}Command`, `Delete${k.name}Command`]) assert.ok(real.has(c), `${c} is not exported by the SDK`)
   }
+})
+
+test('analytics tags are created idempotently through the list call and are not deleted with the stack (shared workspace labels)', async () => {
+  const store = {}
+  const { client, sdk, log } = fakeSdk(store)
+  const api = createAcxdApi(client, sdk)
+  const tag = { name: 'safety', type: 'negative', description: 'd' }
+  await api.ensure('analyticsTag', 'safety', tag)
+  assert.deepEqual(log.map((l) => l[0]), ['List', 'Create'])
+  log.length = 0
+  await api.ensure('analyticsTag', 'safety', tag)
+  assert.deepEqual(log.map((l) => l[0]), ['List', 'Update'])
+  assert.deepEqual(log[1][2], { name: 'safety', type: 'negative', description: 'd' })
+  const calls = []
+  await deprovision(spec(), { ...fakeApi(), remove: async (k, n) => calls.push(k) })
+  assert.ok(!calls.includes('analyticsTag'))
 })

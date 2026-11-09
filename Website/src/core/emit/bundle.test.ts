@@ -173,6 +173,14 @@ describe('CloudFormation template', () => {
 })
 
 describe('selection and gaps', () => {
+  it('creates the analytics tags the guardrail rules reference, so the application builds', () => {
+    const b = bundle()
+    const tags = b.spec.analyticsTags.map((t) => t.name).sort()
+    expect(tags).toEqual(['promptinjection', 'safety', 'toxicity'])
+    expect(b.spec.analyticsTags.every((t) => t.description.length <= 64 && /^[A-Za-z0-9_]{1,36}$/.test(t.name))).toBe(true)
+    for (const g of b.spec.guardrails) for (const rule of g.rules as Array<{ tags?: Array<{ label: string }> }>) for (const t of rule.tags ?? []) expect(tags).toContain(t.label)
+  })
+
   it('drops the recommended guardrails when the consultant deselects them', () => {
     const j = journey()
     const chosen = selection(j).filter((id) => ![IDS.guardrailSafety, IDS.guardrailInjection, IDS.guardrailToxicity, IDS.safetyFlow].includes(id as never))
