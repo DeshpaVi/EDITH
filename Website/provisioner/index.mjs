@@ -11,9 +11,10 @@
 import https from 'node:https'
 
 /** Resource kinds, in creation order. `lookup: 'get'` means the identifier is a name we choose. */
-const KINDS = {
+export const KINDS = {
   secret: { name: 'Secret', idField: 'secretIdentifier', keyField: 'name', lookup: 'get' },
-  contextVariable: { name: 'ContextVariable', idField: 'contextVariableIdentifier', keyField: 'name', lookup: 'get' },
+  // The SDK has no GetContextVariableCommand (confirmed from its exports), so existence is checked through the list call; the identifier is the name.
+  contextVariable: { name: 'ContextVariable', idField: 'contextVariableIdentifier', keyField: 'name', lookup: 'list', nameField: 'name' },
   dataRequest: { name: 'DataRequest', idField: 'dataRequestIdentifier', keyField: 'dataRequestId', lookup: 'get' },
   flow: { name: 'Flow', idField: 'flowIdentifier', keyField: 'flowId', lookup: 'get' },
   // Server-assigned ids: find an existing one by name through the list call.

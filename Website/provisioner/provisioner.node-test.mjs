@@ -80,7 +80,8 @@ function fakeSdk(store) {
   const notFound = () => Object.assign(new Error('missing'), { type: 'ResourceNotFoundException' })
   const sdk = {}
   for (const name of ['Secret', 'ContextVariable', 'DataRequest', 'Flow', 'Guardrail', 'Application']) {
-    for (const verb of ['Create', 'Get', 'Update', 'Delete']) sdk[`${verb}${name}Command`] = class { constructor(input) { this.verb = verb; this.kind = name; this.input = input } }
+    // The real SDK (0.3.0) has no GetContextVariableCommand.
+    for (const verb of name === 'ContextVariable' ? ['Create', 'Update', 'Delete'] : ['Create', 'Get', 'Update', 'Delete']) sdk[`${verb}${name}Command`] = class { constructor(input) { this.verb = verb; this.kind = name; this.input = input } }
     sdk[`List${name}sCommand`] = class { constructor(input) { this.verb = 'List'; this.kind = name; this.input = input } }
   }
   const client = {
@@ -206,4 +207,28 @@ test('a command the SDK does not export is reported by name with the similar exp
   const sdk = { GetSecretsCommand: class {}, ListSecretsCommand: class {} }
   const api = createAcxdApi({ send: async () => ({}) }, sdk)
   await assert.rejects(() => api.ensure('secret', 'my_secret', { name: 'my_secret' }), /no GetSecretCommand.*GetSecretsCommand, ListSecretsCommand/)
+})
+
+test('a context variable is looked up through the list call, because the SDK has no Get for it', async () => {
+  const store = {}
+  const { client, sdk, log } = fakeSdk(store)
+  const api = createAcxdApi(client, sdk)
+  await api.ensure('contextVariable', 'isAuthenticated', { name: 'isAuthenticated', schema: { type: 'boolean' } })
+  assert.deepEqual(log.map((l) => l[0]), ['List', 'Create'])
+  log.length = 0
+  await api.ensure('contextVariable', 'isAuthenticated', { name: 'isAuthenticated', schema: { type: 'boolean' } })
+  assert.deepEqual(log.map((l) => l[0]), ['List', 'Update'])
+  assert.equal(log[1][2].contextVariableIdentifier, 'isAuthenticated')
+  assert.equal(await api.remove('contextVariable', 'isAuthenticated'), true)
+  assert.equal(await api.remove('contextVariable', 'isAuthenticated'), false)
+})
+
+test('every SDK command the provisioner can call exists in the real SDK 0.3.0 export list', async () => {
+  const { readFileSync } = await import('node:fs')
+  const real = new Set(JSON.parse(readFileSync(new URL('./fixtures-sdk-exports.json', import.meta.url), 'utf8')).commands)
+  const { KINDS } = await import('./index.mjs')
+  for (const k of Object.values(KINDS)) {
+    const lookup = k.lookup === 'get' ? `Get${k.name}Command` : `List${k.name}sCommand`
+    for (const c of [lookup, `Create${k.name}Command`, `Update${k.name}Command`, `Delete${k.name}Command`]) assert.ok(real.has(c), `${c} is not exported by the SDK`)
+  }
 })

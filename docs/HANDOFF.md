@@ -257,3 +257,7 @@ Product name is "JourneyForge" with "TTEC Digital" under the logo (landing nav, 
 - `deployer-api/template.json` now takes its code from S3 (`DeployerCodeBucket/Key`); roles have fixed names under `/edith/`, so ARNs are predictable and the deployer installs in one pass. `provisioner/README.md` and `build.sh` (prints the SDK version) are for CloudShell.
 - Provisioner reviewed against the skill's SDK references (client constructor, Create/Get/Update/Delete/List shapes, identifier fields, application `flows`/`settings.guardrails`): consistent. Still never run against a real workspace.
 - `docs/TEST-GUIDE.md`: the first end-to-end test of the Census journey. 227 shim tests, 33 deployer, 22 extractor, 10 hosting.
+
+## 0l. First real run of the provisioner (SDK 0.3.0)
+
+First deploy failed at the first ACXD calls: `GetContextVariableCommand` does not exist in `amazon-connect-acxd-sdk` 0.3.0 (confirmed from the real export list; saved as `provisioner/fixtures-sdk-exports.json`). Context variables are now looked up through `ListContextVariablesCommand` (identifier = name). A test checks every command the provisioner can call against the real export list, and a missing command now fails with its name and the similar exports. The secret create worked before the failure, so the workspace may hold a leftover secret from the failed run; redeploying updates it. Expect more first-run mismatches in command inputs (field names), not only command names.
