@@ -1,0 +1,159 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Journey extractor: a Lambda Function URL in front of Amazon Bedrock that turns a customer journey source into structured journey JSON.",
+  "Parameters": {
+    "ModelId": {
+      "Type": "String",
+      "Description": "Bedrock model or inference-profile id that supports tool use and, for images and PDFs, vision. Not defaulted on purpose: confirm the id available in your region.",
+      "AllowedPattern": ".+"
+    },
+    "AllowedOrigin": {
+      "Type": "String",
+      "Description": "Origin of the website that calls the extractor, for example https://app.example.com. Use http://localhost:5173 for local development.",
+      "AllowedPattern": "https?://.+"
+    },
+    "AccessToken": {
+      "Type": "String",
+      "NoEcho": true,
+      "MinLength": 24,
+      "Description": "Bearer token consultants enter in the tool. Stored in Secrets Manager. Generate a long random value."
+    }
+  },
+  "Resources": {
+    "TokenSecret": {
+      "Type": "AWS::SecretsManager::Secret",
+      "Properties": {
+        "Description": "Bearer token for the journey extractor.",
+        "SecretString": {
+          "Ref": "AccessToken"
+        }
+      }
+    },
+    "ExtractorRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "ManagedPolicyArns": [
+          "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+        ],
+        "Policies": [
+          {
+            "PolicyName": "InvokeBedrock",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "bedrock:InvokeModel",
+                  "Resource": [
+                    "arn:aws:bedrock:*::foundation-model/*",
+                    {
+                      "Fn::Sub": "arn:aws:bedrock:*:${AWS::AccountId}:inference-profile/*"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "ExtractorFunction": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Runtime": "nodejs22.x",
+        "Handler": "index.handler",
+        "Timeout": 300,
+        "MemorySize": 512,
+        "Role": {
+          "Fn::GetAtt": [
+            "ExtractorRole",
+            "Arn"
+          ]
+        },
+        "Code": "./",
+        "Environment": {
+          "Variables": {
+            "MODEL_ID": {
+              "Ref": "ModelId"
+            },
+            "ACCESS_TOKEN": {
+              "Fn::Sub": "{{resolve:secretsmanager:${TokenSecret}:SecretString}}"
+            }
+          }
+        }
+      }
+    },
+    "ExtractorUrl": {
+      "Type": "AWS::Lambda::Url",
+      "Properties": {
+        "AuthType": "NONE",
+        "TargetFunctionArn": {
+          "Fn::GetAtt": [
+            "ExtractorFunction",
+            "Arn"
+          ]
+        },
+        "Cors": {
+          "AllowOrigins": [
+            {
+              "Ref": "AllowedOrigin"
+            }
+          ],
+          "AllowMethods": [
+            "POST"
+          ],
+          "AllowHeaders": [
+            "content-type",
+            "authorization"
+          ],
+          "MaxAge": 3600
+        }
+      }
+    },
+    "ExtractorUrlPermission": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:InvokeFunctionUrl",
+        "FunctionName": {
+          "Ref": "ExtractorFunction"
+        },
+        "Principal": "*",
+        "FunctionUrlAuthType": "NONE"
+      }
+    },
+    "ExtractorInvokePermission": {
+      "Type": "AWS::Lambda::Permission",
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Ref": "ExtractorFunction"
+        },
+        "Principal": "*",
+        "InvokedViaFunctionUrl": true
+      }
+    }
+  },
+  "Outputs": {
+    "ExtractorUrl": {
+      "Description": "Paste this URL into the tool.",
+      "Value": {
+        "Fn::GetAtt": [
+          "ExtractorUrl",
+          "FunctionUrl"
+        ]
+      }
+    }
+  }
+}

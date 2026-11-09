@@ -1,0 +1,166 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { ExtractError, LIMITS, buildConverseInput, documentName, journeyFromResponse, parseRequest } from './converse.mjs'
+import { TOOL_NAME, buildSystemPrompt, buildUserText, EXTRACTION_RULES, JOURNEY_JSON_SCHEMA } from './contract.mjs'
+import { makeHandler } from './index.mjs'
+
+const textBody = (extra = {}) => ({ fileName: 'journey.pptx', kind: 'deck', text: 'SLIDE 1 ... Main Greeting: Hello', ...extra })
+const throwsStatus = (fn, status) => assert.throws(fn, (e) => e instanceof ExtractError && e.status === status)
+
+// ---- request validation ------------------------------------------------------------------------------
+
+test('accepts a text request and keeps the notes and feedback', () => {
+  const r = parseRequest(textBody({ notes: 'any one id is enough', feedback: [{ path: '$.title', message: 'must be a string' }] }))
+  assert.equal(r.kind, 'deck')
+  assert.equal(r.notes, 'any one id is enough')
+  assert.deepEqual(r.feedback, [{ path: '$.title', message: 'must be a string' }])
+})
+
+test('rejects bodies that are not objects, unknown kinds and missing text', () => {
+  throwsStatus(() => parseRequest(null), 400)
+  throwsStatus(() => parseRequest(textBody({ kind: 'video' })), 400)
+  throwsStatus(() => parseRequest(textBody({ text: '  ' })), 400)
+  throwsStatus(() => parseRequest(textBody({ fileName: '' })), 400)
+})
+
+test('enforces size limits with 413', () => {
+  throwsStatus(() => parseRequest(textBody({ text: 'x'.repeat(LIMITS.maxTextChars + 1) })), 413)
+  throwsStatus(() => parseRequest({ fileName: 'a.png', kind: 'image', attachment: { mimeType: 'image/png', base64: 'A'.repeat(LIMITS.maxBase64Chars + 1) } }), 413)
+})
+
+test('checks attachment mime types', () => {
+  assert.ok(parseRequest({ fileName: 'a.png', kind: 'image', attachment: { mimeType: 'image/png', base64: 'AAAA' } }))
+  assert.ok(parseRequest({ fileName: 'a.pdf', kind: 'pdf', attachment: { mimeType: 'application/pdf', base64: 'AAAA' } }))
+  throwsStatus(() => parseRequest({ fileName: 'a.png', kind: 'image', attachment: { mimeType: 'application/pdf', base64: 'AAAA' } }), 400)
+  throwsStatus(() => parseRequest({ fileName: 'a.pdf', kind: 'pdf', attachment: { mimeType: 'image/png', base64: 'AAAA' } }), 400)
+  throwsStatus(() => parseRequest({ fileName: 'a.pdf', kind: 'pdf' }), 400)
+})
+
+test('rejects malformed feedback and over-long notes', () => {
+  throwsStatus(() => parseRequest(textBody({ feedback: [{ path: 1 }] })), 400)
+  throwsStatus(() => parseRequest(textBody({ notes: 'x'.repeat(LIMITS.maxNotesChars + 1) })), 400)
+})
+
+test('document names keep to the characters Bedrock allows', () => {
+  assert.equal(documentName('Census CQA_Demo Call Flow!.pdf'), 'Census CQA-Demo Call Flow')
+  assert.equal(documentName('....pdf'), 'journey')
+})
+
+// ---- the Bedrock request ------------------------------------------------------------------------------
+
+test('a text request has one text block carrying the source and the notes', () => {
+  const input = buildConverseInput({ modelId: 'm', request: parseRequest(textBody({ notes: 'NOTE-X' })) })
+  assert.equal(input.messages[0].content.length, 1)
+  assert.match(input.messages[0].content[0].text, /Main Greeting: Hello/)
+  assert.match(input.messages[0].content[0].text, /NOTE-X/)
+})
+
+test('an image or pdf is sent as bytes, before the text', () => {
+  const img = buildConverseInput({ modelId: 'm', request: parseRequest({ fileName: 'a.png', kind: 'image', attachment: { mimeType: 'image/png', base64: Buffer.from('PNGDATA').toString('base64') } }) })
+  assert.equal(img.messages[0].content[0].image.format, 'png')
+  assert.equal(Buffer.from(img.messages[0].content[0].image.source.bytes).toString(), 'PNGDATA')
+  const pdf = buildConverseInput({ modelId: 'm', request: parseRequest({ fileName: 'My Flow.pdf', kind: 'pdf', attachment: { mimeType: 'application/pdf', base64: 'AAAA' } }) })
+  assert.equal(pdf.messages[0].content[0].document.format, 'pdf')
+  assert.equal(pdf.messages[0].content[0].document.name, 'My Flow')
+  assert.ok(pdf.messages[0].content[1].text)
+})
+
+test('the model is forced to answer through the schema tool, deterministically', () => {
+  const input = buildConverseInput({ modelId: 'the-model', request: parseRequest(textBody()) })
+  assert.equal(input.modelId, 'the-model')
+  assert.deepEqual(input.toolConfig.toolChoice, { tool: { name: TOOL_NAME } })
+  assert.equal(input.toolConfig.tools[0].toolSpec.inputSchema.json, JOURNEY_JSON_SCHEMA)
+  assert.equal(input.inferenceConfig.temperature, 0)
+})
+
+test('the system prompt carries every extraction rule, verbatim wording first among them', () => {
+  const prompt = buildSystemPrompt()
+  for (const rule of EXTRACTION_RULES) assert.ok(prompt.includes(rule))
+  assert.match(EXTRACTION_RULES[1], /VERBATIM/)
+})
+
+test('validation feedback is appended for a repair attempt', () => {
+  const text = buildUserText({ fileName: 'a', kind: 'text', text: 'body', feedback: [{ path: '$.steps[0].kind', message: 'must be one of' }] })
+  assert.match(text, /FAILED VALIDATION/)
+  assert.match(text, /\$\.steps\[0\]\.kind: must be one of/)
+})
+
+// ---- reading the answer ---------------------------------------------------------------------------------
+
+test('reads the journey from the tool call', () => {
+  const journey = { title: 'x' }
+  assert.equal(journeyFromResponse({ output: { message: { content: [{ text: 'thinking' }, { toolUse: { name: TOOL_NAME, input: journey } }] } } }), journey)
+})
+
+test('reports a truncated or missing answer clearly', () => {
+  assert.throws(() => journeyFromResponse({ stopReason: 'max_tokens' }), /too large/)
+  assert.throws(() => journeyFromResponse({ output: { message: { content: [{ text: 'no tool' }] } } }), /did not return a journey/)
+})
+
+// ---- the handler -----------------------------------------------------------------------------------------
+
+const env = { ACCESS_TOKEN: 'secret-token', MODEL_ID: 'model-1' }
+const okResponse = (journey) => ({ output: { message: { content: [{ toolUse: { name: TOOL_NAME, input: journey } }] } }, usage: { inputTokens: 10, outputTokens: 5 } })
+const event = (body, headers = { authorization: 'Bearer secret-token' }, extra = {}) => ({ requestContext: { http: { method: 'POST' } }, headers, body: JSON.stringify(body), ...extra })
+const handlerWith = (converse, e = env) => makeHandler({ env: e, converse })
+
+test('refuses to run without an access token configured', async () => {
+  const res = await handlerWith(async () => okResponse({}), { MODEL_ID: 'm' })(event(textBody()))
+  assert.equal(res.statusCode, 500)
+})
+
+test('rejects a missing or wrong token without calling the model', async () => {
+  let calls = 0
+  const h = handlerWith(async () => (calls++, okResponse({})))
+  assert.equal((await h(event(textBody(), {}))).statusCode, 401)
+  assert.equal((await h(event(textBody(), { authorization: 'Bearer nope' }))).statusCode, 401)
+  assert.equal(calls, 0)
+})
+
+test('only POST is accepted', async () => {
+  const res = await handlerWith(async () => okResponse({}))({ requestContext: { http: { method: 'GET' } }, headers: {} })
+  assert.equal(res.statusCode, 405)
+})
+
+test('bad JSON and invalid requests are 400', async () => {
+  const h = handlerWith(async () => okResponse({}))
+  assert.equal((await h({ ...event(textBody()), body: '{oops' })).statusCode, 400)
+  assert.equal((await h(event({ fileName: 'a', kind: 'nope' }))).statusCode, 400)
+})
+
+test('returns the journey and usage on success', async () => {
+  const res = await handlerWith(async (input) => (assert.equal(input.modelId, 'model-1'), okResponse({ title: 'T' })))(event(textBody()))
+  assert.equal(res.statusCode, 200)
+  assert.deepEqual(JSON.parse(res.body), { journey: { title: 'T' }, usage: { inputTokens: 10, outputTokens: 5 } })
+})
+
+test('accepts a base64-encoded body (as Function URLs may send)', async () => {
+  const e = event(textBody())
+  e.body = Buffer.from(e.body).toString('base64')
+  e.isBase64Encoded = true
+  assert.equal((await handlerWith(async () => okResponse({ title: 'T' }))(e)).statusCode, 200)
+})
+
+test('maps model errors to clear statuses without leaking details', async () => {
+  const fail = (name) => handlerWith(async () => { throw Object.assign(new Error('internal arn:aws:...'), { name }) })(event(textBody()))
+  assert.equal((await fail('ThrottlingException')).statusCode, 429)
+  const denied = await fail('AccessDeniedException')
+  assert.equal(denied.statusCode, 502)
+  assert.ok(!denied.body.includes('arn:aws'))
+  assert.equal((await fail('SomethingElse')).statusCode, 502)
+})
+
+test('never logs the source content, the notes or the token', async () => {
+  const lines = []
+  const original = console.log
+  console.log = (...a) => lines.push(a.join(' '))
+  try {
+    await handlerWith(async () => okResponse({ title: 'T' }))(event(textBody({ text: 'CONFIDENTIAL-SOURCE-TEXT', notes: 'CONFIDENTIAL-NOTES' })))
+    await handlerWith(async () => { throw new Error('boom') })(event(textBody({ text: 'CONFIDENTIAL-SOURCE-TEXT' })))
+  } finally {
+    console.log = original
+  }
+  const all = lines.join('\n')
+  assert.ok(lines.length > 0)
+  for (const secret of ['CONFIDENTIAL-SOURCE-TEXT', 'CONFIDENTIAL-NOTES', 'secret-token']) assert.ok(!all.includes(secret), secret)
+})

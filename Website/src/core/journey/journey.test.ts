@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validateJourney, ingestJourney, StaticExtractor } from './index'
+import { validateJourney } from './index'
 import type { AuthenticationStep, Journey } from './index'
 import census from './fixtures/census-cqa.journey.json'
 
@@ -51,25 +51,5 @@ describe('journey validation', () => {
   it('rejects non-objects', () => {
     expect(validateJourney(null).ok).toBe(false)
     expect(validateJourney('journey').ok).toBe(false)
-  })
-})
-
-describe('ingestJourney', () => {
-  const input = { fileName: 'census.pptx', mimeType: 'application/octet-stream' }
-
-  it('returns the journey for a valid extraction', async () => {
-    const r = await ingestJourney(new StaticExtractor(census), input)
-    expect(r.ok).toBe(true)
-  })
-
-  it('reports an invalid extraction instead of repairing it', async () => {
-    const r = await ingestJourney(new StaticExtractor({ title: 'x' }), input)
-    expect(r.ok).toBe(false)
-  })
-
-  it('reports an extractor that throws', async () => {
-    const r = await ingestJourney({ extract: async () => { throw new Error('model unavailable') } }, input)
-    expect(r.ok).toBe(false)
-    if (!r.ok) expect(r.issues[0].message).toContain('model unavailable')
   })
 })

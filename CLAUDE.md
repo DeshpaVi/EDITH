@@ -102,6 +102,9 @@ expensively.
 - Lex has two export formats in the wild: **V2** (a ZIP: `Manifest.json`, `Bot.json`,
   `BotLocales/<locale>/Intents/<name>/Intent.json`) and **V1** (a single flat JSON with `resource.intents[]`).
   Detect and support both; don't assume V2.
+- Journey extraction: a `.pptx` is read deterministically as shapes and arrows in the browser; a model (Bedrock, behind
+  `Website/extractor-api`) only interprets it. The model's output is validated, repaired by the model, and every prompt is
+  checked against the source wording. The model call itself has not run against a live Bedrock yet.
 - Spanish (language detection and switching in an ACXD-only design) is unverified. French is deferred.
 - The website's look and feel is being redone by the owner; the logic here is attached to the new UI later,
   then hosted on S3/CloudFront.

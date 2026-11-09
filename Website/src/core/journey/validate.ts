@@ -9,7 +9,7 @@ export type ValidationResult =
   | { ok: true; journey: Journey; issues: [] }
   | { ok: false; journey?: undefined; issues: ValidationIssue[] }
 
-const STEP_KINDS: readonly StepKind[] = [
+export const STEP_KINDS: readonly StepKind[] = [
   'greeting', 'announcement', 'language_detection', 'intent_capture', 'decision', 'authentication',
   'data_lookup', 'self_service', 'confirmation', 'escalation', 'closing', 'end', 'unknown',
 ]

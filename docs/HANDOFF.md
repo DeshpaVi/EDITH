@@ -80,7 +80,31 @@ preview, validation errors, contact flow) with a throwaway test renderer and scr
 `npm run dev` and click through once on a machine with the dependencies. The `zipFiles` test ran against a stand-in for
 `fflate`, so it should be re-run for real.
 
-Not yet built: the LLM extractor and its backend, deploying from the app, a Connect-side CloudFormation resource.
+## 0d. Slice 4 status (the extractor)
+
+Turns an uploaded diagram, deck, document, PDF, image or text file into the journey JSON the tool already consumes.
+Two stages, so the model interprets a clean structure instead of guessing from pixels:
+1. **Deterministic reading in the browser** (`Website/src/core/journey/source/`): a small XML reader, `.pptx` read as a
+   flow graph (shapes, theme colours mapped to the legend, every arrow with its start and end shape, branch labels
+   matched to the arrow that leaves nearest, unattached arrows guessed from where their free end lands and labelled as
+   heuristics), `.docx` text, text files; images and PDFs stay binary. Tested on the real Census deck: 22 arrows, 2
+   unattached ones resolved correctly, Y/N labels on the right branches.
+2. **A thin backend** (`Website/extractor-api/`): a Lambda Function URL in front of Amazon Bedrock Converse with a forced
+   tool call, temperature 0, bearer-token auth, size limits, no content logged. The prompt and the JSON schema are fixed in
+   `contract.mjs`, shared with the browser, so the endpoint is not a general model proxy. `template.json` deploys it.
+   21 tests on the real Node test runner (`npm run test:extractor`).
+3. **A pipeline in the browser** (`core/journey/extract/`): validates the model's answer, sends the problems back for a
+   corrected answer (up to 3 attempts; we never patch the answer ourselves), then **checks every prompt against the source
+   wording** (exact, typographic-only, or missing) and records the result in the journey, so it appears in the checklist.
+   The UI (step 1) has the upload, URL, token (memory only) and notes fields, and shows how the journey was read.
+
+Verification caveats: the model call has **never run against Bedrock**. Unverified: the Bedrock model id (deliberately not
+defaulted; confirm it), that Converse returns the forced tool call in the shape the code expects for your model, image/PDF
+reading quality, and the `InvokedViaFunctionUrl` permission property. A deck with grouped shapes ignores group transforms.
+Visio, legacy `.ppt`/`.doc` are rejected with guidance. Auth is one shared bearer token (demo-grade): add a real authorizer
+before wider use. The Census journey fixture uses straight quotes where the deck has curly ones; the wording check reports that.
+
+Not yet built: deploying from the app, a Connect-side CloudFormation resource, Visio/grouped-shape support.
 
 ## 1. The product (unchanged, see `CLAUDE.md`)
 

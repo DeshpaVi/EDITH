@@ -1,0 +1,7 @@
+{
+  "name": "journey-extractor-api",
+  "private": true,
+  "type": "module",
+  "description": "Lambda in front of Amazon Bedrock that turns a customer journey source into structured journey JSON.",
+  "main": "index.mjs"
+}

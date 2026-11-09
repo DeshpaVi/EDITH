@@ -6,13 +6,15 @@ import censusExample from '../core/journey/fixtures/census-cqa.journey.json'
 import exampleSafety from '../core/emit/acxd/fixtures/guardrail.Safety.json'
 import exampleInjection from '../core/emit/acxd/fixtures/guardrail.PromptInjection.json'
 import exampleToxicity from '../core/emit/acxd/fixtures/guardrail.Toxicity.json'
-import type { ValidationIssue } from '../core/journey'
+import type { Journey, ValidationIssue } from '../core/journey'
 import {
   defaultContactFlowForm, defaultDetails, describeChecklist, generateBundle, generateContactFlow, parseJourneyText, startSession,
   toggleItem, zipFiles,
 } from './controller'
 import type { BuildResult, ContactFlowForm, ContactFlowResult, Details, Session } from './controller'
-import { color, heading, muted, severityColor, statusColor } from './theme'
+import { ACCEPTED_FILES, readAndExtract } from './extraction'
+import type { ExtractionForm } from './extraction'
+import { color, heading, input as inputStyle, muted, severityColor, statusColor } from './theme'
 import { Button, Chip, Code, Field, Panel, Problems, TextArea, TextInput, download } from './ui'
 
 const STEPS = ['1 · Journey', '2 · Checklist', '3 · Bundle', '4 · Connect flow'] as const
@@ -30,18 +32,25 @@ export function ImplementationSection() {
   const [isExample, setIsExample] = useState(false)
   const [result, setResult] = useState<BuildResult | null>(null)
 
+  const [readSummary, setReadSummary] = useState<string[]>([])
+
+  const openJourney = (journey: Journey, example: boolean, summary: string[] = []) => {
+    setIssues([])
+    setIsExample(example)
+    setReadSummary(summary)
+    setSession(startSession(journey))
+    setDetails(defaultDetails(journey))
+    setResult(null)
+    setStep(1)
+  }
+
   const open = (text: string, example: boolean) => {
     const loaded = parseJourneyText(text)
     if (!loaded.ok) {
       setIssues(loaded.issues)
       return
     }
-    setIssues([])
-    setIsExample(example)
-    setSession(startSession(loaded.journey))
-    setDetails(defaultDetails(loaded.journey))
-    setResult(null)
-    setStep(1)
+    openJourney(loaded.journey, example)
   }
 
   const changeSession = (next: Session) => {
@@ -69,8 +78,8 @@ export function ImplementationSection() {
           })}
         </nav>
 
-        {step === 0 && <JourneyStep issues={issues} onLoad={open} />}
-        {step === 1 && session && <ChecklistStep session={session} onChange={changeSession} onNext={() => setStep(2)} />}
+        {step === 0 && <JourneyStep issues={issues} onLoad={open} onExtracted={(j, summary) => openJourney(j, false, summary)} />}
+        {step === 1 && session && <ChecklistStep session={session} readSummary={readSummary} onChange={changeSession} onNext={() => setStep(2)} />}
         {step === 2 && session && details && (
           <BundleStep session={session} details={details} onDetails={(d) => { setDetails(d); setResult(null) }} result={result} onResult={setResult} isExample={isExample} />
         )}
@@ -82,32 +91,78 @@ export function ImplementationSection() {
 
 // ---- 1. journey ---------------------------------------------------------------------------------------------
 
-function JourneyStep({ issues, onLoad }: { issues: ValidationIssue[]; onLoad: (text: string, example: boolean) => void }) {
+function JourneyStep({ issues, onLoad, onExtracted }: { issues: ValidationIssue[]; onLoad: (text: string, example: boolean) => void; onExtracted: (journey: Journey, summary: string[]) => void }) {
   const fileInput = useRef<HTMLInputElement>(null)
+  const sourceInput = useRef<HTMLInputElement>(null)
+  const [file, setFile] = useState<{ fileName: string; bytes: Uint8Array } | null>(null)
+  const [form, setForm] = useState<ExtractionForm>({ url: import.meta.env.VITE_EXTRACTOR_URL ?? '', token: '', notes: '' })
+  const [busy, setBusy] = useState(false)
+  const [errors, setErrors] = useState<string[]>([])
+
+  const update = (next: ExtractionForm) => {
+    setForm(next)
+    setErrors([])
+  }
   const pick = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) onLoad(await file.text(), false)
+    const f = e.target.files?.[0]
+    if (f) onLoad(await f.text(), false)
     e.target.value = ''
   }
+  const pickSource = async (e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]
+    if (f) setFile({ fileName: f.name, bytes: new Uint8Array(await f.arrayBuffer()) })
+    setErrors([])
+    e.target.value = ''
+  }
+  const read = async () => {
+    if (!file) return
+    setBusy(true)
+    setErrors([])
+    try {
+      const out = await readAndExtract(file, form)
+      if (out.ok) onExtracted(out.journey, out.summary)
+      else setErrors(out.errors)
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
-    <Panel>
-      <h3 style={{ ...heading, fontSize: 20, marginBottom: 8 }}>Load a customer journey</h3>
-      <p style={muted}>
-        Journey JSON (the structured form of a diagram, deck or script) is accepted today. Reading diagrams and slide decks directly arrives with the extractor.
-      </p>
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', margin: '16px 0' }}>
-        <Button onClick={() => onLoad(JSON.stringify(censusExample), true)}>Load the Census CQA example</Button>
-        <Button kind="ghost" onClick={() => fileInput.current?.click()}>Upload journey JSON</Button>
-        <input ref={fileInput} type="file" accept=".json,application/json" hidden onChange={(e) => { void pick(e) }} />
-      </div>
-      <Problems items={issues.map((i) => `${i.path}: ${i.message}`)} />
-    </Panel>
+    <div style={{ display: 'grid', gap: 16 }}>
+      <Panel>
+        <h3 style={{ ...heading, fontSize: 20, marginBottom: 8 }}>Read a diagram, deck or document</h3>
+        <p style={muted}>
+          Upload a PowerPoint deck, Word document, PDF, image or text file. Decks are read as shapes and arrows, so the connections come from the file itself;
+          a model then interprets them. Every prompt is checked against the source wording afterwards. Nothing is stored.
+        </p>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', margin: '16px 0' }}>
+          <Button kind="ghost" onClick={() => sourceInput.current?.click()}>Choose a file</Button>
+          <span style={{ ...muted, fontSize: 13 }}>{file ? file.fileName : 'No file chosen'}</span>
+          <input ref={sourceInput} type="file" accept={ACCEPTED_FILES} hidden onChange={(e) => { void pickSource(e) }} />
+        </div>
+        <Field label="Extractor URL" hint="The Function URL from the extractor stack (or set VITE_EXTRACTOR_URL)."><TextInput value={form.url} onChange={(v) => update({ ...form, url: v })} placeholder="https://..." /></Field>
+        <Field label="Access token" hint="Kept in memory only; you re-enter it each visit."><input type="password" style={inputStyle} value={form.token} onChange={(e) => update({ ...form, token: e.target.value })} autoComplete="off" /></Field>
+        <Field label="Notes for the reader (optional)" hint="Facts the file does not say, for example that records live in DynamoDB or that any one identifier is enough."><TextArea value={form.notes} onChange={(v) => update({ ...form, notes: v })} rows={3} /></Field>
+        <Button onClick={() => { void read() }} disabled={!file || busy}>{busy ? 'Reading…' : 'Read journey'}</Button>
+        <Problems items={errors} />
+      </Panel>
+      <Panel>
+        <h3 style={{ ...heading, fontSize: 20, marginBottom: 8 }}>Or load a structured journey</h3>
+        <p style={muted}>Journey JSON needs no extraction. The Census CQA example is a ready-made one.</p>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', margin: '16px 0' }}>
+          <Button onClick={() => onLoad(JSON.stringify(censusExample), true)}>Load the Census CQA example</Button>
+          <Button kind="ghost" onClick={() => fileInput.current?.click()}>Upload journey JSON</Button>
+          <input ref={fileInput} type="file" accept=".json,application/json" hidden onChange={(e) => { void pick(e) }} />
+        </div>
+        <Problems items={issues.map((i) => `${i.path}: ${i.message}`)} />
+      </Panel>
+    </div>
   )
 }
 
 // ---- 2. checklist -------------------------------------------------------------------------------------------
 
-function ChecklistStep({ session, onChange, onNext }: { session: Session; onChange: (s: Session) => void; onNext: () => void }) {
+function ChecklistStep({ session, readSummary, onChange, onNext }: { session: Session; readSummary: string[]; onChange: (s: Session) => void; onNext: () => void }) {
   const view = describeChecklist(session)
   const s = view.summary
   // Decisions that block or warn stay in view; plain assumptions are one click away.
@@ -121,6 +176,7 @@ function ChecklistStep({ session, onChange, onNext }: { session: Session; onChan
           {view.selectedCount} of {s.total} items selected. {s.bySchemaStatus.confirmed} are built from confirmed schema, {s.bySchemaStatus.partial} partly, {s.bySchemaStatus.unconfirmed} cannot be generated yet.
           {s.fullyEmittable ? ' Everything selected can be generated.' : ' Some selected items still need a decision or manual work (see below).'}
         </p>
+        {readSummary.length > 0 && <ul style={{ ...muted, fontSize: 13, margin: '8px 0 0', paddingLeft: 18 }}>{readSummary.map((l) => <li key={l}>{l}</li>)}</ul>}
         {session.notices.length > 0 && <ul aria-live="polite" style={{ color: color.warn, fontSize: 14, margin: '8px 0 0', paddingLeft: 18 }}>{session.notices.map((n) => <li key={n}>{n}</li>)}</ul>}
       </Panel>
 
