@@ -111,4 +111,4 @@ expensively.
   checked against the source wording. The model call itself has not run against a live Bedrock yet.
 - Spanish (language detection and switching in an ACXD-only design) is unverified. French is deferred.
 - The website now has a landing page (`Website/src/site`) and a workspace shell (`Website/src/app`) behind hash routes; the product name
-  is a placeholder in `site/brand.ts`. Hosting on S3/CloudFront is still the last step.
+  (JourneyForge, owner TTEC Digital) is set in `site/brand.ts`. Hosting on S3/CloudFront is `Website/hosting` (private bucket, CloudFront, Basic-auth login: demo-grade only).

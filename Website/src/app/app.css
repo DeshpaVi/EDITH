@@ -43,6 +43,8 @@
 .ax button, .ax input, .ax select, .ax textarea { font-family: inherit; }
 .ax-side { position: sticky; top: 0; height: 100vh; overflow: auto; background: var(--ax-sidebar); border-right: 1px solid var(--ax-border); padding: 18px 12px; display: flex; flex-direction: column; gap: 18px; }
 .ax-brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px; color: var(--ax-text); text-decoration: none; font-weight: 700; letter-spacing: -0.02em; }
+.ax-brand-text { display: flex; flex-direction: column; line-height: 1.1; }
+.ax-brand-text small { font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ax-faint); margin-top: 3px; }
 .ax-mark { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, #9b8cff, #ff8b67); display: grid; place-items: center; color: #fff; }
 .ax-group { display: flex; flex-direction: column; gap: 2px; }
 .ax-group-title { padding: 0 10px 6px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ax-faint); }

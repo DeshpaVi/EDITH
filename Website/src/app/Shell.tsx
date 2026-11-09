@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
-import { BRAND } from '../site/brand'
+import { BRAND, COMPANY } from '../site/brand'
 import { Icon } from './icons'
 import { Palette } from './Palette'
 import { PAGES, pageInfo } from './pages'
@@ -40,7 +40,7 @@ export function Shell({ page, children }: { page: PageId; children: ReactNode })
       <aside className="ax-side" data-open={menu} aria-label="Workspace navigation">
         <a className="ax-brand" href="#/">
           <span className="ax-mark"><Icon name="flow" size={17} /></span>
-          <span>{BRAND}</span>
+          <span className="ax-brand-text"><span>{BRAND}</span><small>{COMPANY}</small></span>
         </a>
         {groups.map((g) => (
           <nav key={g} className="ax-group" aria-label={g}>

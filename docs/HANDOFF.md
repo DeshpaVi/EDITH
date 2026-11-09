@@ -226,7 +226,7 @@ Paste this into the next session:
 
 - `Website/src/site/`: the new landing page (from the shared "Stylish Mixed Theme" zip). `landing.css` is that stylesheet with every
   selector scoped under `.lp` (generated once by a throwaway script; edit it by hand now). `brand.ts` holds the product name
-  (placeholder "FlowPath"). Marketing copy was rewritten to claim only what the tool does; the hero preview is labelled a sample.
+  ("JourneyForge", owner "TTEC Digital"). Marketing copy was rewritten to claim only what the tool does; the hero preview is labelled a sample.
 - `Website/src/app/`: the workspace. Hash routes (`route.ts`: `#/app`, `#/app/<page>`; anything else is the landing page, so in-page
   anchors still work on static hosting). `Shell.tsx` = sidebar, breadcrumbs, Ctrl/Cmd+K jump search (`Palette.tsx`), theme toggle
   (`theme.ts`, stored in localStorage when allowed). `workspace.tsx` holds the shared state (journey, details, bundle result, deploy
@@ -241,3 +241,7 @@ Paste this into the next session:
 ## 0h. Large templates in the deployer
 
 `deployer-api` now stores a template over 51,200 bytes in the artifact bucket (`templates/<sha256>.json`) and passes `TemplateURL`; over 1 MB is refused (413). The tool role gained `s3:PutObject` on `templates/*`. Tested with fakes (33 deployer tests); not run against real S3 or CloudFormation. Same-region bucket assumed. The Census template is 36.7 KB, so this only matters for larger journeys.
+
+## 0i. Name, branding, hosting
+
+Product name is "JourneyForge" with "TTEC Digital" under the logo (landing nav, workspace sidebar, footer): one place, `Website/src/site/brand.ts`. `Website/hosting/` has the S3 + CloudFront stack with a login prompt (CloudFront Function, HTTP Basic), `deploy-site.sh` and a README that covers the login id/password and its limits. The template was checked structurally and the auth function was exercised in Node; it has NOT been deployed to real AWS, and the site has not been built with Vite here (no registry access), so `npm run build` is the first real build.

@@ -1,6 +1,6 @@
 import { useState } from "react"
 import type { CSSProperties, ReactNode } from "react"
-import { BRAND } from "./brand"
+import { BRAND, COMPANY } from "./brand"
 
 const OPEN_APP = "#/app"
 
@@ -134,7 +134,10 @@ function Brand({ dark = false }: { dark?: boolean }) {
       <span className="brand-mark">
         <Icon name="flow" size={18} />
       </span>
-      <span>{BRAND}</span>
+      <span className="brand-text">
+        <span>{BRAND}</span>
+        <small>{COMPANY}</small>
+      </span>
     </a>
   )
 }
@@ -579,7 +582,7 @@ function Footer() {
         </div>
       </div>
       <div className="shell footer-bottom">
-        <span>© 2026 {BRAND}. All rights reserved.</span>
+        <span>© 2026 {COMPANY}. All rights reserved.</span>
         <span>For Amazon Connect and ACXD</span>
       </div>
     </footer>

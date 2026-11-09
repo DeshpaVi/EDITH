@@ -1,0 +1,216 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Private static hosting for the JourneyForge website: S3 (not public) behind CloudFront, with a username and password prompt (HTTP Basic auth in a CloudFront Function). Demo-grade access control; see hosting/README.md.",
+  "Parameters": {
+    "SiteUsername": {
+      "Type": "String",
+      "AllowedPattern": "[A-Za-z0-9._-]{3,32}",
+      "ConstraintDescription": "3 to 32 letters, digits, dot, underscore or hyphen (no colon).",
+      "Description": "Login id for the website."
+    },
+    "SitePassword": {
+      "Type": "String",
+      "NoEcho": true,
+      "MinLength": 12,
+      "MaxLength": 64,
+      "Description": "Password for the website (at least 12 characters)."
+    },
+    "SiteTitle": {
+      "Type": "String",
+      "Default": "JourneyForge",
+      "AllowedPattern": "[A-Za-z0-9 ._-]{1,40}",
+      "Description": "Name shown in the browser's login prompt."
+    }
+  },
+  "Resources": {
+    "SiteBucket": {
+      "Type": "AWS::S3::Bucket",
+      "Properties": {
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true
+        },
+        "BucketEncryption": {
+          "ServerSideEncryptionConfiguration": [
+            {
+              "ServerSideEncryptionByDefault": {
+                "SSEAlgorithm": "AES256"
+              }
+            }
+          ]
+        },
+        "OwnershipControls": {
+          "Rules": [
+            {
+              "ObjectOwnership": "BucketOwnerEnforced"
+            }
+          ]
+        }
+      }
+    },
+    "SiteOac": {
+      "Type": "AWS::CloudFront::OriginAccessControl",
+      "Properties": {
+        "OriginAccessControlConfig": {
+          "Name": {
+            "Fn::Sub": "${AWS::StackName}-oac"
+          },
+          "OriginAccessControlOriginType": "s3",
+          "SigningBehavior": "always",
+          "SigningProtocol": "sigv4"
+        }
+      }
+    },
+    "AuthFunction": {
+      "Type": "AWS::CloudFront::Function",
+      "Properties": {
+        "Name": {
+          "Fn::Sub": "${AWS::StackName}-auth"
+        },
+        "AutoPublish": true,
+        "FunctionConfig": {
+          "Comment": "Username and password prompt",
+          "Runtime": "cloudfront-js-2.0"
+        },
+        "FunctionCode": {
+          "Fn::Join": [
+            "",
+            [
+              "function handler(event) {\n  var h = event.request.headers;\n  var want = 'Basic ",
+              {
+                "Fn::Base64": {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Ref": "SiteUsername"
+                      },
+                      ":",
+                      {
+                        "Ref": "SitePassword"
+                      }
+                    ]
+                  ]
+                }
+              },
+              "';\n  if (h.authorization && h.authorization.value === want) { return event.request; }\n  return {\n    statusCode: 401,\n    statusDescription: 'Unauthorized',\n    headers: {\n      'www-authenticate': { value: 'Basic realm=\"",
+              {
+                "Ref": "SiteTitle"
+              },
+              "\", charset=\"UTF-8\"' },\n      'cache-control': { value: 'no-store' }\n    }\n  };\n}\n"
+            ]
+          ]
+        }
+      }
+    },
+    "SiteDistribution": {
+      "Type": "AWS::CloudFront::Distribution",
+      "Properties": {
+        "DistributionConfig": {
+          "Enabled": true,
+          "Comment": {
+            "Fn::Sub": "${AWS::StackName}"
+          },
+          "DefaultRootObject": "index.html",
+          "HttpVersion": "http2and3",
+          "PriceClass": "PriceClass_100",
+          "Origins": [
+            {
+              "Id": "site-bucket",
+              "DomainName": {
+                "Fn::GetAtt": [
+                  "SiteBucket",
+                  "RegionalDomainName"
+                ]
+              },
+              "OriginAccessControlId": {
+                "Fn::GetAtt": [
+                  "SiteOac",
+                  "Id"
+                ]
+              },
+              "S3OriginConfig": {
+                "OriginAccessIdentity": ""
+              }
+            }
+          ],
+          "DefaultCacheBehavior": {
+            "TargetOriginId": "site-bucket",
+            "ViewerProtocolPolicy": "redirect-to-https",
+            "AllowedMethods": [
+              "GET",
+              "HEAD"
+            ],
+            "Compress": true,
+            "CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6",
+            "ResponseHeadersPolicyId": "67f7725c-6f97-4210-82d7-5512b31e9d03",
+            "FunctionAssociations": [
+              {
+                "EventType": "viewer-request",
+                "FunctionARN": {
+                  "Fn::GetAtt": [
+                    "AuthFunction",
+                    "FunctionARN"
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "SiteBucketPolicy": {
+      "Type": "AWS::S3::BucketPolicy",
+      "Properties": {
+        "Bucket": {
+          "Ref": "SiteBucket"
+        },
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Sid": "AllowCloudFrontRead",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "cloudfront.amazonaws.com"
+              },
+              "Action": "s3:GetObject",
+              "Resource": {
+                "Fn::Sub": "${SiteBucket.Arn}/*"
+              },
+              "Condition": {
+                "StringEquals": {
+                  "AWS:SourceArn": {
+                    "Fn::Sub": "arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${SiteDistribution}"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "Outputs": {
+    "SiteUrl": {
+      "Description": "Open this address.",
+      "Value": {
+        "Fn::Sub": "https://${SiteDistribution.DomainName}"
+      }
+    },
+    "SiteBucketName": {
+      "Description": "Upload the built site (dist/) here.",
+      "Value": {
+        "Ref": "SiteBucket"
+      }
+    },
+    "DistributionId": {
+      "Description": "Invalidate this after each upload.",
+      "Value": {
+        "Ref": "SiteDistribution"
+      }
+    }
+  }
+}
