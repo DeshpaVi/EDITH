@@ -11,20 +11,20 @@ function download(filename: string, contents: string, mime: string) {
 }
 
 const SEV: Record<Risk['severity'], { color: string; label: string }> = {
-  blocker: { color: '#ff375f', label: 'Blocker' },
-  warn: { color: '#ff9f0a', label: 'Warning' },
-  info: { color: '#0a84ff', label: 'Info' },
+  blocker: { color: 'var(--ax-bad)', label: 'Blocker' },
+  warn: { color: 'var(--ax-warn)', label: 'Warning' },
+  info: { color: 'var(--ax-accent)', label: 'Info' },
 }
 
 const card: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.04)',
-  border: '1px solid rgba(255,255,255,0.08)',
+  background: 'var(--ax-surface)',
+  border: '1px solid var(--ax-border)',
   borderRadius: 16,
   padding: 20,
 }
 
 const label: React.CSSProperties = {
-  color: 'rgba(245,245,247,0.35)',
+  color: 'var(--ax-faint)',
   fontSize: 11,
   fontWeight: 600,
   letterSpacing: '0.08em',
@@ -37,10 +37,10 @@ function Bar({ value, total, color }: { value: number; total: number; color: str
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
-        <span style={{ color: '#f5f5f7', fontSize: 22, fontWeight: 600 }}>{value}<span style={{ color: 'rgba(245,245,247,0.35)', fontSize: 15 }}>/{total}</span></span>
+        <span style={{ color: 'var(--ax-text)', fontSize: 22, fontWeight: 600 }}>{value}<span style={{ color: 'var(--ax-faint)', fontSize: 15 }}>/{total}</span></span>
         <span style={{ color, fontSize: 13, fontWeight: 600 }}>{pct}%</span>
       </div>
-      <div style={{ height: 5, borderRadius: 3, background: 'rgba(255,255,255,0.1)', overflow: 'hidden' }}>
+      <div style={{ height: 5, borderRadius: 3, background: 'var(--ax-border)', overflow: 'hidden' }}>
         <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 3, transition: 'width 0.4s ease' }} />
       </div>
     </>
@@ -50,8 +50,8 @@ function Bar({ value, total, color }: { value: number; total: number; color: str
 function Stat({ n, label: text }: { n: number; label: string }) {
   return (
     <div style={{ textAlign: 'center' }}>
-      <div style={{ color: '#f5f5f7', fontSize: 24, fontWeight: 600 }}>{n}</div>
-      <div style={{ color: 'rgba(245,245,247,0.4)', fontSize: 11 }}>{text}</div>
+      <div style={{ color: 'var(--ax-text)', fontSize: 24, fontWeight: 600 }}>{n}</div>
+      <div style={{ color: 'var(--ax-faint)', fontSize: 11 }}>{text}</div>
     </div>
   )
 }
@@ -67,17 +67,17 @@ export function MigrationReport({ model, plan }: { model: IvrModel; plan: AcxdPl
       <div style={{ ...card, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
         <div>
           <p style={label}>Flow blocks mapped</p>
-          <Bar value={flow.mapped} total={flow.totalActions} color={flow.unknown.length === 0 ? '#30d158' : '#ff9f0a'} />
+          <Bar value={flow.mapped} total={flow.totalActions} color={flow.unknown.length === 0 ? 'var(--ax-good)' : 'var(--ax-warn)'} />
           {flow.unknown.length > 0 && (
-            <p style={{ color: 'rgba(245,245,247,0.45)', fontSize: 12, margin: '10px 0 0' }}>
+            <p style={{ color: 'var(--ax-muted)', fontSize: 12, margin: '10px 0 0' }}>
               Unmapped: {flow.unknown.map((u) => u.sourceType).join(', ')}
             </p>
           )}
         </div>
         <div>
           <p style={label}>Intents resolved</p>
-          <Bar value={nlu.resolved} total={nlu.totalIntents} color={nlu.totalIntents > 0 && nlu.resolved === nlu.totalIntents ? '#30d158' : '#ff9f0a'} />
-          <p style={{ color: 'rgba(245,245,247,0.45)', fontSize: 12, margin: '10px 0 0' }}>
+          <Bar value={nlu.resolved} total={nlu.totalIntents} color={nlu.totalIntents > 0 && nlu.resolved === nlu.totalIntents ? 'var(--ax-good)' : 'var(--ax-warn)'} />
+          <p style={{ color: 'var(--ax-muted)', fontSize: 12, margin: '10px 0 0' }}>
             {nlu.totalIntents === 0
               ? 'No Lex bot export supplied.'
               : `${nlu.dangling.length} dangling · ${nlu.orphaned.length} never reached`}
@@ -101,19 +101,19 @@ export function MigrationReport({ model, plan }: { model: IvrModel; plan: AcxdPl
       {/* Risks — the honest bit */}
       <div style={card}>
         <p style={label}>
-          Needs a human ({plan.risks.length}){blockers > 0 && <span style={{ color: '#ff375f' }}> · {blockers} blocker{blockers > 1 ? 's' : ''}</span>}
+          Needs a human ({plan.risks.length}){blockers > 0 && <span style={{ color: 'var(--ax-bad)' }}> · {blockers} blocker{blockers > 1 ? 's' : ''}</span>}
         </p>
         {plan.risks.length === 0 ? (
-          <p style={{ color: 'rgba(245,245,247,0.45)', fontSize: 13, margin: 0 }}>Nothing flagged.</p>
+          <p style={{ color: 'var(--ax-muted)', fontSize: 13, margin: 0 }}>Nothing flagged.</p>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {plan.risks.map((r) => (
               <div key={r.id} style={{ borderLeft: `2px solid ${SEV[r.severity].color}`, paddingLeft: 12 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
                   <span style={{ color: SEV[r.severity].color, fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{SEV[r.severity].label}</span>
-                  <span style={{ color: '#f5f5f7', fontSize: 13.5, fontWeight: 600 }}>{r.title}</span>
+                  <span style={{ color: 'var(--ax-text)', fontSize: 13.5, fontWeight: 600 }}>{r.title}</span>
                 </div>
-                <p style={{ color: 'rgba(245,245,247,0.5)', fontSize: 12.5, lineHeight: 1.55, margin: 0 }}>{r.detail}</p>
+                <p style={{ color: 'var(--ax-muted)', fontSize: 12.5, lineHeight: 1.55, margin: 0 }}>{r.detail}</p>
               </div>
             ))}
           </div>
@@ -124,12 +124,12 @@ export function MigrationReport({ model, plan }: { model: IvrModel; plan: AcxdPl
       {plan.schemaGaps.length > 0 && (
         <div style={card}>
           <p style={label}>Unconfirmed ACXD schema ({plan.schemaGaps.length})</p>
-          <p style={{ color: 'rgba(245,245,247,0.5)', fontSize: 12.5, lineHeight: 1.55, margin: '0 0 12px' }}>
-            AWS does not publish these shapes. The emitter will write a <code style={{ color: '#ff9f0a' }}>TODO(acxd-schema)</code> marker rather than guess — a plausible guess that fails at build time is worse than a visible gap.
+          <p style={{ color: 'var(--ax-muted)', fontSize: 12.5, lineHeight: 1.55, margin: '0 0 12px' }}>
+            AWS does not publish these shapes. The emitter will write a <code style={{ color: 'var(--ax-warn)' }}>TODO(acxd-schema)</code> marker rather than guess — a plausible guess that fails at build time is worse than a visible gap.
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {[...new Set(plan.schemaGaps.map((g) => g.marker))].map((m) => (
-              <span key={m} style={{ padding: '4px 10px', borderRadius: 6, background: 'rgba(255,159,10,0.12)', border: '1px solid rgba(255,159,10,0.3)', color: '#ff9f0a', fontSize: 11.5 }}>{m}</span>
+              <span key={m} style={{ padding: '4px 10px', borderRadius: 6, background: 'var(--ax-surface-strong)', border: '1px solid var(--ax-warn)', color: 'var(--ax-warn)', fontSize: 11.5 }}>{m}</span>
             ))}
           </div>
         </div>
@@ -142,8 +142,8 @@ export function MigrationReport({ model, plan }: { model: IvrModel; plan: AcxdPl
           <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
             {plan.recommendations.map((r) => (
               <div key={r.id}>
-                <p style={{ color: '#f5f5f7', fontSize: 13.5, fontWeight: 600, margin: '0 0 3px' }}>{r.title}</p>
-                <p style={{ color: 'rgba(245,245,247,0.5)', fontSize: 12.5, lineHeight: 1.55, margin: 0 }}>{r.detail}</p>
+                <p style={{ color: 'var(--ax-text)', fontSize: 13.5, fontWeight: 600, margin: '0 0 3px' }}>{r.title}</p>
+                <p style={{ color: 'var(--ax-muted)', fontSize: 12.5, lineHeight: 1.55, margin: 0 }}>{r.detail}</p>
               </div>
             ))}
           </div>
@@ -151,22 +151,22 @@ export function MigrationReport({ model, plan }: { model: IvrModel; plan: AcxdPl
       )}
 
       {/* The deliverable — ACXD has no import path, so this is how the config lands */}
-      <div style={{ ...card, borderColor: 'rgba(48,209,88,0.28)', background: 'rgba(48,209,88,0.05)' }}>
+      <div style={{ ...card, borderColor: 'var(--ax-border)', background: 'var(--ax-surface)' }}>
         <p style={label}>Download the migration</p>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 12 }}>
           <button
             onClick={() => download('migrate.ts', emitArtifacts(plan).migrateTs, 'text/typescript')}
-            style={{ padding: '9px 16px', borderRadius: 10, border: '1px solid rgba(48,209,88,0.45)', background: 'rgba(48,209,88,0.14)', color: '#30d158', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}
+            style={{ padding: '9px 16px', borderRadius: 10, border: '1px solid var(--ax-good)', background: 'var(--ax-surface-strong)', color: 'var(--ax-good)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}
           >↓ migrate.ts</button>
           <button
             onClick={() => download('contact-flow.json', emitArtifacts(plan).contactFlowJson, 'application/json')}
-            style={{ padding: '9px 16px', borderRadius: 10, border: '1px solid rgba(255,255,255,0.16)', background: 'rgba(255,255,255,0.06)', color: 'rgba(245,245,247,0.85)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}
+            style={{ padding: '9px 16px', borderRadius: 10, border: '1px solid var(--ax-border)', background: 'var(--ax-surface-strong)', color: 'var(--ax-text)', fontSize: 13.5, fontWeight: 600, cursor: 'pointer' }}
           >↓ contact-flow.json</button>
         </div>
-        <p style={{ color: 'rgba(245,245,247,0.5)', fontSize: 12.5, lineHeight: 1.6, margin: 0 }}>
-          ACXD has no import path — resources are created by API call, so <strong style={{ color: '#f5f5f7' }}>migrate.ts</strong> is
-          the delivery mechanism. Run it yourself with your own key (<code style={{ color: '#30d158' }}>ACXD_API_KEY</code> from
-          your environment); it prompts before creating anything. <strong style={{ color: '#f5f5f7' }}>contact-flow.json</strong> imports
+        <p style={{ color: 'var(--ax-muted)', fontSize: 12.5, lineHeight: 1.6, margin: 0 }}>
+          ACXD has no import path — resources are created by API call, so <strong style={{ color: 'var(--ax-text)' }}>migrate.ts</strong> is
+          the delivery mechanism. Run it yourself with your own key (<code style={{ color: 'var(--ax-good)' }}>ACXD_API_KEY</code> from
+          your environment); it prompts before creating anything. <strong style={{ color: 'var(--ax-text)' }}>contact-flow.json</strong> imports
           in the Connect console, which does support import.
         </p>
       </div>
@@ -174,13 +174,13 @@ export function MigrationReport({ model, plan }: { model: IvrModel; plan: AcxdPl
       {/* What stays in Connect */}
       <div style={card}>
         <p style={label}>Stays in the contact flow</p>
-        <p style={{ color: 'rgba(245,245,247,0.5)', fontSize: 12.5, lineHeight: 1.6, margin: 0 }}>
+        <p style={{ color: 'var(--ax-muted)', fontSize: 12.5, lineHeight: 1.6, margin: 0 }}>
           {plan.contactFlow.queueAssignments.length} queue assignment(s)
           {plan.contactFlow.hoursOfOperation && ', hours of operation'}
           {plan.contactFlow.recordingBehavior && ', recording behaviour'}
           {plan.contactFlow.voice?.voiceId && `, voice (${plan.contactFlow.voice.voiceId})`}
           {' '}— these stay upstream of the Agentic CX block. The final cutover step is wiring that block
-          to application <strong style={{ color: '#f5f5f7' }}>{plan.application.name}</strong> in the Connect console, which is an admin action, not an SDK call.
+          to application <strong style={{ color: 'var(--ax-text)' }}>{plan.application.name}</strong> in the Connect console, which is an admin action, not an SDK call.
         </p>
       </div>
     </div>

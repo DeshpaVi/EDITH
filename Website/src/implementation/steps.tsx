@@ -7,94 +7,18 @@ import exampleSafety from '../core/emit/acxd/fixtures/guardrail.Safety.json'
 import exampleInjection from '../core/emit/acxd/fixtures/guardrail.PromptInjection.json'
 import exampleToxicity from '../core/emit/acxd/fixtures/guardrail.Toxicity.json'
 import type { Journey, ValidationIssue } from '../core/journey'
-import {
-  defaultContactFlowForm, defaultDetails, describeChecklist, generateBundle, generateContactFlow, parseJourneyText, startSession,
-  toggleItem, zipFiles,
-} from './controller'
+import { defaultContactFlowForm, describeChecklist, generateBundle, generateContactFlow, toggleItem, zipFiles } from './controller'
 import type { BuildResult, ContactFlowForm, ContactFlowResult, Details, Session } from './controller'
-import { DeployStep } from '../deploy/DeployStep'
 import { ACCEPTED_FILES, readAndExtract } from './extraction'
 import type { ExtractionForm } from './extraction'
 import { color, heading, input as inputStyle, muted, severityColor, statusColor } from './theme'
 import { Button, Chip, Code, Field, Panel, Problems, Summary, TextArea, TextInput, download } from './ui'
 
-const STEPS = ['1 · Journey', '2 · Checklist', '3 · Bundle', '4 · Deploy', '5 · Connect flow'] as const
-const provisionerFiles = { 'index.mjs': provisionerIndex, 'package.json': provisionerPackage }
-
-/**
- * Upload a journey, choose what to build, download a deployable bundle. Everything runs in the browser and
- * nothing is sent anywhere. The ACXD API key is never requested: the consultant supplies it at deploy time.
- */
-export function ImplementationSection() {
-  const [step, setStep] = useState(0)
-  const [session, setSession] = useState<Session | null>(null)
-  const [details, setDetails] = useState<Details | null>(null)
-  const [issues, setIssues] = useState<ValidationIssue[]>([])
-  const [isExample, setIsExample] = useState(false)
-  const [result, setResult] = useState<BuildResult | null>(null)
-
-  const [readSummary, setReadSummary] = useState<string[]>([])
-  const [prefill, setPrefill] = useState<{ workspaceId: string; applicationId: string } | null>(null)
-
-  const openJourney = (journey: Journey, example: boolean, summary: string[] = []) => {
-    setIssues([])
-    setIsExample(example)
-    setReadSummary(summary)
-    setSession(startSession(journey))
-    setDetails(defaultDetails(journey))
-    setResult(null)
-    setStep(1)
-  }
-
-  const open = (text: string, example: boolean) => {
-    const loaded = parseJourneyText(text)
-    if (!loaded.ok) {
-      setIssues(loaded.issues)
-      return
-    }
-    openJourney(loaded.journey, example)
-  }
-
-  const changeSession = (next: Session) => {
-    setSession(next)
-    setResult(null)
-  }
-
-  return (
-    <section id="implementation" aria-labelledby="implementation-title" style={{ background: color.bg, padding: '96px 24px' }}>
-      <div style={{ maxWidth: 1152, margin: '0 auto' }}>
-        <h2 id="implementation-title" style={{ ...heading, fontSize: 'clamp(28px, 4vw, 44px)', marginBottom: 12 }}>From customer journey to deployable implementation</h2>
-        <p style={{ ...muted, maxWidth: 720, marginBottom: 32 }}>
-          Load a journey, choose what to build, then download a CloudFormation bundle or deploy it from here into a target account after reviewing every change.
-          The ACXD API key is never entered here: it stays in a secret in the target account.
-        </p>
-        <nav aria-label="Steps" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
-          {STEPS.map((label, i) => {
-            const enabled = i === 0 || session !== null
-            return (
-              <button key={label} type="button" disabled={!enabled} aria-current={step === i ? 'step' : undefined} onClick={() => setStep(i)}
-                style={{ padding: '8px 16px', borderRadius: 980, border: `1px solid ${step === i ? color.accent : color.border}`, background: step === i ? 'rgba(10,132,255,0.15)' : 'transparent', color: step === i ? color.accent : color.textMuted, fontSize: 13, cursor: enabled ? 'pointer' : 'not-allowed', opacity: enabled ? 1 : 0.4 }}>
-                {label}
-              </button>
-            )
-          })}
-        </nav>
-
-        {step === 0 && <JourneyStep issues={issues} onLoad={open} onExtracted={(j, summary) => openJourney(j, false, summary)} />}
-        {step === 1 && session && <ChecklistStep session={session} readSummary={readSummary} onChange={changeSession} onNext={() => setStep(2)} />}
-        {step === 2 && session && details && (
-          <BundleStep session={session} details={details} onDetails={(d) => { setDetails(d); setResult(null) }} result={result} onResult={setResult} isExample={isExample} />
-        )}
-        {step === 3 && session && details && <DeployStep session={session} details={details} onDeployed={(p) => { setPrefill(p); setStep(4) }} />}
-        {step === 4 && session && <ContactFlowStep session={session} prefill={prefill} />}
-      </div>
-    </section>
-  )
-}
+export const provisionerFiles = { 'index.mjs': provisionerIndex, 'package.json': provisionerPackage }
 
 // ---- 1. journey ---------------------------------------------------------------------------------------------
 
-function JourneyStep({ issues, onLoad, onExtracted }: { issues: ValidationIssue[]; onLoad: (text: string, example: boolean) => void; onExtracted: (journey: Journey, summary: string[]) => void }) {
+export function JourneyStep({ issues, onLoad, onExtracted }: { issues: ValidationIssue[]; onLoad: (text: string, example: boolean) => void; onExtracted: (journey: Journey, summary: string[]) => void }) {
   const fileInput = useRef<HTMLInputElement>(null)
   const sourceInput = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<{ fileName: string; bytes: Uint8Array } | null>(null)
@@ -165,7 +89,7 @@ function JourneyStep({ issues, onLoad, onExtracted }: { issues: ValidationIssue[
 
 // ---- 2. checklist -------------------------------------------------------------------------------------------
 
-function ChecklistStep({ session, readSummary, onChange, onNext }: { session: Session; readSummary: string[]; onChange: (s: Session) => void; onNext: () => void }) {
+export function ChecklistStep({ session, readSummary, onChange, onNext }: { session: Session; readSummary: string[]; onChange: (s: Session) => void; onNext: () => void }) {
   const view = describeChecklist(session)
   const s = view.summary
   // Decisions that block or warn stay in view; plain assumptions are one click away.
@@ -235,7 +159,7 @@ function ChecklistStep({ session, readSummary, onChange, onNext }: { session: Se
 
 // ---- 3. bundle ----------------------------------------------------------------------------------------------
 
-function BundleStep({ session, details, onDetails, result, onResult, isExample }: { session: Session; details: Details; onDetails: (d: Details) => void; result: BuildResult | null; onResult: (r: BuildResult) => void; isExample: boolean }) {
+export function BundleStep({ session, details, onDetails, result, onResult, isExample }: { session: Session; details: Details; onDetails: (d: Details) => void; result: BuildResult | null; onResult: (r: BuildResult) => void; isExample: boolean }) {
   const set = <K extends keyof Details>(key: K, value: Details[K]) => onDetails({ ...details, [key]: value })
   const [preview, setPreview] = useState('README.md')
   const useExampleWording = () =>
@@ -296,7 +220,7 @@ function BundleStep({ session, details, onDetails, result, onResult, isExample }
 
 // ---- 4. connect contact flow ----------------------------------------------------------------------------------
 
-function ContactFlowStep({ session, prefill }: { session: Session; prefill: { workspaceId: string; applicationId: string } | null }) {
+export function ContactFlowStep({ session, prefill, onGenerated }: { session: Session; prefill: { workspaceId: string; applicationId: string } | null; onGenerated?: () => void }) {
   const [form, setForm] = useState<ContactFlowForm>(() => ({ ...defaultContactFlowForm(session), ...(prefill ?? {}) }))
   const [out, setOut] = useState<ContactFlowResult | null>(null)
   const set = <K extends keyof ContactFlowForm>(key: K, value: ContactFlowForm[K]) => { setForm({ ...form, [key]: value }); setOut(null) }
@@ -309,7 +233,7 @@ function ContactFlowStep({ session, prefill }: { session: Session; prefill: { wo
       </p>
       <Field label="Flow name"><TextInput value={form.name} onChange={(v) => set('name', v)} /></Field>
       <Field label="Channel">
-        <select value={form.channel} onChange={(e) => set('channel', e.target.value as 'voice' | 'chat')} style={{ width: '100%', padding: 10, borderRadius: 10, background: '#111', color: color.text, border: `1px solid ${color.border}` }}>
+        <select value={form.channel} onChange={(e) => set('channel', e.target.value as 'voice' | 'chat')} style={{ width: '100%', padding: 10, borderRadius: 10, background: color.input, color: color.text, border: `1px solid ${color.border}` }}>
           <option value="voice">Voice</option>
           <option value="chat">Chat</option>
         </select>
@@ -320,7 +244,7 @@ function ContactFlowStep({ session, prefill }: { session: Session; prefill: { wo
       <Field label="Escalation queue name"><TextInput value={form.queueName} onChange={(v) => set('queueName', v)} /></Field>
       <Field label="Escalation queue ARN" hint="arn:aws:connect:<region>:<account>:instance/<instance-id>/queue/<queue-id>"><TextInput value={form.queueArn} onChange={(v) => set('queueArn', v)} /></Field>
       <p style={{ ...muted, fontSize: 13 }}>Hand-back attributes: {form.attributes.join(', ') || 'none'}</p>
-      <Button onClick={() => setOut(generateContactFlow(form))}>Generate contact flow</Button>
+      <Button onClick={() => { const r = generateContactFlow(form); setOut(r); if (r.ok) onGenerated?.() }}>Generate contact flow</Button>
       {out && !out.ok && <Problems items={out.errors} />}
       {out?.ok && (
         <div style={{ marginTop: 16 }}>

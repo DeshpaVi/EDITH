@@ -170,7 +170,7 @@ export function DeployStep({ session, details, onDeployed }: { session: Session;
           <div style={{ marginBottom: 16 }}><Button kind="ghost" onClick={() => { void loadTargets() }} disabled={busy}>Load target accounts</Button></div>
           {targets.length > 0 && (
             <Field label="Target account">
-              <select value={form.targetId} onChange={(e) => set('targetId', e.target.value)} style={{ ...inputStyle, background: '#111' }}>
+              <select value={form.targetId} onChange={(e) => set('targetId', e.target.value)} style={{ ...inputStyle, background: 'var(--ax-input)' }}>
                 <option value="">Choose…</option>
                 {targets.map((t) => <option key={t.id} value={t.id}>{t.label} ({t.region})</option>)}
               </select>

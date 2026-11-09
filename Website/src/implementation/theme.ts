@@ -1,21 +1,25 @@
 import type { CSSProperties } from 'react'
 
 /**
- * Every colour, radius and text style of the implementation tool lives here. Restyling the tool means
+ * Every colour, radius and text style of the implementation tool lives here. Colours are CSS variables (see app/app.css), so the dark and light themes switch without re-rendering. Restyling the tool means
  * editing this file (or replacing the components in ui.tsx); the logic in controller.ts does not change.
  */
 export const color = {
-  bg: '#0a0a0a',
-  surface: 'rgba(255,255,255,0.04)',
-  surfaceStrong: 'rgba(255,255,255,0.08)',
-  border: 'rgba(255,255,255,0.1)',
-  text: '#f5f5f7',
-  textMuted: 'rgba(245,245,247,0.6)',
-  textFaint: 'rgba(245,245,247,0.38)',
-  accent: '#0a84ff',
-  good: '#30d158',
-  warn: '#ff9f0a',
-  bad: '#ff375f',
+  bg: 'var(--ax-bg)',
+  surface: 'var(--ax-surface)',
+  surfaceStrong: 'var(--ax-surface-strong)',
+  border: 'var(--ax-border)',
+  text: 'var(--ax-text)',
+  textMuted: 'var(--ax-muted)',
+  textFaint: 'var(--ax-faint)',
+  accent: 'var(--ax-accent)',
+  accentSoft: 'var(--ax-accent-soft)',
+  onAccent: 'var(--ax-on-accent)',
+  good: 'var(--ax-good)',
+  warn: 'var(--ax-warn)',
+  bad: 'var(--ax-bad)',
+  input: 'var(--ax-input)',
+  code: 'var(--ax-code)',
 } as const
 
 export const radius = { card: 16, control: 10, pill: 980 } as const
@@ -32,7 +36,7 @@ export const muted: CSSProperties = { color: color.textMuted, fontSize: 14, line
 
 export const input: CSSProperties = {
   width: '100%',
-  background: 'rgba(0,0,0,0.35)',
+  background: color.input,
   border: `1px solid ${color.border}`,
   borderRadius: radius.control,
   color: color.text,

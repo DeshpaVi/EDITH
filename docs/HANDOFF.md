@@ -221,3 +221,19 @@ Paste this into the next session:
 > `references/verified-console-and-export-findings.md` and `references/worked-example-census-cqa.md`. Treat
 > the verified findings as the ground truth for node behaviour and the "still not verified" list as the
 > boundary of what may be emitted without a `TODO(acxd-schema)` marker. Then proceed with: <next task>.
+
+## 0g. Website restyle (landing page and workspace shell)
+
+- `Website/src/site/`: the new landing page (from the shared "Stylish Mixed Theme" zip). `landing.css` is that stylesheet with every
+  selector scoped under `.lp` (generated once by a throwaway script; edit it by hand now). `brand.ts` holds the product name
+  (placeholder "FlowPath"). Marketing copy was rewritten to claim only what the tool does; the hero preview is labelled a sample.
+- `Website/src/app/`: the workspace. Hash routes (`route.ts`: `#/app`, `#/app/<page>`; anything else is the landing page, so in-page
+  anchors still work on static hosting). `Shell.tsx` = sidebar, breadcrumbs, Ctrl/Cmd+K jump search (`Palette.tsx`), theme toggle
+  (`theme.ts`, stored in localStorage when allowed). `workspace.tsx` holds the shared state (journey, details, bundle result, deploy
+  prefill) in memory only. `progress.ts` computes the Overview ring from what was actually done. `Pages.tsx` keeps visited pages mounted.
+- `implementation/theme.ts` colours are now CSS variables (`app/app.css`, dark default, `[data-theme=light]`). `ImplementationSection.tsx`
+  became `implementation/steps.tsx` (exported step components). The old marketing IVR section was replaced by `app/pages/MigrationPage.tsx`
+  (real report only, no illustrative mock). Old Apple-style homepage code was removed.
+- Verified: type-check and 223 shim tests (incl. new `route.test.ts`, `progress.test.ts`), plus a throwaway renderer driving the whole
+  flow and Playwright screenshots in dark, light and phone width. NOT verified: real React/Vite runtime (`npm run dev`), the web fonts,
+  and the reference screenshots were matched by description, not pixel-compared. Journeys are session-only: no sign-in or saved list yet.

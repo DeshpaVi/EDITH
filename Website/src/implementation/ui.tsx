@@ -36,7 +36,7 @@ export function Button({ children, onClick, disabled, kind = 'primary', type = '
         borderRadius: radius.pill,
         border: primary ? 'none' : `1px solid ${color.border}`,
         background: primary ? color.accent : 'transparent',
-        color: primary ? '#fff' : color.text,
+        color: primary ? color.onAccent : color.text,
         fontSize: 14,
         fontWeight: 500,
         cursor: disabled ? 'not-allowed' : 'pointer',
@@ -67,7 +67,7 @@ export function TextArea({ value, onChange, rows = 4, placeholder }: { value: st
 }
 
 export function Code({ children, maxHeight = 360 }: { children: string; maxHeight?: number }) {
-  return <pre style={{ ...mono, background: 'rgba(0,0,0,0.5)', border: `1px solid ${color.border}`, borderRadius: radius.control, padding: 14, margin: 0, overflow: 'auto', maxHeight, color: color.text, whiteSpace: 'pre-wrap' }}>{children}</pre>
+  return <pre style={{ ...mono, background: color.code, border: `1px solid ${color.border}`, borderRadius: radius.control, padding: 14, margin: 0, overflow: 'auto', maxHeight, color: color.text, whiteSpace: 'pre-wrap' }}>{children}</pre>
 }
 
 export function Problems({ items }: { items: string[] }) {
