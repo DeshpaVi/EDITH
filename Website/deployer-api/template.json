@@ -85,6 +85,21 @@
                 }
               ]
             }
+          },
+          {
+            "PolicyName": "StoreLargeTemplates",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": "s3:PutObject",
+                  "Resource": {
+                    "Fn::Sub": "arn:aws:s3:::${ArtifactBucket}/templates/*"
+                  }
+                }
+              ]
+            }
           }
         ]
       }
@@ -119,6 +134,9 @@
             },
             "ARTIFACT_KEY": {
               "Ref": "ArtifactKey"
+            },
+            "ARTIFACT_REGION": {
+              "Ref": "AWS::Region"
             }
           }
         }

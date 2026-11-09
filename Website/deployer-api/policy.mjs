@@ -5,7 +5,12 @@
 
 export const MANAGED_TAG = 'edith-managed'
 export const ROLE_PATH = '/edith/'
+/** CloudFormation's limit for a template passed inline. Larger ones go through S3. */
 export const MAX_TEMPLATE_BYTES = 51_200
+/** CloudFormation's limit for a template read from S3. */
+export const MAX_STORED_TEMPLATE_BYTES = 1_000_000
+/** Where the deployer stores large templates in the artifact bucket (named by content hash). */
+export const TEMPLATE_KEY_PREFIX = 'templates/'
 
 const ALLOWED_TYPES = new Set([
   'AWS::SecretsManager::Secret',

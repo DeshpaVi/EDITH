@@ -2,12 +2,12 @@
 
 import { MANAGED_TAG } from './policy.mjs'
 
-export function buildCreateChangeSetInput({ stackName, changeSetName, type, templateBody, parameters, stackRoleArn, tags = {} }) {
+export function buildCreateChangeSetInput({ stackName, changeSetName, type, templateBody, templateUrl, parameters, stackRoleArn, tags = {} }) {
   const input = {
     StackName: stackName,
     ChangeSetName: changeSetName,
     ChangeSetType: type,
-    TemplateBody: templateBody,
+    ...(templateUrl ? { TemplateURL: templateUrl } : { TemplateBody: templateBody }),
     Parameters: Object.entries(parameters).map(([ParameterKey, ParameterValue]) => ({ ParameterKey, ParameterValue })),
     // CAPABILITY_IAM only: the template creates roles but never names them (no CAPABILITY_NAMED_IAM).
     Capabilities: ['CAPABILITY_IAM'],

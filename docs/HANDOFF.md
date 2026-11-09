@@ -123,7 +123,7 @@ also guards deleting the stack.
 **Nothing has run against a real AWS account.** First deployment will show: the exact IAM permissions CloudFormation needs
 for these resources, cross-account read of the provisioner package, `InvokedViaFunctionUrl`, and the ACXD SDK calls.
 Auth is one shared bearer token (demo-grade). Review the customer role before installing it anywhere real. Templates over
-51,200 bytes are refused (S3 template URL not built).
+51,200 bytes now go through S3 (see 0h).
 
 ## 0f. Visio support
 
@@ -237,3 +237,7 @@ Paste this into the next session:
 - Verified: type-check and 223 shim tests (incl. new `route.test.ts`, `progress.test.ts`), plus a throwaway renderer driving the whole
   flow and Playwright screenshots in dark, light and phone width. NOT verified: real React/Vite runtime (`npm run dev`), the web fonts,
   and the reference screenshots were matched by description, not pixel-compared. Journeys are session-only: no sign-in or saved list yet.
+
+## 0h. Large templates in the deployer
+
+`deployer-api` now stores a template over 51,200 bytes in the artifact bucket (`templates/<sha256>.json`) and passes `TemplateURL`; over 1 MB is refused (413). The tool role gained `s3:PutObject` on `templates/*`. Tested with fakes (33 deployer tests); not run against real S3 or CloudFormation. Same-region bucket assumed. The Census template is 36.7 KB, so this only matters for larger journeys.

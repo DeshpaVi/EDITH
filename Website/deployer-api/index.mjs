@@ -11,7 +11,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { signConfirm, verifyConfirm } from './confirm.mjs'
 import { buildCreateChangeSetInput, isManaged, isNoChanges, phaseOf, summarizeChangeSet, summarizeStack, waitForChangeSet } from './cfn.mjs'
-import { MAX_TEMPLATE_BYTES, RESERVED_PARAMETERS, parameterProblems, templateProblems, validStackName } from './policy.mjs'
+import { MAX_STORED_TEMPLATE_BYTES, MAX_TEMPLATE_BYTES, RESERVED_PARAMETERS, TEMPLATE_KEY_PREFIX, parameterProblems, templateProblems, validStackName } from './policy.mjs'
 
 class HttpError extends Error {
   constructor(status, message) {
@@ -90,7 +90,8 @@ export function makeHandler(deps) {
       const problems = templateProblems(template)
       if (problems.length > 0) throw new HttpError(400, `This template is not one the tool may deploy: ${problems.slice(0, 5).join(' ')}`)
       const templateBody = JSON.stringify(template)
-      if (templateBody.length > MAX_TEMPLATE_BYTES) throw new HttpError(413, 'The template is larger than CloudFormation allows inline (51,200 bytes).')
+      const templateBytes = Buffer.byteLength(templateBody)
+      if (templateBytes > MAX_STORED_TEMPLATE_BYTES) throw new HttpError(413, 'The template is larger than CloudFormation allows (1 MB).')
       const paramProblems = parameterProblems(template.Parameters, body.parameters ?? {})
       if (paramProblems.length > 0) throw new HttpError(400, paramProblems.slice(0, 5).join(' '))
 
@@ -113,8 +114,20 @@ export function makeHandler(deps) {
         else type = 'UPDATE'
       }
 
+      // Over the inline limit the template is stored in the artifact bucket, named by its content hash, and CloudFormation
+      // reads it from there with the customer's deploy role. The template holds no secret (managed mode takes a secret ARN).
+      const hash = createHash('sha256').update(templateBody).digest('hex')
+      let templateUrl
+      if (templateBytes > MAX_TEMPLATE_BYTES) {
+        if (!env.ARTIFACT_BUCKET) throw new HttpError(500, 'The deployer has no artifact bucket configured for large templates.')
+        const key = `${TEMPLATE_KEY_PREFIX}${hash}.json`
+        await deps.putTemplate({ bucket: env.ARTIFACT_BUCKET, key, body: templateBody })
+        const region = env.ARTIFACT_REGION || env.AWS_REGION
+        templateUrl = `https://s3.${region}.amazonaws.com/${env.ARTIFACT_BUCKET}/${key}`
+      }
+
       const changeSetName = `edith-${deps.now()}`
-      await cfn.createChangeSet(buildCreateChangeSetInput({ stackName, changeSetName, type, templateBody, parameters, stackRoleArn: target.stackRoleArn }))
+      await cfn.createChangeSet(buildCreateChangeSetInput({ stackName, changeSetName, type, templateBody, templateUrl, parameters, stackRoleArn: target.stackRoleArn }))
       const desc = await waitForChangeSet(() => cfn.describeChangeSet({ StackName: stackName, ChangeSetName: changeSetName }), { sleep: deps.sleep })
       if (isNoChanges(desc)) {
         await cfn.deleteChangeSet({ StackName: stackName, ChangeSetName: changeSetName }).catch(() => undefined)
@@ -123,7 +136,6 @@ export function makeHandler(deps) {
       if (desc.Status === 'FAILED') throw new HttpError(400, `CloudFormation could not prepare the change: ${String(desc.StatusReason ?? '').slice(0, 400)}`)
 
       const changeSetId = desc.ChangeSetId
-      const hash = createHash('sha256').update(templateBody).digest('hex')
       const token = signConfirm(env.CONFIRM_KEY, { targetId: target.id, stackName, changeSetId, hash }, deps.now())
       return { ...summarizeChangeSet(desc), status: 'ready', stackName, changeSetId, type, token, expiresInMinutes: 15 }
     },
@@ -219,6 +231,11 @@ const defaultDeps = {
     const { STSClient, AssumeRoleCommand } = await import('@aws-sdk/client-sts')
     const out = await new STSClient({}).send(new AssumeRoleCommand({ RoleArn: roleArn, RoleSessionName: sessionName, ExternalId: externalId, DurationSeconds: 900 }))
     return { accessKeyId: out.Credentials.AccessKeyId, secretAccessKey: out.Credentials.SecretAccessKey, sessionToken: out.Credentials.SessionToken }
+  },
+  /** Stored with the tool's own credentials (not the customer's role). */
+  async putTemplate({ bucket, key, body }) {
+    const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3')
+    await new S3Client({}).send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body, ContentType: 'application/json' }))
   },
   cfn(credentials, region) {
     // One client per request; commands are created on demand so the SDK loads only when used.

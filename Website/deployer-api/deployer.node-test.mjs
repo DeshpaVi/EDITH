@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { MAX_TEMPLATE_BYTES, parameterProblems, templateProblems, validStackName } from './policy.mjs'
+import { MAX_STORED_TEMPLATE_BYTES, MAX_TEMPLATE_BYTES, parameterProblems, templateProblems, validStackName } from './policy.mjs'
 import { signConfirm, verifyConfirm } from './confirm.mjs'
 import { buildCreateChangeSetInput, isManaged, isNoChanges, phaseOf, summarizeChangeSet, summarizeStack, waitForChangeSet } from './cfn.mjs'
 import { makeHandler } from './index.mjs'
@@ -161,6 +161,7 @@ const ENV = {
   CONFIRM_KEY: KEY,
   ARTIFACT_BUCKET: 'artifacts-bucket',
   ARTIFACT_KEY: 'provisioner/v1.zip',
+  ARTIFACT_REGION: 'us-east-1',
   TARGETS: JSON.stringify([{ id: 't1', label: 'Sandbox', roleArn: 'arn:aws:iam::111122223333:role/edith/EdithDeployRole', externalId: 'ext-1', region: 'us-east-1', stackRoleArn: 'arn:aws:iam::111122223333:role/edith/EdithStackRole' }]),
 }
 const MANAGED = [{ Key: 'edith-managed', Value: 'true' }]
@@ -190,6 +191,7 @@ function fakeAws({ stack = null, changeSet, events = [] } = {}) {
     sleep: async () => {},
     assumeRole: async (a) => (assumed.push(a), { accessKeyId: 'AK', secretAccessKey: 'SK', sessionToken: 'ST' }),
     cfn: () => cfn,
+    putTemplate: async (a) => { calls.push(['putTemplate', a]) },
   }
   return { deps, calls, assumed, called: (n) => calls.filter((c) => c[0] === n) }
 }
@@ -249,10 +251,30 @@ test('plan validates stack name, target, parameters and size', async () => {
   assert.equal((await call(aws, 'plan', planBody({ targetId: 'zzz' }))).status, 400)
   assert.equal((await call(aws, 'plan', planBody({ parameters: {} }))).status, 400)
   assert.equal((await call(aws, 'plan', planBody({ parameters: { ...goodParams(), ProvisionerCodeBucket: 'evil' } }))).status, 400)
-  const big = template()
-  big.Description = 'x'.repeat(MAX_TEMPLATE_BYTES)
-  assert.equal((await call(aws, 'plan', planBody({ template: big }))).status, 413)
+  const huge = template()
+  huge.Outputs = { Pad: { Value: 'x'.repeat(MAX_STORED_TEMPLATE_BYTES) } }
+  assert.equal((await call(aws, 'plan', planBody({ template: huge }))).status, 413)
   assert.equal((await call(aws, 'plan', planBody({ template: '{oops' }))).status, 400)
+})
+
+test('a template over the inline limit is stored in the artifact bucket and read by URL', async () => {
+  const aws = fakeAws()
+  const big = template()
+  big.Outputs = { Pad: { Value: 'x'.repeat(MAX_TEMPLATE_BYTES) } }
+  const res = await call(aws, 'plan', planBody({ template: big }))
+  assert.equal(res.status, 200)
+  const put = aws.called('putTemplate')[0][1]
+  assert.equal(put.bucket, ENV.ARTIFACT_BUCKET)
+  assert.match(put.key, /^templates\/[0-9a-f]{64}\.json$/)
+  assert.equal(JSON.parse(put.body).Outputs.Pad.Value.length, MAX_TEMPLATE_BYTES)
+  const input = aws.called('createChangeSet')[0][1]
+  assert.equal(input.TemplateBody, undefined)
+  assert.equal(input.TemplateURL, `https://s3.${ENV.ARTIFACT_REGION ?? ENV.AWS_REGION}.amazonaws.com/${ENV.ARTIFACT_BUCKET}/${put.key}`)
+  // A small template still goes inline and never touches S3.
+  const small = fakeAws()
+  await call(small, 'plan', planBody())
+  assert.equal(small.called('putTemplate').length, 0)
+  assert.ok(small.called('createChangeSet')[0][1].TemplateBody)
 })
 
 test('plan updates a stack this tool created, and refuses others', async () => {

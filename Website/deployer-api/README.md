@@ -62,7 +62,7 @@ This function can create IAM roles, Lambda functions and secrets in customer acc
 - `npm run test:deployer` runs the tests (Node's built-in runner, no dependencies). `fixtures/managed-template.json` is the
   template the emitter produces; a TypeScript test fails if the emitter and the fixture drift apart.
 - Planning waits up to about 80 seconds for CloudFormation to prepare the change set; the function timeout is 180 seconds.
-- Templates over 51,200 bytes are refused (the inline limit). Larger ones need an S3 template URL, not built yet.
+- Templates up to 51,200 bytes go to CloudFormation inline. Larger ones (up to 1 MB) are stored in the artifact bucket as `templates/<sha256>.json` with the deployer's own role (it has `s3:PutObject` on `templates/*` only) and read by URL with the customer's deploy role, which already has `s3:GetObject` on the bucket. The bucket must be in the stack's region (`ARTIFACT_REGION` defaults to the deployer's). Not yet run against real S3/CloudFormation; the bucket has no lifecycle rule, so add one to expire `templates/`.
 - **Nothing here has run against a real AWS account.** First-deployment unknowns: the exact IAM permissions CloudFormation
   needs for these resource types (the stack role may need one or two more), `InvokedViaFunctionUrl` on the Lambda permission,
   cross-account read of the provisioner package, and the ACXD SDK calls inside the provisioner.
