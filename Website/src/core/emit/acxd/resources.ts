@@ -20,14 +20,27 @@ export interface ContextVariablePayload {
   disallowExternalModification?: boolean
 }
 
+/**
+ * A data request in the shape ACXD exports it (confirmed from a real export, fixtures/dataRequest.verifyAuth.json): a v3 webhook with the URL and
+ * headers under `environments.production`, and a secret referenced as `{<name>:NLX.Secret}`. The documentation's `{{secrets.<name>}}` and flat
+ * `webhook.url` are not what the console stores; the console flags the documented form with a red icon and the call fails.
+ */
 export interface DataRequestPayload {
   dataRequestId: string
   type: 'object'
+  webhook: {
+    version: 'v3'
+    sendContext: boolean
+    implementation: 'external'
+    method: 'POST'
+    environments: { production: { url: string; headers: Array<{ key: string; value: string; dynamic: boolean; required: boolean }> } }
+  }
   description: string
   sensitive: true
-  webhook: { implementation: 'external'; method: 'POST'; url: string; headers: Array<{ key: string; value: string; sensitive: true }> }
+  streamStateModifications: boolean
   requestSchema: unknown
   responseSchema: unknown
+  metadata: { path: string; tags: string[] }
 }
 
 /** A guardrail exactly as exported from a workspace, minus the empty guardrailId. Wording is customer-owned. */
@@ -152,11 +165,11 @@ export function buildAcxdSpec(journey: Journey, selected: ReadonlySet<string>, o
   let authFlowEmitted = false
   if (auth && has(IDS.authFlow)) {
     let url: string | null = null
-    const headers: DataRequestPayload['webhook']['headers'] = []
+    const headers: DataRequestPayload['webhook']['environments']['production']['headers'] = []
     if (auth.verifiesAgainst.type === 'dynamodb') {
       url = TOKENS.verifyUrl
       secrets.push({ name: VERIFY_SECRET_NAME, sourceSecretArn: TOKENS.verifyKeySecretArn })
-      headers.push({ key: 'x-api-key', value: `{{secrets.${VERIFY_SECRET_NAME}}}`, sensitive: true })
+      headers.push({ key: 'x-api-key', value: `{${VERIFY_SECRET_NAME}:NLX.Secret}`, dynamic: false, required: false })
     } else if (auth.verifiesAgainst.type === 'http_api' || auth.verifiesAgainst.type === 'lambda') {
       url = opts.verifyApiUrl ?? null
       if (!url) skipped.push({ id: IDS.verifyRequest, reason: 'The verification API URL was not supplied.' })
@@ -166,14 +179,17 @@ export function buildAcxdSpec(journey: Journey, selected: ReadonlySet<string>, o
     }
     if (!url) skipped.push({ id: IDS.authFlow, reason: 'The authentication flow needs the verification data request, which could not be generated.' })
     if (url) {
+      const schema = (properties: Record<string, unknown>) => ({ type: 'object', properties, isSensitive: false, title: '', description: '' })
       dataRequests.push({
         dataRequestId: VERIFY_REQUEST_ID,
         type: 'object',
+        webhook: { version: 'v3', sendContext: true, implementation: 'external', method: 'POST', environments: { production: { url, headers } } },
         description: 'Verifies the value the caller gave against the respondent records.',
         sensitive: true,
-        webhook: { implementation: 'external', method: 'POST', url, headers },
-        requestSchema: { type: 'object', properties: { [AUTH_SLOT]: { type: 'string', isSensitive: true } } },
-        responseSchema: { type: 'object', properties: { verified: { type: 'boolean' } } },
+        streamStateModifications: false,
+        requestSchema: schema({ [AUTH_SLOT]: { type: 'string', isSensitive: true, title: '', description: '' } }),
+        responseSchema: schema({ verified: { type: 'boolean', isSensitive: false, title: '', description: '' } }),
+        metadata: { path: '', tags: [] },
       })
       if (!mainSelected) {
         skipped.push({ id: IDS.authFlow, reason: 'The authentication flow redirects to the main conversation flow, which is not selected.' })

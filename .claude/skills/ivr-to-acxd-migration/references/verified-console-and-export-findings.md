@@ -220,6 +220,12 @@ Source: a CloudFormation custom resource creating the Census build through the S
 
 **Application:** creating flows and guardrails does not build or deploy anything. Console steps remain after the stack: Manage default behavior (Incomprehension to the Escalation flow), then Deploy > Build, then deploy and note the deployment alias.
 
+**Data request export (first real one: `verified-exports/dataRequest.verifyAuth.json`):**
+- Webhook is **v3**: `webhook: {version: "v3", sendContext, implementation: "external", method, environments: {production: {url, headers: [{key, value, dynamic: false, required: false}]}}}`. The URL and headers live under `environments.production` (a Development endpoint is a separate toggle; unset, the Test tab still worked against production).
+- A **secret in a header is written `{<secretName>:NLX.Secret}`**, e.g. `{verifyAuthApiKey:NLX.Secret}`. The documentation's `{{secrets.<name>}}` is stored literally and the console flags it with a red icon; the call then fails with the generic "We encountered an issue".
+- Other keys: `streamStateModifications`, `sensitive`, `description`, `metadata: {path, tags}`; the request and response schemas carry `isSensitive`, `title`, `description` on the object and on each property.
+- The SDK's `CreateDataRequest` accepted the older flat `webhook.url` shape too (it created the resource), so a "successful create" does not prove the shape is right: compare with an export.
+
 **Names (real validation, `ValidationException: name is not in the expected format`):**
 - An **application name with parentheses is rejected** ("2030 Census Questionnaire Assistance (CQA) demo"); "CQA Demo" is accepted. The documentation says only "1 to 100 characters". Until the full rule is known, use letters, digits, spaces, hyphens and underscores.
 - Renaming an application through an update creates a different application: keep the name stable across stack updates.
@@ -236,6 +242,6 @@ Source: a CloudFormation custom resource creating the Census build through the S
 - How the application picks `Authentication` over the Journey: flow **Routing** (`aiDescription`) or only the Journey exit.
 - Spanish: language detection and switching in an ACXD-only design, per-language voices, translations.
 - The Connect Set voice block JSON; the imported voice flow on a real phone call.
-- Application-level and Data request / Context variable **export** shapes (flows, guardrails and one slot type's settings so far).
+- Application-level and Context variable **export** shapes (flows, guardrails, one data request and one slot type's settings so far).
 - The analytics tag `type` used by the Census workspace (the SDK accepted `negative`); the full application name rule.
 - Remaining first-run mismatches in command *inputs* (field names) for data requests, flows, guardrails and the application.

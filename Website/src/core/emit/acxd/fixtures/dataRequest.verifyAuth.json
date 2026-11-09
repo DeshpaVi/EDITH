@@ -1,0 +1,58 @@
+{
+  "dataRequestId": "verifyAuth",
+  "type": "object",
+  "webhook": {
+    "version": "v3",
+    "sendContext": true,
+    "implementation": "external",
+    "method": "POST",
+    "environments": {
+      "production": {
+        "url": "https://example.lambda-url.us-east-1.on.aws/",
+        "headers": [
+          {
+            "key": "x-api-key",
+            "value": "{verifyAuthApiKey:NLX.Secret}",
+            "dynamic": false,
+            "required": false
+          }
+        ]
+      }
+    }
+  },
+  "description": "Verifies the value the caller gave against the respondent records.",
+  "sensitive": true,
+  "streamStateModifications": false,
+  "requestSchema": {
+    "type": "object",
+    "properties": {
+      "authValue": {
+        "type": "string",
+        "isSensitive": true,
+        "title": "",
+        "description": ""
+      }
+    },
+    "isSensitive": false,
+    "title": "",
+    "description": ""
+  },
+  "responseSchema": {
+    "type": "object",
+    "properties": {
+      "verified": {
+        "type": "boolean",
+        "isSensitive": false,
+        "title": "",
+        "description": ""
+      }
+    },
+    "isSensitive": false,
+    "title": "",
+    "description": ""
+  },
+  "metadata": {
+    "path": "",
+    "tags": []
+  }
+}

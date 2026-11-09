@@ -12,6 +12,7 @@ import census from '../journey/fixtures/census-cqa.journey.json'
 import safety from './acxd/fixtures/guardrail.Safety.json'
 import toxicity from './acxd/fixtures/guardrail.Toxicity.json'
 import injection from './acxd/fixtures/guardrail.PromptInjection.json'
+import realDataRequest from './acxd/fixtures/dataRequest.verifyAuth.json'
 import realContactFlow from './acxd/fixtures/connect-contact-flow.AgenticCX.json'
 
 const journey = (): Journey => JSON.parse(JSON.stringify(census)) as unknown as Journey
@@ -48,7 +49,7 @@ describe('emitBundle for the Census CQA journey', () => {
   it('marks the data request and its field sensitive and sends the shared key from a secret reference', () => {
     const d = b.spec.dataRequests[0]
     expect(d.sensitive).toBe(true)
-    expect(d.webhook.headers).toEqual([{ key: 'x-api-key', value: '{{secrets.verifyAuthApiKey}}', sensitive: true }])
+    expect(d.webhook.environments.production.headers).toEqual([{ key: 'x-api-key', value: '{verifyAuthApiKey:NLX.Secret}', dynamic: false, required: false }])
     expect(JSON.stringify(d.requestSchema)).toContain('"isSensitive":true')
   })
 
@@ -177,6 +178,13 @@ describe('CloudFormation template', () => {
 })
 
 describe('selection and gaps', () => {
+  it('emits the verification data request exactly as ACXD exports one (real export, URL aside)', () => {
+    const d = JSON.parse(JSON.stringify(bundle().spec.dataRequests[0]))
+    expect(d.webhook.environments.production.url).toBe(TOKENS.verifyUrl)
+    d.webhook.environments.production.url = realDataRequest.webhook.environments.production.url
+    expect(d).toEqual(realDataRequest)
+  })
+
   it('creates the analytics tags the guardrail rules reference, so the application builds', () => {
     const b = bundle()
     const tags = b.spec.analyticsTags.map((t) => t.name).sort()
@@ -229,7 +237,7 @@ describe('selection and gaps', () => {
     const auth = j.steps.find((s) => s.kind === 'authentication')!
     if (auth.kind === 'authentication') auth.verifiesAgainst = { type: 'http_api' }
     const out = bundle(j, { verifyApiUrl: 'https://api.example.test/verify' })
-    expect(out.spec.dataRequests[0].webhook.url).toBe('https://api.example.test/verify')
+    expect(out.spec.dataRequests[0].webhook.environments.production.url).toBe('https://api.example.test/verify')
     expect(out.template.Resources).not.toHaveProperty('VerifyAuthFunction')
     expect(out.spec.flows.map((f) => f.flowId)).toContain('Authentication')
   })

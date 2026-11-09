@@ -14,7 +14,8 @@ real failure or surprise; the fix is in the code and the check is in a test. Use
    tag names and types), not only the flows.
 4. Creating resources does not deploy them: Manage default behavior, Build, deploy, deployment alias are console steps.
 5. **Validate names in the app, not at deploy time.** ACXD rejected an application name with parentheses; the form defaulted to the journey title. Sanitize defaults and refuse bad input in the form. Keep the application name the same across updates.
-6. Do not delete shared workspace objects (tags, slot types) when a stack is deleted.
+6. **A resource that creates successfully can still be wrong.** The data request was created with the documented secret syntax and flat webhook; the console flagged the header red and the live call failed. After the first deployment, export each generated resource from the console and diff it with what the tool emits (the exports are fixtures now). The first sign was only "We encountered an issue" in the Test tab.
+7. Do not delete shared workspace objects (tags, slot types) when a stack is deleted.
 
 ## Amazon Bedrock
 6. **The AWS account type matters.** An account billed through a channel partner (reseller or distributor) can be refused Anthropic models:
