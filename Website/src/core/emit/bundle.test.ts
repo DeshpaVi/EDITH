@@ -6,6 +6,8 @@ import type { BundleOptions } from './bundle'
 import { TOKENS } from './acxd/resources'
 import { VERIFY_LAMBDA_SOURCE } from './cfn/verifyLambda'
 import { emitContactFlow } from './connect/agenticContactFlow'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import census from '../journey/fixtures/census-cqa.journey.json'
 import safety from './acxd/fixtures/guardrail.Safety.json'
 import toxicity from './acxd/fixtures/guardrail.Toxicity.json'
@@ -288,5 +290,57 @@ describe('Amazon Connect contact flow', () => {
   it('is deterministic and has no unresolved placeholders', () => {
     expect(emitContactFlow(input)).toEqual(emitContactFlow(input))
     expect(JSON.stringify(flow)).not.toMatch(/<[A-Z_]+>|__[A-Z_]+__/)
+  })
+})
+
+describe('managed mode (deployed by the tool)', () => {
+  const j = journey()
+  const managed = emitBundle(j, selection(j), options({ mode: 'managed' }))
+  const r = managed.template.Resources as Record<string, { Type: string; Properties: Record<string, any> }>
+  const p = managed.template.Parameters as Record<string, Record<string, unknown>>
+
+  it('takes the ACXD key as a secret ARN in the target account, never as a parameter value', () => {
+    expect(Object.keys(p).sort()).toEqual(['AcxdApiKeySecretArn', 'AcxdWorkspaceId', 'ProvisionerCodeBucket', 'ProvisionerCodeKey', 'TableName'])
+    expect(p).not.toHaveProperty('AcxdApiKey')
+    expect(r).not.toHaveProperty('AcxdApiKeySecret')
+    expect(String(p.AcxdApiKeySecretArn.AllowedPattern)).toContain('secretsmanager')
+  })
+
+  it('reads the provisioner package from the artifacts bucket instead of a local path', () => {
+    expect(r.ProvisionerFunction.Properties.Code).toEqual({ S3Bucket: { Ref: 'ProvisionerCodeBucket' }, S3Key: { Ref: 'ProvisionerCodeKey' } })
+  })
+
+  it('lets the provisioner read exactly the supplied secret and the generated shared key', () => {
+    const resource = r.ProvisionerRole.Properties.Policies[0].PolicyDocument.Statement[0].Resource
+    expect(resource).toEqual([{ Ref: 'AcxdApiKeySecretArn' }, { Ref: 'VerifyKeySecret' }])
+    expect(r.AcxdProvision.Properties.ApiKeySecretArn).toEqual({ Ref: 'AcxdApiKeySecretArn' })
+  })
+
+  it('ships no provisioner folder and a README that says the tool deploys it', () => {
+    expect(Object.keys(managed.files).some((f) => f.startsWith('provisioner/'))).toBe(false)
+    expect(managed.files['README.md']).toContain('deployed from the tool')
+    expect(managed.files['README.md']).not.toContain('aws cloudformation package')
+  })
+
+  it('keeps every created IAM role under one path so a deploy role can be limited to it', () => {
+    for (const bundleOut of [managed, bundle()]) {
+      const roles = Object.values(bundleOut.template.Resources as Record<string, { Type: string; Properties: Record<string, unknown> }>).filter((x) => x.Type === 'AWS::IAM::Role')
+      expect(roles.length).toBe(2)
+      for (const role of roles) expect(role.Properties.Path).toBe('/edith/')
+    }
+  })
+
+  it('leaves the CLI mode unchanged', () => {
+    expect(bundle().template.Parameters).toHaveProperty('AcxdApiKey')
+    expect(bundle().template.Resources).toHaveProperty('AcxdApiKeySecret')
+  })
+})
+
+describe('deployer template fixture', () => {
+  it('is exactly what the emitter produces in managed mode (regenerate deployer-api/fixtures/managed-template.json if this fails)', () => {
+    const j = journey()
+    const out = emitBundle(j, selection(j), options({ mode: 'managed' }))
+    const fixture = readFileSync(join(__dirname, '../../../deployer-api/fixtures/managed-template.json'), 'utf8')
+    expect(out.files['template.json']).toBe(fixture)
   })
 })

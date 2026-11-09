@@ -13,6 +13,8 @@ export interface ReadmeInput {
   consoleSteps: string[]
   identifierFields?: string[]
   tableName?: string
+  /** Deployed by the tool: the CLI deploy steps do not apply. */
+  managed?: boolean
 }
 
 /** Deterministic deploy guide shipped with the bundle. Contains no secrets. */
@@ -23,6 +25,17 @@ export function renderReadme(i: ReadmeInput): string {
     'Generated from the customer journey. It creates AWS resources and the ACXD resources in one CloudFormation stack.',
     'The ACXD resources are created by a Lambda-backed custom resource (the provisioner) using your ACXD API key.',
     '',
+    ...(i.managed
+      ? [
+          '## Deploy',
+          '',
+          'This bundle is deployed from the tool: review the change set it shows, confirm, and follow the progress. The ACXD API key is never passed',
+          'to the tool; you create a Secrets Manager secret in the target account and give its ARN.',
+          '',
+          'After the deployment finishes:',
+          '',
+        ]
+      : [
     '## Before you start',
     '',
     '- AWS CLI with credentials for the target account and region, and permission to create IAM roles, Lambda, DynamoDB and Secrets Manager resources.',
@@ -51,8 +64,9 @@ export function renderReadme(i: ReadmeInput): string {
     '   aws cloudformation describe-stacks --stack-name <STACK_NAME> --query "Stacks[0].Outputs"',
     '   ```',
     '',
+        ]),
   )
-  let step = 5
+  let step = i.managed ? 1 : 5
   if (hasTable) {
     const fields = i.identifierFields ?? []
     const item = Object.fromEntries(fields.map((f) => [f, { S: `<${f}>` }]))

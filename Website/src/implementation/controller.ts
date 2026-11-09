@@ -164,7 +164,7 @@ function parseGuardrail(label: string, text: string, errors: string[]): Guardrai
 }
 
 /** Checks the form, then emits the bundle for the current selection. Returns every problem at once. */
-export function generateBundle(session: Session, details: Details, provisionerFiles: Record<string, string>): BuildResult {
+export function generateBundle(session: Session, details: Details, provisionerFiles: Record<string, string>, mode: 'cli' | 'managed' = 'cli'): BuildResult {
   const errors: string[] = []
   const auth = stepsOfKind(session.journey, 'authentication')[0]
   const name = details.applicationName.trim()
@@ -198,6 +198,7 @@ export function generateBundle(session: Session, details: Details, provisionerFi
     },
     guardrails,
     provisionerFiles,
+    mode,
   }
   const bundle = emitBundle(session.journey, session.chosen, options)
   return { ok: true, bundle, selection: bundle.selected }

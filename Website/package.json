@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "test:provisioner": "node --test provisioner/*.node-test.mjs",
-    "test:extractor": "node --test extractor-api/*.node-test.mjs"
+    "test:extractor": "node --test extractor-api/*.node-test.mjs",
+    "test:deployer": "node --test deployer-api/*.node-test.mjs"
   },
   "dependencies": {
     "fflate": "^0.8.3",

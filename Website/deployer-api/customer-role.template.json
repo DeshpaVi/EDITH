@@ -1,0 +1,238 @@
+{
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Description": "Roles that let the journey tool's deployer preview and deploy its generated stacks into this account, and nothing else. Review before installing.",
+  "Parameters": {
+    "DeployerRoleArn": {
+      "Type": "String",
+      "Description": "The tool's DeployerRoleArn output.",
+      "AllowedPattern": "arn:aws[a-z-]*:iam::[0-9]{12}:role/.+"
+    },
+    "ExternalId": {
+      "Type": "String",
+      "MinLength": 16,
+      "Description": "A random value you choose and also put in the tool's target configuration. Guards against confused-deputy use of the role."
+    },
+    "ArtifactBucket": {
+      "Type": "String",
+      "Description": "Bucket holding the provisioner package (the tool's ArtifactBucket).",
+      "AllowedPattern": ".+"
+    }
+  },
+  "Resources": {
+    "EdithStackRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": "EdithStackRole",
+        "Path": "/edith/",
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "cloudformation.amazonaws.com"
+              },
+              "Action": "sts:AssumeRole"
+            }
+          ]
+        },
+        "Policies": [
+          {
+            "PolicyName": "CreateGeneratedResources",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Sid": "Tables",
+                  "Effect": "Allow",
+                  "Action": [
+                    "dynamodb:CreateTable",
+                    "dynamodb:DeleteTable",
+                    "dynamodb:DescribeTable",
+                    "dynamodb:UpdateTable",
+                    "dynamodb:TagResource",
+                    "dynamodb:UntagResource",
+                    "dynamodb:ListTagsOfResource",
+                    "dynamodb:DescribeContinuousBackups",
+                    "dynamodb:DescribeTimeToLive"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "arn:aws:dynamodb:*:${AWS::AccountId}:table/*"
+                  }
+                },
+                {
+                  "Sid": "Functions",
+                  "Effect": "Allow",
+                  "Action": [
+                    "lambda:CreateFunction",
+                    "lambda:DeleteFunction",
+                    "lambda:GetFunction",
+                    "lambda:GetFunctionConfiguration",
+                    "lambda:UpdateFunctionConfiguration",
+                    "lambda:UpdateFunctionCode",
+                    "lambda:AddPermission",
+                    "lambda:RemovePermission",
+                    "lambda:GetPolicy",
+                    "lambda:CreateFunctionUrlConfig",
+                    "lambda:DeleteFunctionUrlConfig",
+                    "lambda:GetFunctionUrlConfig",
+                    "lambda:UpdateFunctionUrlConfig",
+                    "lambda:TagResource",
+                    "lambda:UntagResource",
+                    "lambda:ListTags"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "arn:aws:lambda:*:${AWS::AccountId}:function:*"
+                  }
+                },
+                {
+                  "Sid": "Roles",
+                  "Effect": "Allow",
+                  "Action": [
+                    "iam:CreateRole",
+                    "iam:DeleteRole",
+                    "iam:GetRole",
+                    "iam:PassRole",
+                    "iam:AttachRolePolicy",
+                    "iam:DetachRolePolicy",
+                    "iam:PutRolePolicy",
+                    "iam:DeleteRolePolicy",
+                    "iam:GetRolePolicy",
+                    "iam:TagRole",
+                    "iam:UntagRole",
+                    "iam:UpdateAssumeRolePolicy"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "arn:aws:iam::${AWS::AccountId}:role/edith/*"
+                  }
+                },
+                {
+                  "Sid": "Secrets",
+                  "Effect": "Allow",
+                  "Action": [
+                    "secretsmanager:CreateSecret",
+                    "secretsmanager:DeleteSecret",
+                    "secretsmanager:DescribeSecret",
+                    "secretsmanager:GetSecretValue",
+                    "secretsmanager:PutSecretValue",
+                    "secretsmanager:UpdateSecret",
+                    "secretsmanager:TagResource",
+                    "secretsmanager:GetResourcePolicy"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "arn:aws:secretsmanager:*:${AWS::AccountId}:secret:*"
+                  }
+                },
+                {
+                  "Sid": "RandomPassword",
+                  "Effect": "Allow",
+                  "Action": "secretsmanager:GetRandomPassword",
+                  "Resource": "*"
+                },
+                {
+                  "Sid": "ProvisionerCode",
+                  "Effect": "Allow",
+                  "Action": "s3:GetObject",
+                  "Resource": {
+                    "Fn::Sub": "arn:aws:s3:::${ArtifactBucket}/*"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+    "EdithDeployRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "RoleName": "EdithDeployRole",
+        "Path": "/edith/",
+        "AssumeRolePolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": {
+                  "Ref": "DeployerRoleArn"
+                }
+              },
+              "Action": "sts:AssumeRole",
+              "Condition": {
+                "StringEquals": {
+                  "sts:ExternalId": {
+                    "Ref": "ExternalId"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "MaxSessionDuration": 3600,
+        "Policies": [
+          {
+            "PolicyName": "DeployEdithStacks",
+            "PolicyDocument": {
+              "Version": "2012-10-17",
+              "Statement": [
+                {
+                  "Sid": "Stacks",
+                  "Effect": "Allow",
+                  "Action": [
+                    "cloudformation:CreateChangeSet",
+                    "cloudformation:DescribeChangeSet",
+                    "cloudformation:ExecuteChangeSet",
+                    "cloudformation:DeleteChangeSet",
+                    "cloudformation:DescribeStacks",
+                    "cloudformation:DescribeStackEvents",
+                    "cloudformation:DeleteStack"
+                  ],
+                  "Resource": {
+                    "Fn::Sub": "arn:aws:cloudformation:*:${AWS::AccountId}:stack/edith-*/*"
+                  }
+                },
+                {
+                  "Sid": "PassStackRole",
+                  "Effect": "Allow",
+                  "Action": "iam:PassRole",
+                  "Resource": {
+                    "Fn::GetAtt": [
+                      "EdithStackRole",
+                      "Arn"
+                    ]
+                  },
+                  "Condition": {
+                    "StringEquals": {
+                      "iam:PassedToService": "cloudformation.amazonaws.com"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "Outputs": {
+    "DeployRoleArn": {
+      "Description": "Put in the tool's target configuration as roleArn.",
+      "Value": {
+        "Fn::GetAtt": [
+          "EdithDeployRole",
+          "Arn"
+        ]
+      }
+    },
+    "StackRoleArn": {
+      "Description": "Put in the tool's target configuration as stackRoleArn.",
+      "Value": {
+        "Fn::GetAtt": [
+          "EdithStackRole",
+          "Arn"
+        ]
+      }
+    }
+  }
+}

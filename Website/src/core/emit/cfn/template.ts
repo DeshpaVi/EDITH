@@ -22,7 +22,18 @@ export interface TemplateInput {
   /** Attribute names for the identifiers, in the same order as `auth.identifiers`. First is the table key. */
   identifierFields?: string[]
   tableName?: string
+  /**
+   * 'cli' (default): the consultant deploys with the AWS CLI. The ACXD key is a NoEcho parameter stored in
+   * Secrets Manager and the provisioner code is packaged from a local folder.
+   * 'managed': deployed by this tool's backend. The ACXD key is NEVER a parameter: the consultant creates the
+   * secret in the target account and passes its ARN, so the key never passes through the app. The provisioner code
+   * comes from an artifacts bucket (S3 bucket and key parameters, filled in by the backend).
+   */
+  mode?: 'cli' | 'managed'
 }
+
+/** IAM roles created by this tool live under one path so a deploy role can be limited to them. */
+export const ROLE_PATH = '/edith/'
 
 /** 'Census ID' -> 'censusId'. Used when the consultant gives no explicit attribute names. */
 export function attributeName(identifier: string): string {
@@ -43,15 +54,26 @@ export function buildTemplate(input: TemplateInput): CfnTemplate {
   const { selected, spec } = input
   const withVerifyBackend = [IDS.table, IDS.verifyLambda, IDS.verifyRole].every((id) => selected.has(id)) && input.auth !== undefined
   const fields = input.identifierFields ?? input.auth?.identifiers.map(attributeName) ?? []
+  const managed = input.mode === 'managed'
 
   const parameters: Template['Parameters'] = {
     AcxdWorkspaceId: { Type: 'String', Description: 'ACXD workspace id the resources are created in.', AllowedPattern: '.+' },
-    AcxdApiKey: {
+  }
+  if (managed) {
+    parameters.AcxdApiKeySecretArn = {
+      Type: 'String',
+      Description: 'ARN of a Secrets Manager secret in this account whose value is the ACXD API key. Create it yourself; the key is never passed to the deploy tool.',
+      AllowedPattern: 'arn:aws[a-z-]*:secretsmanager:[a-z0-9-]+:[0-9]{12}:secret:.+',
+    }
+    parameters.ProvisionerCodeBucket = { Type: 'String', Description: 'S3 bucket holding the provisioner package (set by the deploy tool).', AllowedPattern: '.+' }
+    parameters.ProvisionerCodeKey = { Type: 'String', Description: 'S3 key of the provisioner package (set by the deploy tool).', AllowedPattern: '.+' }
+  } else {
+    parameters.AcxdApiKey = {
       Type: 'String',
       NoEcho: true,
       Description: 'ACXD API key (acxd_live_...). Stored in Secrets Manager; never written to the template.',
       AllowedPattern: '.+',
-    },
+    }
   }
   const resources: Template['Resources'] = {}
   const outputs: Template['Outputs'] = {}
@@ -89,6 +111,7 @@ export function buildTemplate(input: TemplateInput): CfnTemplate {
     resources.VerifyAuthRole = {
       Type: 'AWS::IAM::Role',
       Properties: {
+        Path: ROLE_PATH,
         AssumeRolePolicyDocument: {
           Version: '2012-10-17',
           Statement: [{ Effect: 'Allow', Principal: { Service: 'lambda.amazonaws.com' }, Action: 'sts:AssumeRole' }],
@@ -144,14 +167,18 @@ export function buildTemplate(input: TemplateInput): CfnTemplate {
   }
 
   // ---- ACXD provisioner ----------------------------------------------------------------------------
-  resources.AcxdApiKeySecret = {
-    Type: 'AWS::SecretsManager::Secret',
-    Properties: { Description: 'ACXD API key used by the provisioner.', SecretString: ref('AcxdApiKey') },
+  if (!managed) {
+    resources.AcxdApiKeySecret = {
+      Type: 'AWS::SecretsManager::Secret',
+      Properties: { Description: 'ACXD API key used by the provisioner.', SecretString: ref('AcxdApiKey') },
+    }
   }
-  const readable = [ref('AcxdApiKeySecret'), ...(withVerifyBackend ? [ref('VerifyKeySecret')] : [])]
+  const apiKeySecret = managed ? ref('AcxdApiKeySecretArn') : ref('AcxdApiKeySecret')
+  const readable = [apiKeySecret, ...(withVerifyBackend ? [ref('VerifyKeySecret')] : [])]
   resources.ProvisionerRole = {
     Type: 'AWS::IAM::Role',
     Properties: {
+      Path: ROLE_PATH,
       AssumeRolePolicyDocument: {
         Version: '2012-10-17',
         Statement: [{ Effect: 'Allow', Principal: { Service: 'lambda.amazonaws.com' }, Action: 'sts:AssumeRole' }],
@@ -173,8 +200,8 @@ export function buildTemplate(input: TemplateInput): CfnTemplate {
       Timeout: 900,
       MemorySize: 512,
       Role: getAtt('ProvisionerRole', 'Arn'),
-      // Local path: `aws cloudformation package` uploads it and rewrites this to an S3 location.
-      Code: './provisioner',
+      // CLI mode: a local path, which `aws cloudformation package` uploads and rewrites to an S3 location.
+      Code: managed ? { S3Bucket: ref('ProvisionerCodeBucket'), S3Key: ref('ProvisionerCodeKey') } : './provisioner',
     },
   }
 
@@ -199,7 +226,7 @@ export function buildTemplate(input: TemplateInput): CfnTemplate {
       ServiceToken: getAtt('ProvisionerFunction', 'Arn'),
       ServiceTimeout: 900,
       WorkspaceId: ref('AcxdWorkspaceId'),
-      ApiKeySecretArn: ref('AcxdApiKeySecret'),
+      ApiKeySecretArn: apiKeySecret,
       Spec: specValue,
     },
   }

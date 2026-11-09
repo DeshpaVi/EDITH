@@ -12,12 +12,13 @@ import {
   toggleItem, zipFiles,
 } from './controller'
 import type { BuildResult, ContactFlowForm, ContactFlowResult, Details, Session } from './controller'
+import { DeployStep } from '../deploy/DeployStep'
 import { ACCEPTED_FILES, readAndExtract } from './extraction'
 import type { ExtractionForm } from './extraction'
 import { color, heading, input as inputStyle, muted, severityColor, statusColor } from './theme'
-import { Button, Chip, Code, Field, Panel, Problems, TextArea, TextInput, download } from './ui'
+import { Button, Chip, Code, Field, Panel, Problems, Summary, TextArea, TextInput, download } from './ui'
 
-const STEPS = ['1 · Journey', '2 · Checklist', '3 · Bundle', '4 · Connect flow'] as const
+const STEPS = ['1 · Journey', '2 · Checklist', '3 · Bundle', '4 · Deploy', '5 · Connect flow'] as const
 const provisionerFiles = { 'index.mjs': provisionerIndex, 'package.json': provisionerPackage }
 
 /**
@@ -33,6 +34,7 @@ export function ImplementationSection() {
   const [result, setResult] = useState<BuildResult | null>(null)
 
   const [readSummary, setReadSummary] = useState<string[]>([])
+  const [prefill, setPrefill] = useState<{ workspaceId: string; applicationId: string } | null>(null)
 
   const openJourney = (journey: Journey, example: boolean, summary: string[] = []) => {
     setIssues([])
@@ -63,8 +65,8 @@ export function ImplementationSection() {
       <div style={{ maxWidth: 1152, margin: '0 auto' }}>
         <h2 id="implementation-title" style={{ ...heading, fontSize: 'clamp(28px, 4vw, 44px)', marginBottom: 12 }}>From customer journey to deployable implementation</h2>
         <p style={{ ...muted, maxWidth: 720, marginBottom: 32 }}>
-          Load a journey, choose what to build, and download a CloudFormation bundle that creates the AWS and Agentic CX Designer resources.
-          The ACXD API key is never entered here: you provide it when you deploy the stack.
+          Load a journey, choose what to build, then download a CloudFormation bundle or deploy it from here into a target account after reviewing every change.
+          The ACXD API key is never entered here: it stays in a secret in the target account.
         </p>
         <nav aria-label="Steps" style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
           {STEPS.map((label, i) => {
@@ -83,7 +85,8 @@ export function ImplementationSection() {
         {step === 2 && session && details && (
           <BundleStep session={session} details={details} onDetails={(d) => { setDetails(d); setResult(null) }} result={result} onResult={setResult} isExample={isExample} />
         )}
-        {step === 3 && session && <ContactFlowStep session={session} />}
+        {step === 3 && session && details && <DeployStep session={session} details={details} onDeployed={(p) => { setPrefill(p); setStep(4) }} />}
+        {step === 4 && session && <ContactFlowStep session={session} prefill={prefill} />}
       </div>
     </section>
   )
@@ -291,20 +294,10 @@ function BundleStep({ session, details, onDetails, result, onResult, isExample }
   )
 }
 
-function Summary({ title, tone, lines }: { title: string; tone: string; lines: string[] }) {
-  if (lines.length === 0) return null
-  return (
-    <div style={{ borderLeft: `3px solid ${tone}`, paddingLeft: 12, margin: '12px 0' }}>
-      <div style={{ color: color.text, fontSize: 14, fontWeight: 600 }}>{title} ({lines.length})</div>
-      <ul style={{ ...muted, fontSize: 13, margin: '4px 0 0', paddingLeft: 18 }}>{lines.map((l) => <li key={l}>{l.split('**').join('')}</li>)}</ul>
-    </div>
-  )
-}
-
 // ---- 4. connect contact flow ----------------------------------------------------------------------------------
 
-function ContactFlowStep({ session }: { session: Session }) {
-  const [form, setForm] = useState<ContactFlowForm>(() => defaultContactFlowForm(session))
+function ContactFlowStep({ session, prefill }: { session: Session; prefill: { workspaceId: string; applicationId: string } | null }) {
+  const [form, setForm] = useState<ContactFlowForm>(() => ({ ...defaultContactFlowForm(session), ...(prefill ?? {}) }))
   const [out, setOut] = useState<ContactFlowResult | null>(null)
   const set = <K extends keyof ContactFlowForm>(key: K, value: ContactFlowForm[K]) => { setForm({ ...form, [key]: value }); setOut(null) }
   return (

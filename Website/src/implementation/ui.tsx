@@ -78,3 +78,13 @@ export function Problems({ items }: { items: string[] }) {
     </ul>
   )
 }
+
+export function Summary({ title, tone, lines }: { title: string; tone: string; lines: string[] }) {
+  if (lines.length === 0) return null
+  return (
+    <div style={{ borderLeft: `3px solid ${tone}`, paddingLeft: 12, margin: '12px 0' }}>
+      <div style={{ color: color.text, fontSize: 14, fontWeight: 600 }}>{title} ({lines.length})</div>
+      <ul style={{ ...muted, fontSize: 13, margin: '4px 0 0', paddingLeft: 18 }}>{lines.map((l) => <li key={l}>{l.split('**').join('')}</li>)}</ul>
+    </div>
+  )
+}

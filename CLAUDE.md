@@ -20,8 +20,10 @@ resource types (to our knowledge); its resources are created by ordered SDK `Cre
 So the template carries a **Lambda-backed custom resource** that calls the ACXD SDK in dependency order,
 idempotently, and handles stack deletion.
 
-**First version:** generate the template, the consultant deploys it. A later "deploy for me" option is out
-of scope for now.
+**Two ways to deploy:** download the bundle and deploy it with the AWS CLI (the ACXD key is a `NoEcho` parameter), or deploy
+from the app through `Website/deployer-api`: a backend that previews a change set, requires an explicit confirmation, and
+runs it in the target account through a customer-created role. In that mode the ACXD key never passes through the app: the
+template takes the ARN of a secret the consultant creates in the target account.
 
 **Initial services:** ACXD, Amazon Connect (contact flow), DynamoDB, Lambda (plus IAM and Secrets Manager
 they need). Other backends and channels come later; do not hard-code the model to these.
@@ -70,8 +72,10 @@ expensively.
    wording are copied byte-for-byte from source to output, typos included. If a transform would alter them,
    flag for review. Only the owner decides to correct wording.
 5. **Human review gate before anything is created.** The consultant reviews the checklist and the generated
-   template before deploying. No code path creates AWS or ACXD resources on its own. This holds even if a
-   "deploy for me" option ships later.
+   template before deploying. No code path creates AWS or ACXD resources on its own. The deployer enforces this on the
+   server: a change set is previewed first, and execution needs a signed, expiring token bound to that exact change set.
+   The backend deploys only templates this tool generates (an allowlist of resource types and IAM actions) and only stacks
+   it tagged itself.
 6. **Hosting needs a backend.** The site will be hosted on S3/CloudFront (last step), which is static. Anything
    that needs a secret (LLM calls for understanding a journey, any AWS call) must run behind a small backend
    (API Gateway + Lambda), never in browser code.

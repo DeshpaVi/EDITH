@@ -104,7 +104,28 @@ reading quality, and the `InvokedViaFunctionUrl` permission property. A deck wit
 Visio, legacy `.ppt`/`.doc` are rejected with guidance. Auth is one shared bearer token (demo-grade): add a real authorizer
 before wider use. The Census journey fixture uses straight quotes where the deck has curly ones; the wording check reports that.
 
-Not yet built: deploying from the app, a Connect-side CloudFormation resource, Visio/grouped-shape support.
+## 0e. Slice 5 status (deploy from the app)
+
+A **deployer backend** (`Website/deployer-api/`) and a **Deploy step** in the UI. The consultant prepares a deployable ("managed")
+bundle, connects to the deployer, picks a target account, gives the ACXD workspace id and the ARN of a secret that holds the
+API key (in the target account), previews a CloudFormation change set, ticks a review, types the stack name back, and
+deploys; the screen then follows progress and offers the Connect flow prefilled with the stack outputs. A typed confirmation
+also guards deleting the stack.
+- Template mode `managed` (`buildTemplate({ mode: 'managed' })`): no API-key parameter, the key comes from a secret ARN; the
+  provisioner package comes from an artifacts bucket; IAM roles live under the path `/edith/`.
+- Server-side gate (`confirm.mjs`, `policy.mjs`): signed expiring token bound to the change set; allowlist of resource types
+  and IAM actions; only `edith-*` stacks tagged `edith-managed`; no `NoEcho` parameters; no content in logs.
+- Customer onboarding: `customer-role.template.json` (deploy role with an ExternalId, plus the CloudFormation stack role);
+  `deployer-api/README.md` has the full setup, the security model and the limits.
+- 32 deployer tests on the real Node runner (`npm run test:deployer`); 26 browser-side tests; the UI was driven end to end
+  against a fake deployer (preview, refusals, confirmation, execute, status, prefilled Connect flow, delete).
+
+**Nothing has run against a real AWS account.** First deployment will show: the exact IAM permissions CloudFormation needs
+for these resources, cross-account read of the provisioner package, `InvokedViaFunctionUrl`, and the ACXD SDK calls.
+Auth is one shared bearer token (demo-grade). Review the customer role before installing it anywhere real. Templates over
+51,200 bytes are refused (S3 template URL not built).
+
+Not yet built: a Connect-side CloudFormation resource, Visio/grouped-shape support, a stronger authorizer, S3 template upload.
 
 ## 1. The product (unchanged, see `CLAUDE.md`)
 

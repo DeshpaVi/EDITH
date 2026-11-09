@@ -143,6 +143,18 @@ describe('generating the bundle', () => {
   })
 })
 
+describe('generating the deployable (managed) bundle', () => {
+  const details = () => ({ ...defaultDetails(session().journey), tableName: 'CensusIds', identifierFields: ['censusId', 'zipCode', 'ssnLastFour'], knowledgeBaseId: 'kb-1' })
+  it('takes a secret ARN instead of the API key and ships no provisioner folder', () => {
+    const r = generateBundle(session(), details(), {}, 'managed')
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(Object.keys(r.bundle.template.Parameters)).toContain('AcxdApiKeySecretArn')
+    expect(Object.keys(r.bundle.template.Parameters)).not.toContain('AcxdApiKey')
+    expect(Object.keys(r.bundle.files).some((f) => f.startsWith('provisioner/'))).toBe(false)
+  })
+})
+
 describe('zip download', () => {
   const files = { 'template.json': '{}', 'README.md': '# hi', 'provisioner/index.mjs': '// x' }
   it('is deterministic and contains every file', () => {

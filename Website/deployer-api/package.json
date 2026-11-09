@@ -1,0 +1,7 @@
+{
+  "name": "deployer-api",
+  "private": true,
+  "type": "module",
+  "description": "Lambda that previews and deploys this tool's generated CloudFormation templates into a target account.",
+  "main": "index.mjs"
+}
