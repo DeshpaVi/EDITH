@@ -181,6 +181,13 @@ describe('selection and gaps', () => {
     for (const g of b.spec.guardrails) for (const rule of g.rules as Array<{ tags?: Array<{ label: string }> }>) for (const t of rule.tags ?? []) expect(tags).toContain(t.label)
   })
 
+  it('creates the custom slot type the authentication flow attaches, with no values, and leaves built-in types alone', () => {
+    const b = bundle()
+    expect(b.spec.slotTypes).toEqual([{ slotTypeId: 'Freeformtext', values: [], sensitive: false, mainLanguageCode: 'en-US', languageCodes: ['en-US', 'es-US'] }])
+    const used = b.spec.flows.flatMap((f) => f.slotTypes.map((s) => s.type))
+    for (const type of used) expect(type.startsWith('NLX.') || b.spec.slotTypes.some((t) => t.slotTypeId === type)).toBe(true)
+  })
+
   it('drops the recommended guardrails when the consultant deselects them', () => {
     const j = journey()
     const chosen = selection(j).filter((id) => ![IDS.guardrailSafety, IDS.guardrailInjection, IDS.guardrailToxicity, IDS.safetyFlow].includes(id as never))

@@ -40,6 +40,18 @@ export interface GuardrailContent {
 }
 
 /**
+ * A custom slot type that flows attach slots of. The Census workspace's `Freeformtext` has no values (a free-text capture), one language and is not
+ * sensitive (the slot attached to it is). Built-in types (`NLX.*`) need nothing. Created before the flows and never deleted: shared by other flows.
+ */
+export interface SlotTypePayload {
+  slotTypeId: string
+  values: never[]
+  sensitive: boolean
+  mainLanguageCode: string
+  languageCodes: string[]
+}
+
+/**
  * Guardrail rules are labelled with analytics tags, which are workspace-level objects that must exist before the application builds
  * (ACXD's Build reports "Unavailable reference" otherwise). The provisioner creates them first and never deletes them: they are shared
  * labels that other applications may use.
@@ -54,6 +66,7 @@ export interface AnalyticsTagPayload {
 export interface AcxdSpec {
   /** Values are read from Secrets Manager by the provisioner at deploy time; never stored here. */
   secrets: Array<{ name: string; sourceSecretArn: string }>
+  slotTypes: SlotTypePayload[]
   contextVariables: ContextVariablePayload[]
   dataRequests: DataRequestPayload[]
   flows: FlowJson[]
@@ -206,6 +219,15 @@ export function buildAcxdSpec(journey: Journey, selected: ReadonlySet<string>, o
     }
   }
 
+  // --- custom slot types the flows attach (anything that is not a built-in NLX.* type) -------------
+  const slotTypes: SlotTypePayload[] = []
+  for (const f of flows) {
+    for (const attached of f.slotTypes) {
+      if (attached.type.startsWith('NLX.') || slotTypes.some((t) => t.slotTypeId === attached.type)) continue
+      slotTypes.push({ slotTypeId: attached.type, values: [], sensitive: false, mainLanguageCode: languageCodes[0], languageCodes })
+    }
+  }
+
   // --- analytics tags referenced by the guardrail rules --------------------------------------------
   const analyticsTags: AnalyticsTagPayload[] = []
   for (const g of guardrails) {
@@ -248,6 +270,7 @@ export function buildAcxdSpec(journey: Journey, selected: ReadonlySet<string>, o
 
   const spec: AcxdSpec = {
     secrets,
+    slotTypes,
     contextVariables,
     dataRequests,
     flows,

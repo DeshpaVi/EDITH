@@ -14,6 +14,8 @@ import https from 'node:https'
 export const KINDS = {
   secret: { name: 'Secret', idField: 'secretIdentifier', keyField: 'name', lookup: 'get' },
   // The SDK has no GetContextVariableCommand (confirmed from its exports), so existence is checked through the list call; the identifier is the name.
+  // Custom slot types flows attach (e.g. Freeformtext, which has no values). Identifier = slotTypeId. Never deleted: shared by other flows.
+  slotType: { name: 'SlotType', idField: 'slotTypeIdentifier', keyField: 'slotTypeId', lookup: 'get' },
   contextVariable: { name: 'ContextVariable', idField: 'contextVariableIdentifier', keyField: 'name', lookup: 'list', nameField: 'name' },
   dataRequest: { name: 'DataRequest', idField: 'dataRequestIdentifier', keyField: 'dataRequestId', lookup: 'get' },
   flow: { name: 'Flow', idField: 'flowIdentifier', keyField: 'flowId', lookup: 'get' },
@@ -110,6 +112,10 @@ export async function provision(spec, api, log = () => {}) {
     log(`secret ${s.name}`)
     const secretValue = await api.readSecretValue(s.sourceSecretArn)
     await api.ensure('secret', s.name, { name: s.name, secretValue, isSensitive: true })
+  }
+  for (const t of spec.slotTypes ?? []) {
+    log(`slot type ${t.slotTypeId}`)
+    await api.ensure('slotType', t.slotTypeId, t)
   }
   for (const v of spec.contextVariables) {
     log(`context variable ${v.name}`)
