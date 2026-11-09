@@ -23,8 +23,42 @@ code is strictly type-checked with the global `tsc`, and its tests (43) pass und
 outside the repo. Run `npm test` and `npm run typecheck` in `Website/` on a machine with registry access before
 trusting the result. The existing parser/design/emit code was not touched.
 
-Not in slice 1: the LLM extractor and its backend, the checklist UI, the CloudFormation emitter, the ACXD
-provisioner. Next slice: the emitter (template plus provisioner) for the **confirmed** items only.
+## 0b. Slice 2 status (emitter)
+
+Built (pure TypeScript in `Website/src/core/emit/`, plus `Website/provisioner/`):
+- `acxd/`: deterministic ids, a `FlowBuilder` that writes only confirmed node shapes, builders for the Escalation,
+  Safety, Authentication and Main flows, and `buildAcxdSpec` (context variables, data request, secret reference,
+  guardrails from supplied wording, application settings). **Golden tests compare generated flows with the real
+  exports** (Escalation, SafetyEscalation, Authentication) after documented normalisations; mutating the builder
+  makes them fail.
+- `cfn/`: `buildTemplate` (DynamoDB table with an index per identifier, IAM roles, the verification Lambda inline with
+  a Function URL, Secrets Manager, the provisioner, and one `Custom::AcxdProvision` carrying the spec as a single JSON
+  string) and the generic verification Lambda source (under the 4096-character inline limit, enforced by a test).
+- `connect/agenticContactFlow.ts`: contact-flow JSON for the Agentic CX block, checked against the real export.
+- `bundle.ts` + `readme.ts`: `emitBundle(journey, selection, options)` returns `template.json`, `acxd-spec.json`,
+  `README.md` (deploy steps), the provisioner, and `skipped` / `warnings` / `blockers` / `consoleSteps`.
+- `Website/provisioner/`: the custom-resource handler (create or update by name, reverse delete, no secrets logged).
+  13 tests on the real Node test runner: `npm run test:provisioner`.
+- Example output for the Census journey: `docs/cqa-demo/generated-bundle/`.
+
+Verification caveats (read these):
+- Vitest could not be installed here (registry blocked). 95 tests under a local vitest stand-in pass and the code is
+  strictly type-checked with the global `tsc`. Run `npm test` and `npm run typecheck` in `Website/` before trusting it.
+- **Nothing here has run against a live AWS account or ACXD workspace.** The first deployment is the real test.
+  Unverified: the ACXD SDK command shapes the provisioner uses (names follow the documented pattern; secret, guardrail and
+  application identifier semantics are guesses), whether `amazon-connect-acxd-sdk` installs from `latest` (pin it),
+  and the `InvokedViaFunctionUrl` Lambda permission property.
+- Not generated (reported in `skipped`): knowledge base creation, languages/voices/translations, the SDK key for the
+  Incomprehension default (console step), the Connect Set voice block, build and deploy of the ACXD application.
+
+**Finding to check in the Census workspace:** the exported Authentication flow redirects to `NLX.Escalation` (the
+system default) rather than to the flow named `Escalation`. Our `Escalation` flow, which generates `transferSummary`,
+may therefore not run on the authentication-failure path (it is set as the Fallback and Incomprehension defaults). Check
+the Debugger on a failed authentication: does the Generative text run, and does `transferSummary` reach the agent? The
+emitter redirects to the `Escalation` flow by id.
+
+Not yet built: the LLM extractor and its backend, the checklist UI, deploying from the app, a Connect-side CloudFormation
+resource.
 
 ## 1. The product (unchanged, see `CLAUDE.md`)
 

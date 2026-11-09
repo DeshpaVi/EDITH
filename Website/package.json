@@ -10,7 +10,8 @@
     "format": "oxfmt",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:provisioner": "node --test provisioner/*.node-test.mjs"
   },
   "dependencies": {
     "fflate": "^0.8.3",

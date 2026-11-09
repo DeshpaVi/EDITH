@@ -1,0 +1,269 @@
+{
+  "Version": "2019-10-30",
+  "StartAction": "17668d27-0398-4d2b-8931-528189d52a97",
+  "Metadata": {
+    "entryPointPosition": {
+      "x": 40,
+      "y": 40
+    },
+    "ActionMetadata": {
+      "17668d27-0398-4d2b-8931-528189d52a97": {
+        "position": {
+          "x": 450,
+          "y": 100
+        },
+        "isFriendlyName": false,
+        "parameters": {
+          "AgentConfiguration": {
+            "WorkspaceId": {
+              "displayName": "<WORKSPACE_ID>",
+              "useDropdown": "true"
+            },
+            "ApplicationId": {
+              "displayName": "<APPLICATION_ID>"
+            },
+            "Alias": {
+              "displayName": "<DEPLOYMENT_ALIAS_ID>"
+            }
+          }
+        }
+      },
+      "15b11a07-cb12-4cab-94c1-2739c2c85057": {
+        "position": {
+          "x": 740,
+          "y": 160
+        },
+        "parameters": {
+          "Attributes": {
+            "transferSummary": {
+              "useDynamic": true
+            },
+            "customerIntent": {
+              "useDynamic": true
+            },
+            "stuckPoint": {
+              "useDynamic": true
+            }
+          }
+        },
+        "dynamicParams": [
+          "transferSummary",
+          "customerIntent",
+          "stuckPoint"
+        ]
+      },
+      "07405a65-971f-4499-b657-8a9f8e29af75": {
+        "position": {
+          "x": 995,
+          "y": 160
+        },
+        "parameters": {
+          "QueueId": {
+            "displayName": "BasicQueue"
+          }
+        },
+        "queue": {
+          "text": "BasicQueue"
+        }
+      },
+      "5823b8a9-a3e9-41a5-802c-fa735bdd11f9": {
+        "position": {
+          "x": 1264,
+          "y": 160
+        }
+      },
+      "6eb9ec79-006a-497d-9cc3-8da7512e1e09": {
+        "position": {
+          "x": 1528,
+          "y": 170
+        }
+      },
+      "5f4a7a39-1697-4bb5-a837-827763f08fa9": {
+        "position": {
+          "x": 764,
+          "y": 450
+        }
+      },
+      "e99e5192-6349-4936-8e30-9eec0531cc22": {
+        "position": {
+          "x": 764,
+          "y": 660
+        }
+      },
+      "Timeout": {
+        "position": {
+          "x": 440,
+          "y": 425
+        },
+        "isFriendlyName": true
+      },
+      "Error": {
+        "position": {
+          "x": 445,
+          "y": 630
+        },
+        "isFriendlyName": true
+      }
+    },
+    "Annotations": [],
+    "name": "CQA_ACXD_Call",
+    "description": "",
+    "type": "contactFlow",
+    "status": "PUBLISHED",
+    "hash": {}
+  },
+  "Actions": [
+    {
+      "Identifier": "17668d27-0398-4d2b-8931-528189d52a97",
+      "Type": "ConnectParticipantWithAgenticCX",
+      "Parameters": {
+        "AgentConfiguration": {
+          "WorkspaceId": "<WORKSPACE_ID>",
+          "ApplicationId": "<APPLICATION_ID>",
+          "Alias": "<DEPLOYMENT_ALIAS_ID>"
+        },
+        "SpeechRecognitionConfiguration": {
+          "SpeechRecognitionEngine": "AMAZON_AGENTIC_VOICE"
+        },
+        "AudioFillerConfiguration": {
+          "Enabled": true
+        }
+      },
+      "Transitions": {
+        "NextAction": "Error",
+        "Errors": [
+          {
+            "NextAction": "Error",
+            "ErrorType": "NoMatchingError"
+          },
+          {
+            "NextAction": "5f4a7a39-1697-4bb5-a837-827763f08fa9",
+            "ErrorType": "NoMatchingCondition"
+          },
+          {
+            "NextAction": "Timeout",
+            "ErrorType": "InputTimeLimitExceeded"
+          }
+        ],
+        "Conditions": [
+          {
+            "NextAction": "15b11a07-cb12-4cab-94c1-2739c2c85057",
+            "Condition": {
+              "Operator": "Equals",
+              "Operands": [
+                "Escalation"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "Attributes": {
+          "transferSummary": "$.AgenticCX.ContextVariables.transferSummary",
+          "customerIntent": "$.AgenticCX.ContextVariables.customerIntent",
+          "stuckPoint": "$.AgenticCX.ContextVariables.stuckPoint"
+        },
+        "TargetContact": "Current"
+      },
+      "Identifier": "15b11a07-cb12-4cab-94c1-2739c2c85057",
+      "Type": "UpdateContactAttributes",
+      "Transitions": {
+        "NextAction": "07405a65-971f-4499-b657-8a9f8e29af75",
+        "Errors": [
+          {
+            "NextAction": "17668d27-0398-4d2b-8931-528189d52a97",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "QueueId": "arn:aws:connect:<REGION>:<ACCOUNT_ID>:instance/<INSTANCE_ID>/queue/<QUEUE_ID>"
+      },
+      "Identifier": "07405a65-971f-4499-b657-8a9f8e29af75",
+      "Type": "UpdateContactTargetQueue",
+      "Transitions": {
+        "NextAction": "5823b8a9-a3e9-41a5-802c-fa735bdd11f9",
+        "Errors": [
+          {
+            "NextAction": "17668d27-0398-4d2b-8931-528189d52a97",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {},
+      "Identifier": "5823b8a9-a3e9-41a5-802c-fa735bdd11f9",
+      "Type": "TransferContactToQueue",
+      "Transitions": {
+        "NextAction": "6eb9ec79-006a-497d-9cc3-8da7512e1e09",
+        "Errors": [
+          {
+            "NextAction": "6eb9ec79-006a-497d-9cc3-8da7512e1e09",
+            "ErrorType": "QueueAtCapacity"
+          },
+          {
+            "NextAction": "6eb9ec79-006a-497d-9cc3-8da7512e1e09",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "SkipWhenDTMFBufferEnabled": "false",
+        "Text": "I haven't received a response for a little while. If you still need assistance, please let me know."
+      },
+      "Identifier": "Timeout",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "17668d27-0398-4d2b-8931-528189d52a97",
+        "Errors": [
+          {
+            "NextAction": "e99e5192-6349-4936-8e30-9eec0531cc22",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {
+        "SkipWhenDTMFBufferEnabled": "false",
+        "Text": "I'm sorry, I'm having trouble completing your request right now. Please try again in a moment."
+      },
+      "Identifier": "Error",
+      "Type": "MessageParticipant",
+      "Transitions": {
+        "NextAction": "e99e5192-6349-4936-8e30-9eec0531cc22",
+        "Errors": [
+          {
+            "NextAction": "e99e5192-6349-4936-8e30-9eec0531cc22",
+            "ErrorType": "NoMatchingError"
+          }
+        ]
+      }
+    },
+    {
+      "Parameters": {},
+      "Identifier": "6eb9ec79-006a-497d-9cc3-8da7512e1e09",
+      "Type": "DisconnectParticipant",
+      "Transitions": {}
+    },
+    {
+      "Parameters": {},
+      "Identifier": "5f4a7a39-1697-4bb5-a837-827763f08fa9",
+      "Type": "DisconnectParticipant",
+      "Transitions": {}
+    },
+    {
+      "Parameters": {},
+      "Identifier": "e99e5192-6349-4936-8e30-9eec0531cc22",
+      "Type": "DisconnectParticipant",
+      "Transitions": {}
+    }
+  ]
+}

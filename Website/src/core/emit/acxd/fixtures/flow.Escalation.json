@@ -1,0 +1,160 @@
+{
+  "flowId": "Escalation",
+  "nodes": {
+    "53aa134e-3a83-480a-a82b-82d0e371946d": {
+      "nodeId": "53aa134e-3a83-480a-a82b-82d0e371946d",
+      "childNodes": [
+        {
+          "name": "",
+          "conditions": [
+            {
+              "left": {
+                "type": "node_status"
+              },
+              "operator": "eq",
+              "right": {
+                "type": "constant",
+                "value": "continuation"
+              }
+            }
+          ]
+        }
+      ],
+      "type": "escalate",
+      "messages": [],
+      "modalities": {},
+      "metadata": {
+        "stateModifications": [
+          {
+            "type": "context",
+            "name": "transferSummary",
+            "modification": "set",
+            "value": {
+              "type": "constant",
+              "value": "{customeroutput:NLX.Local}"
+            }
+          }
+        ],
+        "name": ""
+      },
+      "canvasMetadata": {
+        "x": -1069.3333333333335,
+        "y": -576.6666666666666,
+        "width": 240,
+        "height": 179,
+        "isMinimized": false
+      }
+    },
+    "9f54053d-9e78-4479-922e-0440ab97d6ee": {
+      "nodeId": "9f54053d-9e78-4479-922e-0440ab97d6ee",
+      "childNodes": [
+        {
+          "nodeId": "53aa134e-3a83-480a-a82b-82d0e371946d",
+          "name": "",
+          "conditions": [
+            {
+              "left": {
+                "type": "node_status"
+              },
+              "operator": "eq",
+              "right": {
+                "type": "constant",
+                "value": "success"
+              }
+            }
+          ]
+        },
+        {
+          "nodeId": "53aa134e-3a83-480a-a82b-82d0e371946d",
+          "name": "",
+          "conditions": [
+            {
+              "left": {
+                "type": "node_status"
+              },
+              "operator": "eq",
+              "right": {
+                "type": "constant",
+                "value": "timeout"
+              }
+            }
+          ]
+        },
+        {
+          "nodeId": "53aa134e-3a83-480a-a82b-82d0e371946d",
+          "name": "",
+          "conditions": [
+            {
+              "left": {
+                "type": "node_status"
+              },
+              "operator": "eq",
+              "right": {
+                "type": "constant",
+                "value": "failure"
+              }
+            }
+          ]
+        }
+      ],
+      "type": "generative_text",
+      "messages": [],
+      "modalities": {},
+      "metadata": {
+        "stateModifications": [],
+        "name": "",
+        "generativeText": {
+          "modelType": "amazon-nova-2-lite",
+          "name": "customeroutput",
+          "prompt": "Summarise this phone conversation for a Census representative in 2-3 short sentences. Include what the caller wanted and, if they were verifying their identity, whether verification succeeded. Do not include any Census ID, zip code or SSN digits. Conversation: {System.transcript:NLX.System}",
+          "maxTokens": 4000,
+          "temperature": 0.5
+        }
+      },
+      "canvasMetadata": {
+        "x": -1536,
+        "y": -576.6666666666666,
+        "width": 240,
+        "height": 151,
+        "isMinimized": false
+      }
+    },
+    "a9ea2b27-f997-42e6-b0d6-84830c3d0230": {
+      "nodeId": "a9ea2b27-f997-42e6-b0d6-84830c3d0230",
+      "childNodes": [
+        {
+          "nodeId": "9f54053d-9e78-4479-922e-0440ab97d6ee",
+          "name": "",
+          "conditions": []
+        }
+      ],
+      "type": "start",
+      "messages": [],
+      "modalities": {},
+      "metadata": {
+        "stateModifications": [],
+        "name": ""
+      },
+      "canvasMetadata": {
+        "x": -1959.9999999999998,
+        "y": -552,
+        "width": 240,
+        "height": 219,
+        "isMinimized": false
+      }
+    }
+  },
+  "description": "",
+  "aiDescription": "",
+  "untrained": true,
+  "slotTypes": [],
+  "metadata": {
+    "path": "",
+    "tags": []
+  },
+  "mainLanguageCode": "en-US",
+  "languageCodes": [
+    "en-US"
+  ],
+  "mirroring": "none"
+}

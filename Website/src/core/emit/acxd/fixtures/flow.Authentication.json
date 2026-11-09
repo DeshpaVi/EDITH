@@ -1,0 +1,533 @@
+{
+  "flowId": "Authentication",
+  "nodes": {
+    "08884e02-1485-4b62-8e74-82b9dbfc242f": {
+      "nodeId": "08884e02-1485-4b62-8e74-82b9dbfc242f",
+      "childNodes": [
+        {
+          "name": "",
+          "conditions": [
+            {
+              "left": {
+                "type": "node_status"
+              },
+              "operator": "eq",
+              "right": {
+                "type": "constant",
+                "value": "in_progress"
+              }
+            }
+          ]
+        },
+        {
+          "nodeId": "c628ef98-e307-4211-9377-d18d767eb8d9",
+          "name": "",
+          "conditions": [
+            {
+              "left": {
+                "type": "node_status"
+              },
+              "operator": "eq",
+              "right": {
+                "type": "constant",
+                "value": "success"
+              }
+            }
+          ]
+        },
+        {
+          "nodeId": "49d099a7-2fd5-403f-a7db-18dfb6b6251a",
+          "name": "",
+          "conditions": [
+            {
+              "left": {
+                "type": "node_status"
+              },
+              "operator": "eq",
+              "right": {
+                "type": "constant",
+                "value": "timeout"
+              }
+            }
+          ]
+        },
+        {
+          "nodeId": "49d099a7-2fd5-403f-a7db-18dfb6b6251a",
+          "name": "",
+          "conditions": [
+            {
+              "left": {
+                "type": "node_status"
+              },
+              "operator": "eq",
+              "right": {
+                "type": "constant",
+                "value": "failure"
+              }
+            }
+          ]
+        }
+      ],
+      "type": "data_request",
+      "messages": [],
+      "modalities": {},
+      "metadata": {
+        "stateModifications": [],
+        "name": "",
+        "async": false,
+        "inProgressEnabled": true,
+        "inProgressTimeout": 0
+      },
+      "canvasMetadata": {
+        "x": 248.00000000000003,
+        "y": -580.6666666666667,
+        "width": 240,
+        "height": 171,
+        "isMinimized": false
+      },
+      "dataRequests": [
+        {
+          "type": "custom",
+          "dataRequestId": "verifyCensusAuth",
+          "name": "verifyCensusAuth",
+          "payload": {
+            "type": "recursive",
+            "value": {
+              "authValue": {
+                "type": "constant",
+                "value": "{authValue:Freeformtext}"
+              },
+              "censusId": {
+                "type": "constant",
+                "value": ""
+              },
+              "ssnLastFour": {
+                "type": "constant",
+                "value": ""
+              },
+              "zipCode": {
+                "type": "constant",
+                "value": ""
+              }
+            }
+          },
+          "urlParams": {},
+          "headers": {},
+          "alwaysRetrigger": false
+        }
+      ]
+    },
+    "1a86bd6a-a3a8-42de-abc8-5d5f38e8fa23": {
+      "nodeId": "1a86bd6a-a3a8-42de-abc8-5d5f38e8fa23",
+      "childNodes": [
+        {
+          "name": "",
+          "conditions": [
+            {
+              "left": {
+                "type": "node_status"
+              },
+              "operator": "eq",
+              "right": {
+                "type": "constant",
+                "value": "continuation"
+              }
+            }
+          ]
+        }
+      ],
+      "type": "redirect",
+      "messages": [],
+      "modalities": {},
+      "metadata": {
+        "stateModifications": [
+          {
+            "type": "context",
+            "name": "isAuthenticated",
+            "modification": "set",
+            "value": {
+              "type": "constant",
+              "value": true
+            }
+          }
+        ],
+        "name": "",
+        "redirect": {
+          "flowId": "CQAInboundDemo",
+          "type": "flow"
+        }
+      },
+      "canvasMetadata": {
+        "x": 1046.6666666666663,
+        "y": -569.9999999999999,
+        "width": 240,
+        "height": 161,
+        "isMinimized": false
+      }
+    },
+    "49d099a7-2fd5-403f-a7db-18dfb6b6251a": {
+      "nodeId": "49d099a7-2fd5-403f-a7db-18dfb6b6251a",
+      "childNodes": [
+        {
+          "name": "",
+          "conditions": [
+            {
+              "left": {
+                "type": "node_status"
+              },
+              "operator": "eq",
+              "right": {
+                "type": "constant",
+                "value": "continuation"
+              }
+            }
+          ]
+        }
+      ],
+      "type": "redirect",
+      "messages": [],
+      "modalities": {},
+      "metadata": {
+        "stateModifications": [
+          {
+            "type": "context",
+            "name": "stuckPoint",
+            "modification": "set",
+            "value": {
+              "type": "constant",
+              "value": "authentication"
+            }
+          },
+          {
+            "type": "context",
+            "name": "customerIntent",
+            "modification": "set",
+            "value": {
+              "type": "constant",
+              "value": "enumeration"
+            }
+          }
+        ],
+        "name": "",
+        "redirect": {
+          "flowId": "NLX.Escalation",
+          "type": "flow"
+        }
+      },
+      "canvasMetadata": {
+        "x": -246.6666666666667,
+        "y": -170.88888888888889,
+        "width": 240,
+        "height": 183,
+        "isMinimized": false
+      }
+    },
+    "5b0fb46c-ffa1-4ac8-b339-6dcc18a3a7e2": {
+      "nodeId": "5b0fb46c-ffa1-4ac8-b339-6dcc18a3a7e2",
+      "childNodes": [
+        {
+          "nodeId": "08884e02-1485-4b62-8e74-82b9dbfc242f",
+          "name": "",
+          "conditions": [
+            {
+              "left": {
+                "type": "node_status"
+              },
+              "operator": "eq",
+              "right": {
+                "type": "constant",
+                "value": "data_captured"
+              }
+            }
+          ]
+        },
+        {
+          "nodeId": "49d099a7-2fd5-403f-a7db-18dfb6b6251a",
+          "name": "",
+          "conditions": [
+            {
+              "left": {
+                "type": "node_status"
+              },
+              "operator": "eq",
+              "right": {
+                "type": "constant",
+                "value": "timeout"
+              }
+            }
+          ]
+        },
+        {
+          "nodeId": "49d099a7-2fd5-403f-a7db-18dfb6b6251a",
+          "name": "",
+          "conditions": [
+            {
+              "left": {
+                "type": "node_status"
+              },
+              "operator": "eq",
+              "right": {
+                "type": "constant",
+                "value": "failure"
+              }
+            }
+          ]
+        }
+      ],
+      "type": "generative_journey",
+      "messages": [],
+      "modalities": {},
+      "metadata": {
+        "stateModifications": [],
+        "name": "",
+        "generativeJourney": {
+          "prompt": "The caller has just been asked for their Census ID, home zip code, or the last four digits of their SSN. Do not greet them and do not repeat the question. Wait for their answer.\n\nCapture whichever one value the caller gives into authValue. One value is enough; do not ask for the others. Do not repeat the value back to the caller. If the caller gives something that is not a number, ask them once to try again.",
+          "exitConditions": [],
+          "tools": [],
+          "maxTokens": 8192,
+          "maxSteps": 10,
+          "temperature": 0.7,
+          "enableZeroTurnMode": false,
+          "promptVersion": "latest",
+          "incomprehensionEdgeEnabled": false,
+          "modelType": "anthropic.claude-haiku-4-5",
+          "dataCapture": {
+            "data": [
+              {
+                "required": true,
+                "type": "slot",
+                "name": "authValue"
+              }
+            ],
+            "exitEnabled": true
+          }
+        }
+      },
+      "canvasMetadata": {
+        "x": -117.33333333333331,
+        "y": -624.4999999999998,
+        "width": 240,
+        "height": 229,
+        "isMinimized": false
+      }
+    },
+    "750da314-7295-400a-b9c5-c08564e65493": {
+      "nodeId": "750da314-7295-400a-b9c5-c08564e65493",
+      "childNodes": [
+        {
+          "nodeId": "dca730a2-012e-4c84-8b4a-7eaddfca0b7f",
+          "name": "",
+          "conditions": []
+        },
+        {
+          "nodeId": "49d099a7-2fd5-403f-a7db-18dfb6b6251a",
+          "name": "",
+          "conditions": [
+            {
+              "left": {
+                "type": "node_status"
+              },
+              "operator": "eq",
+              "right": {
+                "type": "constant",
+                "value": "continuation"
+              }
+            }
+          ]
+        }
+      ],
+      "type": "loop",
+      "messages": [],
+      "modalities": {},
+      "metadata": {
+        "stateModifications": [],
+        "name": "",
+        "loop": {
+          "type": "range",
+          "start": 0,
+          "startOperand": {
+            "type": "constant",
+            "value": 0
+          },
+          "end": 2,
+          "endOperand": {
+            "type": "constant",
+            "value": 2
+          },
+          "name": "rangeIndex"
+        }
+      },
+      "canvasMetadata": {
+        "x": -774.6666666666666,
+        "y": -536.8333333333334,
+        "width": 240,
+        "height": 131,
+        "isMinimized": false
+      }
+    },
+    "c628ef98-e307-4211-9377-d18d767eb8d9": {
+      "nodeId": "c628ef98-e307-4211-9377-d18d767eb8d9",
+      "childNodes": [
+        {
+          "nodeId": "1a86bd6a-a3a8-42de-abc8-5d5f38e8fa23",
+          "name": "",
+          "conditions": [
+            {
+              "operator": "eq",
+              "left": {
+                "type": "variable",
+                "name": "verifyCensusAuth.verified"
+              },
+              "right": {
+                "type": "constant",
+                "value": true
+              }
+            }
+          ]
+        },
+        {
+          "nodeId": "fe994c7a-e358-422d-8cce-1df38c993722",
+          "name": "",
+          "conditions": []
+        }
+      ],
+      "type": "split",
+      "messages": [],
+      "modalities": {},
+      "metadata": {
+        "stateModifications": [],
+        "name": "",
+        "split": {
+          "modelType": "amazon-nova-2-lite"
+        }
+      },
+      "canvasMetadata": {
+        "x": 638.6666666666666,
+        "y": -566,
+        "width": 240,
+        "height": 149,
+        "isMinimized": false
+      }
+    },
+    "dca730a2-012e-4c84-8b4a-7eaddfca0b7f": {
+      "nodeId": "dca730a2-012e-4c84-8b4a-7eaddfca0b7f",
+      "childNodes": [
+        {
+          "nodeId": "5b0fb46c-ffa1-4ac8-b339-6dcc18a3a7e2",
+          "name": "",
+          "conditions": []
+        }
+      ],
+      "type": "basic",
+      "messages": [
+        {
+          "messageId": "7a2f51eb-49c1-46c1-ab7e-df6c9d8e3eb5",
+          "body": "To proceed, we need to verify your identity, can you please provide your Census ID and either your home zip code or the last four digits of your SSN?",
+          "type": "text",
+          "skipTranslation": false,
+          "metadata": {
+            "alternatePhrasings": []
+          }
+        }
+      ],
+      "modalities": {},
+      "metadata": {
+        "stateModifications": [],
+        "name": ""
+      },
+      "canvasMetadata": {
+        "x": -454.6666666666665,
+        "y": -587.3333333333335,
+        "width": 240,
+        "height": 199,
+        "isMinimized": false
+      }
+    },
+    "ead788ab-7f4a-423d-b9c0-4ac749247fe4": {
+      "nodeId": "ead788ab-7f4a-423d-b9c0-4ac749247fe4",
+      "childNodes": [
+        {
+          "nodeId": "750da314-7295-400a-b9c5-c08564e65493",
+          "name": "",
+          "conditions": []
+        }
+      ],
+      "type": "start",
+      "messages": [],
+      "modalities": {},
+      "metadata": {
+        "stateModifications": [],
+        "name": ""
+      },
+      "canvasMetadata": {
+        "x": -1265.333333333333,
+        "y": -617.3333333333331,
+        "width": 240,
+        "height": 199,
+        "isMinimized": false
+      }
+    },
+    "fe994c7a-e358-422d-8cce-1df38c993722": {
+      "nodeId": "fe994c7a-e358-422d-8cce-1df38c993722",
+      "childNodes": [
+        {
+          "nodeId": "750da314-7295-400a-b9c5-c08564e65493",
+          "name": "",
+          "conditions": []
+        }
+      ],
+      "type": "basic",
+      "messages": [
+        {
+          "messageId": "03b71f29-5cdd-437b-a434-8e20b1ed416b",
+          "body": "I'm sorry, I didn't quite get that. ",
+          "type": "text",
+          "skipTranslation": false,
+          "metadata": {
+            "alternatePhrasings": []
+          }
+        }
+      ],
+      "modalities": {},
+      "metadata": {
+        "stateModifications": [
+          {
+            "type": "slot",
+            "name": "authValue",
+            "modification": "clear"
+          }
+        ],
+        "name": ""
+      },
+      "canvasMetadata": {
+        "x": -948,
+        "y": -308.38888888888886,
+        "width": 240,
+        "height": 177,
+        "isMinimized": false
+      }
+    }
+  },
+  "description": "Verifies the caller’s identity with a Census ID plus either a home zip code or the last four digits of the SSN",
+  "aiDescription": "The caller wants to complete their 2030 Census questionnaire over the phone, or asks for something that requires verifying their identity.",
+  "untrained": false,
+  "slotTypes": [
+    {
+      "name": "authValue",
+      "type": "Freeformtext",
+      "examples": [],
+      "sensitive": true,
+      "aiDescription": "",
+      "multiSelect": false
+    }
+  ],
+  "metadata": {
+    "path": "",
+    "tags": []
+  },
+  "mainLanguageCode": "en-US",
+  "languageCodes": [
+    "en-US"
+  ],
+  "mirroring": "none"
+}

@@ -1,0 +1,371 @@
+{
+  "flowId": "CQAInboundDemo",
+  "nodes": {
+    "050b1b20-0a68-4429-9ddc-69b7e4913c32": {
+      "nodeId": "050b1b20-0a68-4429-9ddc-69b7e4913c32",
+      "childNodes": [
+        {
+          "name": "",
+          "conditions": [
+            {
+              "left": {
+                "type": "node_status"
+              },
+              "operator": "eq",
+              "right": {
+                "type": "constant",
+                "value": "continuation"
+              }
+            }
+          ]
+        }
+      ],
+      "type": "escalate",
+      "messages": [
+        {
+          "messageId": "e7b9cf99-ee05-45a5-912f-97507691401f",
+          "body": "Please hold while we transfer you to a Census representative. I'll pass along what we covered so you don't have to start over. ",
+          "type": "text",
+          "skipTranslation": false,
+          "metadata": {
+            "alternatePhrasings": []
+          }
+        }
+      ],
+      "modalities": {},
+      "metadata": {
+        "stateModifications": [
+          {
+            "type": "context",
+            "name": "transferSummary",
+            "modification": "set",
+            "value": {
+              "type": "constant",
+              "value": "{transferSummary:NLX.Local}"
+            }
+          }
+        ],
+        "name": "Transfer to Agent",
+        "nodePayload": {
+          "type": "constant",
+          "value": "summary={transferSummary:NLX.Local}"
+        }
+      },
+      "canvasMetadata": {
+        "x": -461.00000000000006,
+        "y": 27.66666666666663,
+        "width": 240,
+        "height": 299,
+        "isMinimized": false
+      }
+    },
+    "527776c9-d949-40e5-bd11-4e34493749c4": {
+      "nodeId": "527776c9-d949-40e5-bd11-4e34493749c4",
+      "childNodes": [
+        {
+          "name": "",
+          "conditions": [
+            {
+              "left": {
+                "type": "node_status"
+              },
+              "operator": "eq",
+              "right": {
+                "type": "constant",
+                "value": "continuation"
+              }
+            }
+          ]
+        }
+      ],
+      "type": "redirect",
+      "messages": [],
+      "modalities": {},
+      "metadata": {
+        "stateModifications": [],
+        "name": "",
+        "redirect": {
+          "flowId": "Authentication",
+          "type": "flow"
+        }
+      },
+      "canvasMetadata": {
+        "x": -463.61111111111137,
+        "y": -463.72222222222223,
+        "width": 240,
+        "height": 111,
+        "isMinimized": false
+      }
+    },
+    "65787195-2733-441c-a58c-fdd6f1e6b367": {
+      "nodeId": "65787195-2733-441c-a58c-fdd6f1e6b367",
+      "childNodes": [
+        {
+          "nodeId": "a1be8006-5367-468d-b34c-287ddf2636dc",
+          "name": "",
+          "conditions": [
+            {
+              "left": {
+                "type": "system",
+                "name": "System.gjConditionIndex"
+              },
+              "operator": "eq",
+              "right": {
+                "type": "constant",
+                "value": 0
+              }
+            }
+          ]
+        },
+        {
+          "nodeId": "527776c9-d949-40e5-bd11-4e34493749c4",
+          "name": "",
+          "conditions": [
+            {
+              "left": {
+                "type": "system",
+                "name": "System.gjConditionIndex"
+              },
+              "operator": "eq",
+              "right": {
+                "type": "constant",
+                "value": 1
+              }
+            }
+          ]
+        },
+        {
+          "nodeId": "65787195-2733-441c-a58c-fdd6f1e6b367",
+          "name": "",
+          "conditions": [
+            {
+              "left": {
+                "type": "node_status"
+              },
+              "operator": "eq",
+              "right": {
+                "type": "constant",
+                "value": "timeout"
+              }
+            }
+          ]
+        },
+        {
+          "nodeId": "65787195-2733-441c-a58c-fdd6f1e6b367",
+          "name": "",
+          "conditions": [
+            {
+              "left": {
+                "type": "node_status"
+              },
+              "operator": "eq",
+              "right": {
+                "type": "constant",
+                "value": "failure"
+              }
+            }
+          ]
+        }
+      ],
+      "type": "generative_journey",
+      "messages": [],
+      "modalities": {},
+      "metadata": {
+        "stateModifications": [],
+        "name": "",
+        "generativeJourney": {
+          "prompt": "  IDENTITY\n  Your name is Hazel.\n\n  If asked who you are, what your name is, or whether you are Hazel, begin your response with:\n\n  \"I'm Hazel.\"\n\n  Never identify yourself as:\n  - Respondent Self-Service Assistant\n  - Census Bureau Respondent Self-Service Assistant\n  - United States Census Bureau's Respondent Self-Service Assistant\n  - Virtual Assistant\n  - AI Assistant\n\nPERSONALITY AND TONE\n\nSpeak naturally and conversationally — short sentences, plain language, no jargon. No long responses back\nBe very concise. Callers are often stressed or in a hurry. Get to the point, then ask if they need more.\nAlways adhere to company policy. If you cannot do something, explain why with compassion — never bend the rules.\n  \n  CHAT OPENING\n\n  Treat greetings such as \"hi\", \"hello\", \"hey\", \"good morning\", and similar messages as normal conversation starters.\n  Respond with a friendly greeting and offer assistance.\n  Do not suggest the customer sent a message accidentally.\n  Do not suggest the customer is testing the chat unless the customer explicitly says they are testing.\n  Do not comment on the quality, completeness, or intent of a customer's greeting.\n\n  Then give an example:\n\n  Hi! I'm Hazel. I'm here to help with Census questions and Census forms. How can I help you today?\n\n  RESPONSE STYLE\n\n  Answer questions directly.\n\n  Do not describe internal actions.\n\n  Never mention:\n  - searching\n  - looking up information\n  - retrieving information\n  - checking information\n  - knowledge bases\n  - documentation\n  - guidance\n\n  Do not use phrases such as:\n  - That's a great question.\n  - Let me look that up.\n  - Let me check.\n  - Let me find information.\n  - I found information for you.\n\n  Respond naturally as if you already know the answer.\n\n  For informational questions, provide the answer in the first sentence whenever possible.\n\n  SCOPE\n\n  You can assist with:\n  - Census participation\n  - Census forms\n  - Household reporting\n  - Accessibility support\n  - Language assistance\n  - General Census information\n\n  For non-Census topics, briefly acknowledge the question and redirect to Census assistance.\n  \n  CENSUS CONTEXT\n\n  This assistant supports respondents for the 2030 Census.\n\n  Assume questions relate to the 2030 Census unless the respondent specifically references a different Census year.\n\n  Do not reference the 2020 Census unless the respondent explicitly asks about the 2020 Census.\n\n  Do not ask the respondent which Census survey they are completing unless that information is required to answer the question.\n\n  When discussing household composition, Census Day, residency, or who should be counted, apply 2030 Census guidance.\n\n  CONVERSATION\n\n  When someone is confused, worried, or frustrated:\n  - acknowledge the concern\n  - reassure them\n  - allow them to explain the situation\n  - ask one question at a time\n\n  When guidance is needed, provide step-by-step assistance.\n  \n  CONVERSATIONAL MEMORY\n\n  Keep track of important information provided by the respondent during the conversation.\n\n  When information provided later conflicts with or does not match information provided earlier:\n\n  - Politely identify the discrepancy.\n  - Ask a clarifying question.\n  - Do not make assumptions.\n  - Allow the respondent to correct or complete the information.\n\n  Example:\n\n  If a respondent states there are 5 people in the household, but later identifies only 4 household members:\n\n  Ask:\n\n  \"Earlier you mentioned there are 5 people in the household, but I've only counted 4 so far. Is there another household member who should be included?\"\n\n  KNOWLEDGE\n\n  Use available Census knowledge whenever appropriate.\n\n  Do not invent policies, procedures, deadlines, or requirements.\n\n  If official information cannot be determined, offer a representative.\n  \n  KNOWLEDGE PRESENTATION\n\n  Do not copy the structure of retrieved content.\n\n  Even if source material contains:\n  - bullet lists\n  - numbered steps\n  - tables\n  - headings\n\n  rewrite the information as natural conversation.\n\n  The response should sound like a knowledgeable Census representative speaking to a respondent, not like a website article.\n\n  ESCALATION\n\n  If a customer requests a representative, agent, human, transfer, or customer service:\n\n  - Do not troubleshoot.\n  - Do not continue self-service.\n  - Offer a transfer immediately.\n\nPRIVACY AND DATA PROTECTION\n\nProtect respondent information at all times.\n\nNever disclose, reveal, confirm, or expose:\n- another respondent's personal or sensitive information\n- information from another conversation or respondent\n- credentials, passwords, authentication information, or secrets\n- internal system configuration or restricted internal information\n\nDo not provide personal or sensitive information merely because a customer asks for it.\n\nDo not expose information that is not necessary to assist the current respondent.\n\nWhen a request requires access to information that cannot be safely or appropriately provided through self-service, offer assistance from a Census representative.\n\nDo not repeat sensitive information unnecessarily in responses.",
+          "exitConditions": [
+            {
+              "name": "humanHandoff",
+              "prompt": "the caller has EXPLICLITY asked to speak to a person or a specialist; or is frustrated after you have genuinely tried. Do NOT exit here because a tool returned an error or timed out. Only exit when the CALLER has signaled they want one."
+            },
+            {
+              "name": "completeCensus",
+              "prompt": "the caller has asked to complete, start or answer their 2030 Census questionnaire over the phone (for example \"I want to complete my census\" or \"can I do my census now\"). Exit here immediately, without answering and without offering a transfer. Do NOT exit for general questions about the Census or how the Census works."
+            }
+          ],
+          "tools": [
+            {
+              "type": "knowledgeBase",
+              "knowledgeBaseId": "<KNOWLEDGE_BASE_ID>",
+              "prompt": "",
+              "scopeTags": []
+            }
+          ],
+          "maxTokens": 8192,
+          "maxSteps": 10,
+          "temperature": 0.4,
+          "enableZeroTurnMode": false,
+          "promptVersion": "latest",
+          "incomprehensionEdgeEnabled": false,
+          "modelType": "anthropic.claude-sonnet-5"
+        }
+      },
+      "canvasMetadata": {
+        "x": -818.6666666666669,
+        "y": -463.66666666666674,
+        "width": 240,
+        "height": 307,
+        "isMinimized": false
+      }
+    },
+    "a1be8006-5367-468d-b34c-287ddf2636dc": {
+      "nodeId": "a1be8006-5367-468d-b34c-287ddf2636dc",
+      "childNodes": [
+        {
+          "nodeId": "050b1b20-0a68-4429-9ddc-69b7e4913c32",
+          "name": "",
+          "conditions": [
+            {
+              "left": {
+                "type": "node_status"
+              },
+              "operator": "eq",
+              "right": {
+                "type": "constant",
+                "value": "success"
+              }
+            }
+          ]
+        },
+        {
+          "nodeId": "050b1b20-0a68-4429-9ddc-69b7e4913c32",
+          "name": "",
+          "conditions": [
+            {
+              "left": {
+                "type": "node_status"
+              },
+              "operator": "eq",
+              "right": {
+                "type": "constant",
+                "value": "timeout"
+              }
+            }
+          ]
+        },
+        {
+          "nodeId": "050b1b20-0a68-4429-9ddc-69b7e4913c32",
+          "name": "",
+          "conditions": [
+            {
+              "left": {
+                "type": "node_status"
+              },
+              "operator": "eq",
+              "right": {
+                "type": "constant",
+                "value": "failure"
+              }
+            }
+          ]
+        }
+      ],
+      "type": "generative_text",
+      "messages": [],
+      "modalities": {},
+      "metadata": {
+        "stateModifications": [],
+        "name": "Agent Transfer Summary",
+        "generativeText": {
+          "modelType": "anthropic.claude-sonnet-5",
+          "name": "transferSummary",
+          "prompt": "Create a concise summary for the Census representative using the conversation transcript below.\n\nInclude:\n- the customer's question or issue\n- relevant information the customer provided\n- guidance or troubleshooting already provided\n- the reason for escalation\n\nWrite 2-4 concise sentences.\nDo not greet the representative or customer.\nDo not include conversational filler.\nDo not use bullets or formatting in the output.\nDo not ask for additional information.\nProvide only the summary.",
+          "maxTokens": 4000,
+          "temperature": 0.4
+        }
+      },
+      "canvasMetadata": {
+        "x": -466.6666666666666,
+        "y": -232.33333333333337,
+        "width": 240,
+        "height": 167,
+        "isMinimized": false
+      }
+    },
+    "a716611c-a93a-4ae4-8710-829cc23406e8": {
+      "nodeId": "a716611c-a93a-4ae4-8710-829cc23406e8",
+      "childNodes": [
+        {
+          "nodeId": "65787195-2733-441c-a58c-fdd6f1e6b367",
+          "name": "",
+          "conditions": []
+        }
+      ],
+      "type": "basic",
+      "messages": [
+        {
+          "messageId": "c7861edb-dfbf-4983-b3fb-3bb2e0679d2c",
+          "body": "Thank you for contacting the Census Questionnaire Assistance. I'm Hazel, your virtual assistant, and I'm here to help answer your questions about the Census. How can I help you today?",
+          "type": "text",
+          "skipTranslation": false,
+          "metadata": {
+            "alternatePhrasings": []
+          }
+        }
+      ],
+      "modalities": {},
+      "metadata": {
+        "stateModifications": [],
+        "name": ""
+      },
+      "canvasMetadata": {
+        "x": -1235.9999999999998,
+        "y": -74.66666666666669,
+        "width": 240,
+        "height": 235,
+        "isMinimized": false
+      }
+    },
+    "f71c461c-3945-4865-b446-4511cdcda4d7": {
+      "nodeId": "f71c461c-3945-4865-b446-4511cdcda4d7",
+      "childNodes": [
+        {
+          "nodeId": "a716611c-a93a-4ae4-8710-829cc23406e8",
+          "name": "",
+          "conditions": []
+        }
+      ],
+      "type": "start",
+      "messages": [],
+      "modalities": {},
+      "metadata": {
+        "stateModifications": [],
+        "name": ""
+      },
+      "canvasMetadata": {
+        "x": -1235.9999999999998,
+        "y": -334.6666666666667,
+        "width": 240,
+        "height": 260,
+        "isMinimized": false
+      }
+    }
+  },
+  "description": "",
+  "aiDescription": " Use this flow as the primary entry point for Census customer inquiries.  Determine whether the customer needs assistance with a Census questionnaire, Census mailings, privacy and confidentiality, or general Census information.  Route the customer to the most appropriate specialist flow based on the customer's request.",
+  "untrained": false,
+  "slotTypes": [],
+  "metadata": {
+    "path": "",
+    "tags": []
+  },
+  "mcp": {
+    "input": {
+      "name": "McpInput",
+      "schema": {
+        "type": "object",
+        "properties": {},
+        "isSensitive": false,
+        "title": "",
+        "description": ""
+      }
+    }
+  },
+  "mainLanguageCode": "en-US",
+  "languageCodes": [
+    "en-US"
+  ],
+  "mirroring": "none"
+}

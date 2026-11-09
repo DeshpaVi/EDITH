@@ -1,0 +1,10 @@
+{
+  "name": "acxd-provisioner",
+  "private": true,
+  "type": "module",
+  "description": "CloudFormation custom resource that creates ACXD resources from a generated spec.",
+  "main": "index.mjs",
+  "dependencies": {
+    "amazon-connect-acxd-sdk": "latest"
+  }
+}
