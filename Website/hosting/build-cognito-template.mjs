@@ -20,8 +20,8 @@ export function buildCognitoTemplate() {
       AdminEmail: { Type: 'String', AllowedPattern: '[^@\\s]+@[^@\\s]+\\.[^@\\s]+', Description: 'First user. Cognito emails this address a temporary password.' },
       DomainPrefix: { Type: 'String', AllowedPattern: '[a-z0-9]([a-z0-9-]{1,61}[a-z0-9])?', Description: 'Prefix of the Cognito sign-in address (<prefix>.auth.<region>.amazoncognito.com). Must be unique in the region and must not contain "aws", "amazon" or "cognito".' },
       SessionKey: { Type: 'String', NoEcho: true, AllowedPattern: '[A-Za-z0-9]{32,64}', Description: 'Random secret (32 to 64 letters and digits) that signs session cookies. The deploy script generates one.' },
-      AuthCodeBucket: { Type: 'String', AllowedPattern: '.+', Description: 'S3 bucket (same region as this stack) holding auth.zip, the zipped contents of hosting/auth-lambda.' },
-      AuthCodeKey: { Type: 'String', Default: 'auth.zip', Description: 'S3 key of the zip.' },
+      AuthCodeBucket: { Type: 'String', AllowedPattern: '[0-9A-Za-z._-]*[0-9A-Za-z_-]', ConstraintDescription: 'Only the bucket name: no s3://, no ARN, no slash, no spaces, no trailing dot.', Description: 'Bucket NAME only (same region as this stack) holding auth.zip, the zipped contents of hosting/auth-lambda.' },
+      AuthCodeKey: { Type: 'String', Default: 'auth.zip', AllowedPattern: '[^\\s]+', ConstraintDescription: 'The object key, no spaces (auth.zip).', Description: 'S3 key of the zip.' },
       SessionHours: { Type: 'Number', Default: 8, MinValue: 1, MaxValue: 72, Description: 'How long a sign-in lasts.' },
     },
     Resources: {
