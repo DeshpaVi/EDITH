@@ -1,10 +1,12 @@
 import { strFromU8 } from 'fflate'
 import { readDocx } from './docx'
 import { readPptx, describeDeck } from './pptx'
+import { readVsdx } from './vsdx'
 import type { Deck } from './pptx'
 
 export { readPptx, describeDeck } from './pptx'
 export type { Deck, DeckSlide, DeckShape, DeckConnector } from './pptx'
+export { readVsdx } from './vsdx'
 export { readDocx } from './docx'
 export { parseXml } from './xml'
 
@@ -12,7 +14,7 @@ export { parseXml } from './xml'
 export const MAX_SOURCE_BYTES = 3 * 1024 * 1024
 
 export type SourceInput =
-  | { kind: 'deck'; fileName: string; text: string; deck: Deck }
+  | { kind: 'deck' | 'diagram'; fileName: string; text: string; deck: Deck }
   | { kind: 'document' | 'text'; fileName: string; text: string }
   | { kind: 'image'; fileName: string; mimeType: string; bytes: Uint8Array }
   | { kind: 'pdf'; fileName: string; bytes: Uint8Array }
@@ -23,7 +25,7 @@ export class SourceError extends Error {}
 const IMAGE_TYPES: Record<string, string> = { png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' }
 const TEXT_EXTENSIONS = ['txt', 'md', 'markdown', 'csv', 'json', 'text']
 
-export const SUPPORTED_EXTENSIONS = ['pptx', 'docx', 'pdf', ...Object.keys(IMAGE_TYPES), ...TEXT_EXTENSIONS]
+export const SUPPORTED_EXTENSIONS = ['pptx', 'vsdx', 'docx', 'pdf', ...Object.keys(IMAGE_TYPES), ...TEXT_EXTENSIONS]
 
 /**
  * Reads an uploaded file into something the extractor understands. Decks become a shape-and-arrow graph
@@ -43,6 +45,14 @@ export function readSource(file: { fileName: string; bytes: Uint8Array }): Sourc
       throw new SourceError(`Could not read this deck: ${err instanceof Error ? err.message : 'unknown error'}`)
     }
   }
+  if (ext === 'vsdx') {
+    try {
+      const deck = readVsdx(bytes)
+      return { kind: 'diagram', fileName, text: describeDeck(deck), deck }
+    } catch (err) {
+      throw new SourceError(`Could not read this Visio drawing: ${err instanceof Error ? err.message : 'unknown error'}`)
+    }
+  }
   if (ext === 'docx') {
     try {
       const text = readDocx(bytes)
@@ -60,13 +70,13 @@ export function readSource(file: { fileName: string; bytes: Uint8Array }): Sourc
     return { kind: 'text', fileName, text }
   }
   if (ext === 'ppt' || ext === 'doc') throw new SourceError(`Old ${ext.toUpperCase()} files are not supported. Save it as .${ext}x and upload that.`)
-  if (ext === 'vsdx' || ext === 'vsd') throw new SourceError('Visio files are not read yet. Export the diagram as a PDF or an image.')
+  if (ext === 'vsd') throw new SourceError('Old binary Visio (.vsd) files are not supported. Save the drawing as .vsdx and upload that.')
   throw new SourceError(`This file type is not supported. Use one of: ${SUPPORTED_EXTENSIONS.join(', ')}.`)
 }
 
 /** The text a model's wording can be checked against; none for images and PDFs. */
 export function sourceText(source: SourceInput): string | undefined {
-  if (source.kind === 'deck') return source.deck.slides.flatMap((s) => s.shapes.map((sh) => sh.text)).join('\n')
+  if (source.kind === 'deck' || source.kind === 'diagram') return source.deck.slides.flatMap((s) => s.shapes.map((sh) => sh.text)).join('\n')
   if (source.kind === 'document' || source.kind === 'text') return source.text
   return undefined
 }

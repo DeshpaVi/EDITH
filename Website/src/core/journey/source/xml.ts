@@ -9,6 +9,8 @@ export interface XmlNode {
   children: XmlNode[]
   /** Text directly inside this element (concatenated), entities decoded. */
   text: string
+  /** Text and child elements in document order (Office text interleaves runs with markers). */
+  content: Array<XmlNode | string>
 }
 
 const ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" }
@@ -24,7 +26,7 @@ export function decodeEntities(s: string): string {
 }
 
 export function parseXml(source: string): XmlNode {
-  const root: XmlNode = { tag: '#document', attrs: {}, children: [], text: '' }
+  const root: XmlNode = { tag: '#document', attrs: {}, children: [], text: '', content: [] }
   const stack: XmlNode[] = [root]
   const re = /<!--[\s\S]*?-->|<\?[\s\S]*?\?>|<!\[CDATA\[([\s\S]*?)\]\]>|<!DOCTYPE[^>]*>|<(\/?)([^\s/>]+)((?:\s+[^\s=/>]+\s*=\s*(?:"[^"]*"|'[^']*'))*)\s*(\/?)>|([^<]+)/g
   let m: RegExpExecArray | null
@@ -32,6 +34,7 @@ export function parseXml(source: string): XmlNode {
     const top = stack[stack.length - 1]
     if (m[1] !== undefined) {
       top.text += m[1]
+      top.content.push(m[1])
     } else if (m[3] !== undefined) {
       const [, , closing, tag, attrText, selfClosing] = m
       if (closing) {
@@ -42,11 +45,14 @@ export function parseXml(source: string): XmlNode {
       const attrRe = /([^\s=]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g
       let a: RegExpExecArray | null
       while ((a = attrRe.exec(attrText)) !== null) attrs[a[1]] = decodeEntities(a[2] ?? a[3] ?? '')
-      const node: XmlNode = { tag, attrs, children: [], text: '' }
+      const node: XmlNode = { tag, attrs, children: [], text: '', content: [] }
       top.children.push(node)
+      top.content.push(node)
       if (!selfClosing) stack.push(node)
     } else if (m[6] !== undefined) {
-      top.text += decodeEntities(m[6])
+      const text = decodeEntities(m[6])
+      top.text += text
+      top.content.push(text)
     }
   }
   return root.children[0] ?? root

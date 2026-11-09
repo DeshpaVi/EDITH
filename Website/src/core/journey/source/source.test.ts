@@ -123,7 +123,8 @@ describe('readSource', () => {
       return ''
     }
     expect(msg('a.ppt')).toContain('.pptx')
-    expect(msg('a.vsdx')).toContain('PDF')
+    expect(msg('a.vsd')).toContain('.vsdx')
+    expect(msg('a.vsdx', bytes('not a zip at all'))).toContain('Could not read this Visio drawing')
     expect(msg('a.exe')).toContain('not supported')
     expect(msg('a.txt', new Uint8Array())).toContain('empty')
     expect(msg('a.txt', new Uint8Array(MAX_SOURCE_BYTES + 1))).toContain('MB')

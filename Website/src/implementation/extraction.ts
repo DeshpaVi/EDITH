@@ -65,6 +65,7 @@ export async function readAndExtract(file: { fileName: string; bytes: Uint8Array
   const j = outcome.journey
   const summary = [`Read ${plural(j.steps.length, 'step')}, ${plural(j.scenarios.length, 'scenario')} and ${plural(j.languages.length, 'language')}${outcome.attempts > 1 ? ` (the model corrected its answer ${plural(outcome.attempts - 1, 'time')})` : ''}.`]
   if (source.kind === 'deck') summary.push('The deck was read as shapes and arrows, so the connections come from the file, not from a guess.')
+  if (source.kind === 'diagram') summary.push('The drawing was read as shapes and glued connectors, so the connections come from the file, not from a guess.')
   if (outcome.checks === null) {
     summary.push('Wording came from an image or PDF and could not be checked against source text: compare it by eye.')
   } else {

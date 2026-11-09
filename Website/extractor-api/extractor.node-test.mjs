@@ -16,6 +16,12 @@ test('accepts a text request and keeps the notes and feedback', () => {
   assert.deepEqual(r.feedback, [{ path: '$.title', message: 'must be a string' }])
 })
 
+test('a Visio diagram is a text kind like a deck', () => {
+  assert.equal(parseRequest(textBody({ kind: 'diagram', fileName: 'flow.vsdx' })).kind, 'diagram')
+  throwsStatus(() => parseRequest({ fileName: 'flow.vsdx', kind: 'diagram' }), 400)
+  assert.match(buildConverseInput({ modelId: 'm', request: parseRequest(textBody({ kind: 'diagram', fileName: 'flow.vsdx' })) }).messages[0].content[0].text, /flow\.vsdx \(diagram\)/)
+})
+
 test('rejects bodies that are not objects, unknown kinds and missing text', () => {
   throwsStatus(() => parseRequest(null), 400)
   throwsStatus(() => parseRequest(textBody({ kind: 'video' })), 400)

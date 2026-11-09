@@ -125,7 +125,17 @@ for these resources, cross-account read of the provisioner package, `InvokedViaF
 Auth is one shared bearer token (demo-grade). Review the customer role before installing it anywhere real. Templates over
 51,200 bytes are refused (S3 template URL not built).
 
-Not yet built: a Connect-side CloudFormation resource, Visio/grouped-shape support, a stronger authorizer, S3 template upload.
+## 0f. Visio support
+
+`.vsdx` drawings are read like decks (`core/journey/source/vsdx.ts`): pages, shapes (groups flattened from their origin),
+Visio shape types (Decision, Process, Terminator) as hints, text with paragraph breaks, fill colours, and edges from the
+**connection records** (which shape each connector end is glued to), with connector labels and arrowhead direction. An
+arrow glued at one end only is reported and its target guessed from the free end. The graph model is shared with the
+PowerPoint reader (`deck.ts`); the source kind is `diagram` (the backend accepts it). Legacy binary `.vsd` is refused with
+guidance. **Verified only against drawings built by hand in the tests**: run a real `.vsdx` through it before relying on it
+(known gaps: group rotation and scaling, text that lives only in a master).
+
+Not yet built: a Connect-side CloudFormation resource, grouped-shape transforms, a stronger authorizer, S3 template upload.
 
 ## 1. The product (unchanged, see `CLAUDE.md`)
 

@@ -5,7 +5,7 @@ import { JOURNEY_JSON_SCHEMA, TOOL_NAME, buildSystemPrompt, buildUserText } from
 
 export const LIMITS = { maxTextChars: 400_000, maxBase64Chars: 4_500_000, maxNotesChars: 8_000, maxFeedback: 40 }
 
-const TEXT_KINDS = ['deck', 'document', 'text']
+const TEXT_KINDS = ['deck', 'diagram', 'document', 'text']
 const BINARY_KINDS = ['image', 'pdf']
 const IMAGE_FORMATS = { 'image/png': 'png', 'image/jpeg': 'jpeg', 'image/jpg': 'jpeg', 'image/gif': 'gif', 'image/webp': 'webp' }
 
