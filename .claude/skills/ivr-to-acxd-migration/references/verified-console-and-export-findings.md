@@ -60,21 +60,51 @@ Transform), **Redirections** (Escalate, Exit application, Redirect).
 
 ## Export JSON shapes
 
-### Flow export [export: `flow.SafetyEscalation.json`]
-Top level: `flowId`, `nodes`, `description`, `aiDescription`, `untrained`, `slotTypes`, `metadata`
-(`{path, tags}`), `mainLanguageCode`, `languageCodes`, `mirroring` (`"none"`).
+### Flow export [export: `flow.Authentication.json`, `flow.Escalation.json`, `flow.CQAInboundDemo.json`, `flow.SafetyEscalation.json`]
+Top level: `flowId`, `nodes`, `description`, `aiDescription` (also used as the **routing** description), `untrained`,
+`slotTypes` (the flow's attached slots), `metadata` (`{path, tags}`), `mainLanguageCode`, `languageCodes`,
+`mirroring` (`"none"`), and for entry flows an `mcp` object.
+Attached slot: `{name, type, examples: [], sensitive, aiDescription, multiSelect}` (type e.g. `Freeformtext`).
 
-Each node: `nodeId`, `type`, `childNodes[]`, `messages[]`, `modalities` (`{}`), `metadata`
-(`{stateModifications: [], name: ""}`), `canvasMetadata` (`{x, y, width, height, isMinimized}`).
+Every node: `nodeId`, `type`, `childNodes[]`, `messages[]`, `modalities` (`{}`), `metadata`, `canvasMetadata`
+(`{x, y, width, height, isMinimized}`); `data_request` nodes also carry `dataRequests[]`.
+`metadata` always has `stateModifications` (array) and `name`; type-specific objects are listed below.
+Messages: `{messageId, body, type: "text", skipTranslation: false, metadata: {alternatePhrasings: []}}`.
 
-- `start` node: `childNodes: [{nodeId, name: "", conditions: []}]`.
-- `basic` node message: `{messageId, body, type: "text", skipTranslation: false, metadata: {alternatePhrasings: []}}`.
-  Newlines in `body` are `\n`.
-- `escalate` node `childNodes`: **one entry with no `nodeId`**:
-  `{name: "", conditions: [{left: {type: "node_status"}, operator: "eq", right: {type: "constant", value: "continuation"}}]}`.
-  This is the only confirmed **condition object shape**.
-- Message-less nodes still carry `messages: []`.
-- `stateModifications` is empty in this export, so **its item shape is still unknown**.
+**`childNodes[]`** is `{nodeId?, name: "", conditions: []}`. A child with **no `nodeId`** exits the flow (escalate).
+Several exits may point at the same `nodeId`. Condition shapes (all confirmed):
+
+| Use | Condition |
+|---|---|
+| Plain "next" | `conditions: []` |
+| Node outcome | `{left: {type: "node_status"}, operator: "eq", right: {type: "constant", value: S}}` with `S` one of `success`, `failure`, `timeout`, `in_progress` (data request), `continuation` (redirect/escalate/loop completed), `data_captured` (journey) |
+| Variable test (Split) | `{operator: "eq", left: {type: "variable", name: "verifyCensusAuth.verified"}, right: {type: "constant", value: true}}` (**boolean** constant) |
+| Journey exit condition i | `{left: {type: "system", name: "System.gjConditionIndex"}, operator: "eq", right: {type: "constant", value: i}}` (i = index in `exitConditions`) |
+| Split else | a child with `conditions: []` listed **after** the condition child |
+
+**Value reference syntax** inside strings: slot `{authValue:Freeformtext}`, flow-local variable
+`{customeroutput:NLX.Local}` or `{transferSummary:NLX.Local}`, system `{System.transcript:NLX.System}`.
+
+**Node `metadata` by type (all confirmed):**
+
+| `type` | `metadata` object |
+|---|---|
+| `start` | none beyond the common fields |
+| `basic` | none (messages carry the text); may hold `stateModifications` |
+| `escalate` | `name`; optional `nodePayload: {type: "constant", value: "summary={transferSummary:NLX.Local}"}`; messages allowed; one child with no `nodeId`, condition `continuation` |
+| `redirect` | `redirect: {flowId, type: "flow"}`; child condition `continuation`. Redirects to the application's default behaviours use ids like `NLX.Escalation` |
+| `loop` | `loop: {type: "range", start, startOperand: {type: "constant", value}, end, endOperand: {type: "constant", value}, name: "rangeIndex"}`; children: first `conditions: []` (**Next**), second `continuation` (**Completed**) |
+| `split` | `split: {modelType: "amazon-nova-2-lite"}`; children carry the conditions above; else child last |
+| `data_request` | `async: false`, `inProgressEnabled: true`, `inProgressTimeout: 0`; node-level `dataRequests: [{type: "custom", dataRequestId, name, payload: {type: "recursive", value: {<field>: {type: "constant", value}}}, urlParams: {}, headers: {}, alwaysRetrigger: false}]`; children for `in_progress`, `success`, `timeout`, `failure` |
+| `generative_text` | `generativeText: {modelType, name (output variable), prompt, maxTokens, temperature}`; children `success`, `timeout`, `failure` |
+| `generative_journey` | `generativeJourney: {prompt, exitConditions: [{name, prompt}], tools: [{type: "knowledgeBase", knowledgeBaseId, prompt, scopeTags: []}], maxTokens, maxSteps, temperature, enableZeroTurnMode, promptVersion: "latest", incomprehensionEdgeEnabled, modelType, dataCapture: {data: [{required, type: "slot", name}], exitEnabled}}`; model types seen: `anthropic.claude-haiku-4-5`, `anthropic.claude-sonnet-5`; children: `data_captured` (when `exitEnabled`), one `gjConditionIndex` child per exit condition, `timeout`, `failure` |
+
+**`stateModifications` items (confirmed):**
+- `{type: "context", name, modification: "set", value: {type: "constant", value}}` (value text or boolean)
+- `{type: "slot", name, modification: "clear"}`
+
+Observation: a `data_request` payload lists **every** field of the request model, empty ones as `""`; the Authentication
+flow still carries three stale empty fields beside `authValue`.
 
 ### Guardrail export [export: `guardrail.*.json`]
 `guardrailId` (empty on export), `name`, `active`, `trigger` (`input`), `description`, `rules[]`,
@@ -169,15 +199,18 @@ These items in the documentation-derived references were **wrong or misleading i
 | `Fallback` = invalid entry after repeated incomprehension | Fallback = **integration/state failure**; repeated incomprehension is **Incomprehension** |
 | Static data request is "good for stubbing" | Fine for a fixed reply, **cannot validate input** |
 | Built-in slot types unknown | `NLX.*` and `Freeformtext` listed above |
+| Node `metadata` and `childNodes[].conditions` undocumented | Confirmed for start, basic, escalate, redirect, loop, split, data_request, generative_text and generative_journey (see Export JSON shapes) |
 | Guardrail action names to be confirmed | `modify`, `flag`, `route` confirmed (`mask` not yet seen) |
 
 ## Still not verified
 
-- Inner shape of `stateModifications` items (empty in every export).
-- `childNodes[].conditions` for `split`, `user_choice`, `data_request`, `loop`, `generative_journey` (only the escalate `node_status` shape is known).
-- Per-node `metadata` for every type except `start`, `basic`, `escalate`.
-- Flow export of a Journey, Loop, Split, Data request or Redirect.
-- How the application picks `Authentication` over the Journey: whether by flow **Routing** + AI description or only by the Journey exit (both were configured).
+- Flow JSON for `user_choice`, `user_input`, `knowledge_base`, `define`, `transform`, `live sync`, `multimodal`,
+  `intent_capture`, `application_handoff`, `wait`, `exit application` nodes (none appeared in the exports).
+- Whether `NLX.Escalation` in a redirect resolves to the application's default behaviour or to a flow named `Escalation`.
+- Other `stateModifications` operations (only `set` on context and `clear` on slot are confirmed).
+- Other `split` condition types and the `Chance` tab; other loop types (`List`).
+- The `mask` guardrail action.
+- How the application picks `Authentication` over the Journey: flow **Routing** (`aiDescription`) or only the Journey exit.
 - Spanish: language detection and switching in an ACXD-only design, per-language voices, translations.
 - The Connect Set voice block JSON; the imported voice flow on a real phone call.
-- `mask` guardrail action; Knowledge base node; Define / Transform nodes.
+- Application-level and Data request / Slot type / Context variable **export** shapes (flows and guardrails only so far).

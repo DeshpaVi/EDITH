@@ -1,87 +1,107 @@
 # CLAUDE.md
 
-Project context for Claude Code. Read this before any task in this repo.
+Project context for Claude Code. Read this before any task in this repo, then `docs/HANDOFF.md`.
 
 ## What we're building
 
-A web application that migrates existing IVRs onto Amazon Connect's **Agentic CX
-Designer (ACXD)**. A user arrives with a legacy IVR and leaves with a working ACXD
-application design plus the SDK code to create it.
+A web application for **delivery consultants** that turns a **customer journey** into a working
+Amazon Connect + **Agentic CX Designer (ACXD)** implementation on AWS.
 
-v1 scope: **Amazon Connect contact flow JSON exports plus the Amazon Lex bot export they
-reference** as the input, and a **demo/POC for stakeholders** as the output — the app
-produces a migration design and two downloadable artifacts, but does not write to
-anyone's live workspace.
+The consultant uploads a customer journey in **any form** (a diagram or slide deck, text, an IVR export, and
+later more). The app understands it, works out what must be built, and shows a **checklist** (a DynamoDB table?
+a Lambda? a contact flow? which ACXD resources? which hand-back attributes?). The consultant selects what the
+customer wants. The app then generates a **CloudFormation template** with the target identifiers as
+parameters (Connect instance ID, ACXD workspace ID, and so on). The consultant deploys the template with their
+own AWS credentials, and the resources exist for testing.
 
-**Both input files matter.** The contact flow holds routing and the intent branch names;
-the Lex bot holds the utterances, slot prompts, slot types, and synonyms. Flow-only
-input yields a routing skeleton with no conversational content — which is the entire
-thing ACXD exists to hold. Treat a referenced-but-missing bot export as a coverage gap,
-never as something to work around.
+The differentiator is that **ACXD resources are created too**: secrets, data requests, context variables,
+slot types, guardrails, flows and the application. ACXD has no import path and no native CloudFormation
+resource types (to our knowledge); its resources are created by ordered SDK `Create*` calls with an API key.
+So the template carries a **Lambda-backed custom resource** that calls the ACXD SDK in dependency order,
+idempotently, and handles stack deletion.
 
-**The output is two files, not an API call.** ACXD has no import path — resources are
-created by ordered `Create*` calls. So the app emits `migrate.ts` (the user runs it, with
-their own key, in their own terminal) and `contact-flow.json` (the user imports it in the
-Connect console). **The POC therefore needs no credentials of any kind** — getting an
-ACXD key is not on the critical path for M1–M4.
+**First version:** generate the template, the consultant deploys it. A later "deploy for me" option is out
+of scope for now.
+
+**Initial services:** ACXD, Amazon Connect (contact flow), DynamoDB, Lambda (plus IAM and Secrets Manager
+they need). Other backends and channels come later; do not hard-code the model to these.
+
+**First slice:** journey in, checklist out, using the **Census CQA demo** as the test case (diagram in
+`docs/cqa-demo/`, real built flows in `.claude/skills/ivr-to-acxd-migration/references/verified-exports/`).
+
+**Existing code:** the repo already has parsers for **Amazon Connect contact flow JSON plus the Lex bot
+export** (`Website/src/core/parse`, `design`, `emit`). Keep that as a second input path. When it is used, both
+files matter: a referenced-but-missing bot export is a coverage gap, never something to work around (see
+`SPEC.md`).
 
 ## The domain skill
 
-`.claude/skills/ivr-to-acxd-migration/` holds researched ACXD expertise: the full SDK
-surface, the IVR→ACXD mapping playbook, and the Connect-flow-to-ACXD bridge. **Consult it
-before writing any code that generates ACXD resources.** It is the source of truth for
-SDK shapes — prefer it over recalled knowledge of Lex, Dialogflow, or classic Connect,
-which have similar concepts and different schemas.
+`.claude/skills/ivr-to-acxd-migration/` holds the ACXD expertise. **Consult it before writing any code that
+generates ACXD, Connect or Lambda resources.** Start with:
+
+- `references/verified-console-and-export-findings.md`: **ground truth** for node behaviour and JSON shapes,
+  verified against a real workspace. It overrides the documentation-derived references where they differ.
+- `references/worked-example-census-cqa.md`: a full diagram-to-working-build migration with every
+  misconfiguration and fix, and pattern library P1 to P8, which the design and emit layers should reproduce.
+- `references/verified-exports/`: real flow, guardrail and Connect exports (sanitized), usable as fixtures.
+
+Prefer the skill over recalled knowledge of Lex, Dialogflow or classic Connect, which have similar concepts
+and different schemas.
 
 ## Hard constraints
 
-These are not style preferences. Violating them produces a tool that fails in ways users
-discover late and expensively.
+These are not style preferences. Violating them produces a tool that fails in ways users discover late and
+expensively.
 
-1. **Never hardcode or client-expose an ACXD API key.** Keys are
-   `acxd_live_<prefix>.<secret>` and carry full workspace access. They live in server-side
-   env vars only. No key in a React component, a published page, or a committed file.
-2. **Never invent undocumented ACXD schema.** Per-node `metadata` shapes,
-   `childNodes[].conditions` contents, and built-in slot type names are not published by
-   AWS. Where the emitter needs one, generate an explicit `// TODO(acxd-schema):` marker
-   with a note on what needs confirming. A plausible guess that fails at build time is
-   worse than a visible gap. See "Where the documentation stops" in the skill.
-3. **Never silently drop an unrecognized input block.** Any contact flow Action type the
-   parser doesn't handle becomes an `unknown` node in the model and surfaces in the UI's
-   coverage report. Silent omission means a migrated IVR is quietly missing behavior.
-   The same applies to the join between the two inputs: a bot reference that resolves to
-   nothing, an intent branch with no matching intent, or an intent the flow never reaches
-   is a `requiresReview` entry — never a guess and never a silent drop.
-4. **Never paraphrase compliance text.** Recording disclosures, consent language, and
-   regulated wording are copied byte-for-byte from source to output. If a transform would
-   alter them, flag for legal review instead.
-5. **Human review gate before any write.** No code path creates ACXD resources without an
-   explicit user confirmation step. This holds even after live emit ships in a later
-   milestone.
+1. **Never hardcode or client-expose an ACXD API key.** Keys are `acxd_live_<prefix>.<secret>` and carry full
+   workspace access. The app never stores one. In the generated template the key is a **`NoEcho` parameter**
+   that lands in **Secrets Manager**; the custom resource reads it at deploy time. No key in a React
+   component, a published page, a committed file or a generated template body.
+2. **Never invent undocumented ACXD schema.** Emit only node types and fields confirmed in the skill's
+   verified findings. For anything else (`user_choice`, `user_input`, `knowledge_base`, `define`, `transform`,
+   other state-modification operations, the `mask` guardrail action, the Connect Set voice block) generate an
+   explicit `// TODO(acxd-schema):` marker or a template-level note saying what must be confirmed. A plausible
+   guess that fails at deploy time is worse than a visible gap.
+3. **Never silently drop an unrecognized input element.** A journey step, branch, prompt or requirement the
+   app cannot map becomes a `requiresReview` entry in the checklist and the report. The same applies to the
+   Connect-flow/Lex join: a bot reference that resolves to nothing, an intent branch with no matching intent,
+   or an intent the flow never reaches is a `requiresReview` entry, never a guess and never a silent drop.
+4. **Never paraphrase compliance text.** Prompts, recording disclosures, consent language and regulated
+   wording are copied byte-for-byte from source to output, typos included. If a transform would alter them,
+   flag for review. Only the owner decides to correct wording.
+5. **Human review gate before anything is created.** The consultant reviews the checklist and the generated
+   template before deploying. No code path creates AWS or ACXD resources on its own. This holds even if a
+   "deploy for me" option ships later.
+6. **Hosting needs a backend.** The site will be hosted on S3/CloudFront (last step), which is static. Anything
+   that needs a secret (LLM calls for understanding a journey, any AWS call) must run behind a small backend
+   (API Gateway + Lambda), never in browser code.
 
 ## Conventions
 
-- TypeScript throughout, `strict: true`. The canonical model is the contract between
-  layers — type it precisely and derive from it, don't restate shapes.
-- Parsers are pure functions: `(sourceJson) => IvrModel`. No I/O, no LLM calls. This keeps
-  them unit-testable against fixtures.
-- LLM calls belong in the design layer only, never the parser or emitter. Parsing and code
-  generation must be deterministic and reproducible.
-- Every parser change ships with a fixture in `Website/src/core/fixtures/`.
-- Input field names carry `// TODO(source-schema):` where they're unverified against a
-  real export — the input-side sibling of `TODO(acxd-schema)`. Both formats are currently
-  written from documentation, not from a confirmed export.
+- TypeScript throughout, `strict: true`. The canonical model is the contract between layers: type it
+  precisely and derive from it, don't restate shapes.
+- Pipeline: `ingest` (any journey format to a **journey model**) → `design` (journey model to a plan and
+  checklist; LLM calls allowed **here only**) → `emit` (plan plus selections to a CloudFormation template; fully
+  deterministic and reproducible). The existing Connect/Lex parsers are pure functions `(sourceJson) => IvrModel`
+  and stay that way.
+- The LLM output is **structured and validated**; unmapped content becomes `requiresReview`, never a guess.
+- Every parser, mapper or emitter change ships with a fixture or test. The Census CQA journey and exports are
+  the primary fixtures.
+- Input field names carry `// TODO(source-schema):` where they are unverified against a real export. Output
+  schema gaps carry `// TODO(acxd-schema):`.
 
 ## Working notes
 
-- Amazon Connect contact flow JSON structure **and the Lex V2 export layout** are written
-  from documentation and **need verifying against real exports** before the parsers are
-  trusted. Getting one real exported flow plus its bot export is an early, cheap,
-  high-value task.
-- Lex has two export formats in the wild: **V2** (a ZIP — `Manifest.json`, `Bot.json`,
-  `BotLocales/<locale>/Intents/<name>/Intent.json`) and **V1** (a single flat JSON with
-  `resource.intents[]`). Detect and support both; don't assume V2.
-- The single highest-leverage unblock for the whole project is one `GetFlow` response from
-  a real ACXD workspace containing a `user_choice`, `data_request`, and `knowledge_base`
-  node. That resolves constraint #2 for the entire emitter. Ask about it rather than
-  working around it indefinitely.
+- The ACXD flow JSON for `start`, `basic`, `escalate`, `redirect`, `loop`, `split`, `data_request`,
+  `generative_text` and `generative_journey` nodes is now **confirmed** from four real flows. Still unconfirmed:
+  the nodes listed in constraint #2, and export shapes for applications, data requests, slot types and context
+  variables. Asking for one export of each is the fastest way to close the remaining gaps.
+- Amazon Connect contact flow JSON for the Agentic CX block is confirmed. The CloudFormation resource for a
+  Connect contact flow and whether it accepts the Agentic CX block are **not yet verified**: confirm before the
+  emitter relies on them.
+- Lex has two export formats in the wild: **V2** (a ZIP: `Manifest.json`, `Bot.json`,
+  `BotLocales/<locale>/Intents/<name>/Intent.json`) and **V1** (a single flat JSON with `resource.intents[]`).
+  Detect and support both; don't assume V2.
+- Spanish (language detection and switching in an ACXD-only design) is unverified. French is deferred.
+- The website's look and feel is being redone by the owner; the logic here is attached to the new UI later,
+  then hosted on S3/CloudFront.

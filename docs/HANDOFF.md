@@ -1,5 +1,8 @@
 # EDITH Handoff: where we are (2026-11-09)
 
+> Update (same day): the product direction changed. `CLAUDE.md` now describes a journey-in, CloudFormation-out
+> app for delivery consultants; the first slice is journey in, checklist out, with the Census CQA demo as the test case.
+
 Fresh handoff. It replaces the earlier "ACXD Implementation Handoff" doc, whose open questions are now
 answered. Read this, then `CLAUDE.md`, then the skill (`.claude/skills/ivr-to-acxd-migration/`).
 
@@ -56,13 +59,13 @@ State of the Census build (from the user's reports and screenshots):
 | `parse` | A real Connect contact flow (Agentic CX block, attribute mapping, queue transfer); real guardrail and flow exports. Candidate **fixtures** (already sanitized in `verified-exports/`) |
 | `model` | Needs nodes for: routing intent, list selection, free-form capture, data request with response check, retry loop, escalation with context |
 | `design` | Pattern library P1 to P8 as the target designs for IVR constructs (menu, capture, data dip, retry, agent transfer) |
-| `emit` | Contact-flow JSON for P1 is possible now; `migrate.ts` for guardrails and resources is documented; flow nodes beyond start/basic/escalate need `TODO(acxd-schema)` markers until exports arrive |
+| `emit` | Contact-flow JSON for P1 is possible now; `migrate.ts` for guardrails and resources is documented; flow nodes for start, basic, escalate, redirect, loop, split, data_request, generative_text and generative_journey are now emittable from confirmed shapes; other node types need `TODO(acxd-schema)` markers |
 
 ## 5. Open items and what is blocked
 
-1. **Flow exports of the working flows** (`CQAInboundDemo`, `Authentication`) from the Census workspace.
-   They contain a Journey, Loop, Split, Data request and Redirect, and would close most of the "still unknown"
-   list in the skill. This is the single highest-value unblock.
+1. ~~Flow exports of the working flows~~ **Received (2026-11-09)** and saved in `verified-exports/`. They confirm
+   the JSON for `redirect`, `loop`, `split`, `data_request`, `generative_text`, `generative_journey` and the
+   `stateModifications` shapes. Remaining export gaps are listed in the verified-findings file.
 2. Spanish: language detection and switching in ACXD, voice per language, translations. Unverified.
 3. Real phone test, and the Connect Set voice block JSON.
 4. Incomprehension threshold: the console location and value (3) were not confirmed on a screen.

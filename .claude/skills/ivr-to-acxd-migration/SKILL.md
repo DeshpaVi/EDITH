@@ -181,10 +181,12 @@ confirming against the workspace.
 **Resolved by real exports and console checks** (details and sources in
 `references/verified-console-and-export-findings.md`, sanitized exports in `references/verified-exports/`):
 
-- The **flow export JSON** for `start`, `basic` and `escalate` nodes, including the one confirmed
-  `childNodes[].conditions` object (`node_status` eq `continuation`).
+- **Flow JSON** for `start`, `basic`, `escalate`, `redirect`, `loop`, `split`, `data_request`, `generative_text`
+  and `generative_journey` nodes, including every `childNodes[].conditions` shape (node status, variable test,
+  Journey exit index) and the `stateModifications` item shapes (`set` on context, `clear` on slot).
 - **Built-in slot types**: `NLX.Name`, `NLX.Number`, `NLX.Ordinal`, `NLX.AlphaNumeric`,
-  `NLX.PhoneNumber`, `NLX.Text`, `NLX.Time`, and `Freeformtext`.
+  `NLX.PhoneNumber`, `NLX.Text`, `NLX.Time`, and `Freeformtext`; value syntax `{slot:Type}`,
+  `{var:NLX.Local}`, `{System.transcript:NLX.System}`.
 - **Guardrail JSON** and action names `modify`, `flag`, `route`.
 - The **Connect contact flow JSON** for the Agentic CX block and the hand-back attribute mapping.
 - How **User input**, **User choice**, **Generative Journey**, **Loop**, **Split**, **Redirect**, **Escalate**
@@ -192,15 +194,12 @@ confirming against the workspace.
 
 **Still unknown, do not invent:**
 
-- Per-node `metadata` for every node type except `start`, `basic`, `escalate`.
-- `childNodes[].conditions` for every node type except `escalate`; the item shape of `stateModifications`.
-- Flow export JSON for Journey, Loop, Split, Data request and Redirect nodes.
-- The `mask` guardrail action; Knowledge base, Define and Transform node behaviour.
+- Flow JSON for `user_choice`, `user_input`, `knowledge_base`, `define`, `transform`, `multimodal`,
+  `intent_capture`, `application_handoff`, `wait` and `end` nodes.
+- Other `stateModifications` operations; other Split/Loop variants; the `mask` guardrail action.
 - Language detection and switching for Spanish in an ACXD-only design.
 - The Connect Set voice block JSON.
-
-The next unblocker is one **flow export** that contains a Generative Journey, Loop, Split, Data request and
-Redirect (the `CQAInboundDemo` and `Authentication` flows from the Census workspace would do).
+- Export shapes for applications, data requests, slot types and context variables (only flows and guardrails so far).
 
 ## Working method (proven on a real migration)
 

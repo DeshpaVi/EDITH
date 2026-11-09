@@ -48,14 +48,33 @@
       "messages": [],
       "modalities": {},
       "metadata": {
-        "stateModifications": [],
+        "stateModifications": [
+          {
+            "type": "context",
+            "name": "transferSummary",
+            "modification": "set",
+            "value": {
+              "type": "constant",
+              "value": "Safety escalation: the caller expressed a threat of harm or a safety concern. Handle with care; the caller was given 911 and 988 information."
+            }
+          },
+          {
+            "type": "context",
+            "name": "customerIntent",
+            "modification": "set",
+            "value": {
+              "type": "constant",
+              "value": "safety"
+            }
+          }
+        ],
         "name": ""
       },
       "canvasMetadata": {
         "x": 74.66666666666666,
         "y": -187.66666666666669,
         "width": 240,
-        "height": 129,
+        "height": 201,
         "isMinimized": false
       }
     },
