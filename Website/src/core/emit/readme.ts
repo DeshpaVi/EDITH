@@ -93,7 +93,13 @@ export function renderReadme(i: ReadmeInput): string {
     L.push(
       `${step++}. Seed the respondent table with real or demo records (one item per respondent; every identifier is a string attribute):`,
       ...(i.console
-        ? [`   DynamoDB console, Tables, ${i.tableName ?? 'RespondentRecords'}, Explore table items, Create item. Add a string attribute for each of: ${fields.join(', ')}.`]
+        ? [
+            `   DynamoDB console, Tables, ${i.tableName ?? 'RespondentRecords'}, Explore table items, Create item. The table starts empty and DynamoDB has no fixed columns: attributes appear when an item has them.`,
+            '   Switch to JSON view with "View DynamoDB JSON" on, and paste (demo values; use real ones only in an account where that is allowed):',
+            '   ```json',
+            ...JSON.stringify(item, null, 2).split('\n').map((l) => `   ${l}`),
+            '   ```',
+          ]
         : ['   ```bash', `   aws dynamodb put-item --table-name ${i.tableName ?? 'RespondentRecords'} --item '${JSON.stringify(item)}'`, '   ```']),
       '',
     )

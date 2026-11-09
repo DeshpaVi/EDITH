@@ -322,6 +322,7 @@ describe('console mode (deployed by hand in the CloudFormation console)', () => 
     expect(readme).toContain('Deploy in the CloudFormation console')
     expect(readme).toContain('AcxdApiKeySecretArn')
     expect(readme).toContain('Explore table items')
+    expect(readme).toContain('"S": "<')
     expect(readme).not.toContain('aws cloudformation package')
     expect(readme).not.toContain('deployed from the tool')
   })
