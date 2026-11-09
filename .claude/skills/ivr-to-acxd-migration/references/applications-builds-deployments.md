@@ -129,6 +129,9 @@ all its builds and deployments*. No response body. Errors: `ValidationException`
 - **`defaultFlows`** — flow assignments for system events, each
   `{ "flowId": "...", "quickReplies": [...] }` (quickReplies optional except where noted):
   - `welcome` — triggered on conversation start.
+  - *(Console note, verified: the console's default behaviours are Welcome, Fallback = integration/state
+    failure, Unknown = reply matches no flow, Incomprehension = max incomprehension count reached; there is no
+    separate Escalation default. Map "N misses then agent" to Incomprehension.)*
   - `fallback` — triggered when no intent matches. **This is your IVR "invalid entry"
     equivalent.**
   - `unknown` — triggered on unknown input; supports `knowledgeBaseId` to answer from a

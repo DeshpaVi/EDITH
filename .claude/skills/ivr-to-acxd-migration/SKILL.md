@@ -96,15 +96,18 @@ need all five steps spelled out in the reply.
    - DTMF menu choice → a `user_choice` node backed by a Slot Type whose values carry
      `choicePayload`, **or** an `intent_capture`/NLU-first design if you're upgrading past
      strict digit parity — decide this deliberately and say which you chose and why.
-   - Free-form / account-number / PIN capture → a `user_input` node with an Attached Slot
-     (`sensitive: true`, optional `regex`).
+   - Free-form / account-number / PIN capture → **a Generative Journey with Data capture** (slot
+     `sensitive`, optional `regex`), followed by a `data_request`. **Not** a `user_input` node: in the
+     real console User input is a *routing* node, and User choice cannot capture free-form values
+     (verified; see `references/verified-console-and-export-findings.md`).
    - Backend data dip → a Data Request (webhook) invoked from a `data_request` node.
    - Transfer to queue/agent → an `escalate` node (or `application_handoff` to hand off to
      another ACXD application).
    - Static FAQ/compliance readout → a `basic` node (fixed message), or a
      `knowledge_base` node if the content should stay dynamic/versioned outside a redeploy.
    - Repeat / no-input / no-match handling → `application.settings.thresholds
-     .incomprehensionCount` + `repeatOnIncomprehension` + `defaultFlows.fallback`/`.repeat`.
+     .incomprehensionCount` + `repeatOnIncomprehension` + the **Incomprehension** default behaviour (the console's name for
+     "max misses reached"; **Fallback** there means an integration/state failure).
    - Global "agent" command / stop-words → a `guardrail` with `trigger: "input"` and
      `enforcement.action: "route"` — not logic re-implemented in every node.
    - Branch on hours-of-operation/queue state → a `data_request` feeding a `choice`/
@@ -158,7 +161,7 @@ Infer this from the request rather than defaulting to everything every time:
 
 - Keep voice prompts short — a `basic` node message that reads fine on screen often
   doesn't over a call. Flag prompts trying to do too much in one turn.
-- Every `user_input`/`user_choice` node needs a plan for no-input, no-match, and "I want a
+- Every capture or choice node needs a plan for no-input, no-match, and "I want a
   human." Don't leave these to silent platform defaults — say what happens.
 - Sensitive capture (`sensitive: true` on a slot, `isSensitive` on a modality field)
   should pair with masking/guardrail coverage on the output side too — capturing PII
@@ -170,35 +173,50 @@ Infer this from the request rather than defaulting to everything every time:
 
 ## Where the documentation stops (do not fill these in from memory)
 
-Some shapes are genuinely not specified in the ACXD docs. They're easy to write
-confidently and wrongly, because they look like fields from Lex, Dialogflow, or classic
-Connect — platforms with similar concepts and different schemas. When a task needs one of
-these, write the parts that *are* documented, leave the undocumented part clearly marked,
-and say plainly that the shape needs confirming against the workspace (a `GetFlow` call
-on an existing flow built in the Canvas is the fastest way to see the real structure).
-Being visibly uncertain here is far more useful than a plausible invention the user only
-discovers at build time.
+Some shapes are not specified in the ACXD docs. They are easy to write confidently and wrongly, because
+they look like fields from Lex, Dialogflow, or classic Connect. When a task needs one of these, write the
+parts that *are* known, leave the rest clearly marked (`TODO(acxd-schema)`), and say plainly that it needs
+confirming against the workspace.
 
-The known gaps:
+**Resolved by real exports and console checks** (details and sources in
+`references/verified-console-and-export-findings.md`, sanitized exports in `references/verified-exports/`):
 
-- **Per-node `metadata`.** Documented only as free-form and node-type-dependent —
-  "contains configuration like `generativeText`, `choice`, `redirect`, `knowledgeBase`,
-  `loop`, `multimodal`, `stateModifications`, `tags`, `name`, `timeout`". The field names
-  *inside* those objects are not published. So don't write `metadata.choice.slotTypeId`
-  or similar as if it were known.
-- **`childNodes[].conditions`.** The array is documented; the condition objects inside it
-  are not. (Note the Roles condition-catalog syntax in
-  `workspace-admin-and-governance.md` is a *different* system — don't assume flow-node
-  conditions reuse it.)
-- **Built-in slot types.** Slot Types docs cover custom ones only. Whether ACXD ships
-  `AMAZON.*`-style built-ins, and under what names, isn't stated — so an attached slot's
-  `type` referencing a built-in is a guess unless the user confirms it.
-- **How a `user_choice` node binds to its slot type**, and how `choicePayload` surfaces at
-  runtime. The pieces are documented separately; the wiring between them is not.
+- The **flow export JSON** for `start`, `basic` and `escalate` nodes, including the one confirmed
+  `childNodes[].conditions` object (`node_status` eq `continuation`).
+- **Built-in slot types**: `NLX.Name`, `NLX.Number`, `NLX.Ordinal`, `NLX.AlphaNumeric`,
+  `NLX.PhoneNumber`, `NLX.Text`, `NLX.Time`, and `Freeformtext`.
+- **Guardrail JSON** and action names `modify`, `flag`, `route`.
+- The **Connect contact flow JSON** for the Agentic CX block and the hand-back attribute mapping.
+- How **User input**, **User choice**, **Generative Journey**, **Loop**, **Split**, **Redirect**, **Escalate**
+  and **Data request** behave in the console (several differ from the documentation-derived notes).
 
-The rest of the SDK — every operation's inputs, outputs, and errors — is well specified
-in the reference files, so this caution applies narrowly to the items above, not as a
-general hedge on ACXD code.
+**Still unknown, do not invent:**
+
+- Per-node `metadata` for every node type except `start`, `basic`, `escalate`.
+- `childNodes[].conditions` for every node type except `escalate`; the item shape of `stateModifications`.
+- Flow export JSON for Journey, Loop, Split, Data request and Redirect nodes.
+- The `mask` guardrail action; Knowledge base, Define and Transform node behaviour.
+- Language detection and switching for Spanish in an ACXD-only design.
+- The Connect Set voice block JSON.
+
+The next unblocker is one **flow export** that contains a Generative Journey, Loop, Split, Data request and
+Redirect (the `CQAInboundDemo` and `Authentication` flows from the Census workspace would do).
+
+## Working method (proven on a real migration)
+
+`references/worked-example-census-cqa.md` records a full diagram-to-working-build migration, including every
+misconfiguration and its fix, and a pattern library (P1 to P8) the design and emit layers should reproduce.
+The method, in short:
+
+1. Render and read the whole input; restate the requirement before proposing config.
+2. Say what is documented and what is not; ask for the unblocking export instead of guessing.
+3. Ask only the questions that change the design, and record the answers.
+4. Map elements to constructs, then build in dependency order: data store and backend, secrets and
+   data requests, context variables, slots, flows, application defaults, build, test, Connect.
+5. One step at a time with a screenshot or Debugger check after each; do not stack unconfirmed steps.
+6. Diagnose with the Debugger (data request in/out, condition evaluated), not by theory.
+7. When the console contradicts these references, trust the console and update the skill.
+8. Copy client wording byte for byte; never fix a typo or paraphrase compliance text on your own.
 
 ## Error handling
 
@@ -237,5 +255,11 @@ Load only what the task needs:
 - `references/live-sync-and-touchpoint.md` — Live Sync Scripts and the Touchpoint web
   widget, for the web chat/voice-on-a-webpage side of omnichannel migrations (distinct
   from phone IVR).
+- `references/verified-console-and-export-findings.md` — **Start here for exact behaviour.** What the console
+  nodes really do, real export JSON shapes, Connect block JSON, built-in slot types, default behaviours,
+  Debugger usage, and corrections to the other reference files. Sanitized real exports are in
+  `references/verified-exports/`.
+- `references/worked-example-census-cqa.md` — A complete worked migration (diagram, requirements, build order,
+  every misconfiguration and fix, pattern library P1 to P8, test results, open items).
 - `references/migration-playbook.md` — The full IVR→ACXD mapping table, containment/
   escalation config recipes, and a worked before/after example.

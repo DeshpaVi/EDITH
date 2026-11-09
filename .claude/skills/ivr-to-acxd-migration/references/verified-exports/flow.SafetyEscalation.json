@@ -1,0 +1,110 @@
+{
+  "flowId": "SafetyEscalation",
+  "nodes": {
+    "2b5f771d-3db5-4306-93a1-004eeac0b1eb": {
+      "nodeId": "2b5f771d-3db5-4306-93a1-004eeac0b1eb",
+      "childNodes": [
+        {
+          "nodeId": "9ec1b51b-943c-4990-b840-b2a125757095",
+          "name": "",
+          "conditions": []
+        }
+      ],
+      "type": "start",
+      "messages": [],
+      "modalities": {},
+      "metadata": {
+        "stateModifications": [],
+        "name": ""
+      },
+      "canvasMetadata": {
+        "x": -400,
+        "y": -300,
+        "width": 240,
+        "height": 138,
+        "isMinimized": false
+      }
+    },
+    "87e20e1f-7838-42a0-a03f-9e00c544ddd5": {
+      "nodeId": "87e20e1f-7838-42a0-a03f-9e00c544ddd5",
+      "childNodes": [
+        {
+          "name": "",
+          "conditions": [
+            {
+              "left": {
+                "type": "node_status"
+              },
+              "operator": "eq",
+              "right": {
+                "type": "constant",
+                "value": "continuation"
+              }
+            }
+          ]
+        }
+      ],
+      "type": "escalate",
+      "messages": [],
+      "modalities": {},
+      "metadata": {
+        "stateModifications": [],
+        "name": ""
+      },
+      "canvasMetadata": {
+        "x": 74.66666666666666,
+        "y": -187.66666666666669,
+        "width": 240,
+        "height": 129,
+        "isMinimized": false
+      }
+    },
+    "9ec1b51b-943c-4990-b840-b2a125757095": {
+      "nodeId": "9ec1b51b-943c-4990-b840-b2a125757095",
+      "childNodes": [
+        {
+          "nodeId": "87e20e1f-7838-42a0-a03f-9e00c544ddd5",
+          "name": "",
+          "conditions": []
+        }
+      ],
+      "type": "basic",
+      "messages": [
+        {
+          "messageId": "092f261d-e4af-4eaa-bec2-09961fc9b2a4",
+          "body": "I'm concerned about what you've shared.\nIf you or someone else may be in immediate danger, call 911 right away.\nIf you are thinking about harming yourself or need emotional support, call or text 988, the Suicide & Crisis Lifeline, for immediate assistance.\nI'm going to connect you with a Census representative for additional assistance.",
+          "type": "text",
+          "skipTranslation": false,
+          "metadata": {
+            "alternatePhrasings": []
+          }
+        }
+      ],
+      "modalities": {},
+      "metadata": {
+        "stateModifications": [],
+        "name": ""
+      },
+      "canvasMetadata": {
+        "x": -400,
+        "y": -162,
+        "width": 240,
+        "height": 307,
+        "isMinimized": false
+      }
+    }
+  },
+  "description": "",
+  "aiDescription": "",
+  "untrained": true,
+  "slotTypes": [],
+  "metadata": {
+    "path": "",
+    "tags": []
+  },
+  "mainLanguageCode": "en-US",
+  "languageCodes": [
+    "en-US"
+  ],
+  "mirroring": "none"
+}

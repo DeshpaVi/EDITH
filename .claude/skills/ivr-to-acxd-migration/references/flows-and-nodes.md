@@ -244,10 +244,12 @@ concepts — cross-reference with `migration-playbook.md` for the full table:
   greeting hook and final disposition.
 - **`basic`** — a static prompt/announcement (`messages` array). Direct equivalent of an
   IVR "play prompt" block.
-- **`user_input`** — free-form capture (paired with an Attached Slot). Equivalent of an
-  IVR "collect digits" block when the slot has a `regex`, or a full NLU capture otherwise.
-- **`user_choice`** — menu-style capture, typically slot-type-backed with
-  `choicePayload` per value. Direct equivalent of a DTMF menu.
+- **`user_input`** — **verified in the console: a routing node** ("capture the user response to invoke a
+  flow based on routing data"; exits Flow recognized / No flow recognized). It does **not** capture
+  slots. For free-form capture use a `generative_journey` node with Data capture.
+- **`user_choice`** — menu-style **selection**: `Options` (a slot with values) plus `Additional slots`; exits
+  Match / No match; needs a message; all slots on it must have different types. Equivalent of a DTMF menu.
+  It never waits when Options is empty and a free-form answer never matches, so it is not for IDs or PINs.
 - **`choice`** / **`split`** — branching logic without waiting on new user input.
   Equivalent of IVR branch-on-variable (hours of operation, account status, etc.).
 - **`data_request`** — invokes a Data Request (webhook). Equivalent of an IVR "data dip."
@@ -265,6 +267,9 @@ concepts — cross-reference with `migration-playbook.md` for the full table:
 - **`knowledge_base`** — answers grounded in a published Knowledge Base. Use this instead
   of `basic` for IVR content that changes often (hours, promotions, policy text) so
   content owners can update it without a flow redeploy.
+- **`generative_journey`** (console: Generative Journey) — also the verified node for **free-form slot capture**
+  (Data capture, Required, "Exit when complete") and for **FAQ with a knowledge-base tool** with named exit
+  conditions that hand off to other flows via Redirect. See `verified-console-and-export-findings.md`.
 - **`generative_text`** / **`generative_task`** / **`generative_journey`** — LLM-driven
   response/task/multi-step journey generation. Use where the legacy script was rigid but
   the use case tolerates more natural phrasing; pair with a guardrail since output is less

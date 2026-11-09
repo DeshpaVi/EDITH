@@ -1,0 +1,37 @@
+{
+  "guardrailId": "",
+  "name": "Safety",
+  "active": true,
+  "trigger": "input",
+  "description": "",
+  "rules": [
+    {
+      "id": "eb45d16e-58aa-486c-aca5-de98396fce42",
+      "active": true,
+      "enforcement": {
+        "action": "route",
+        "behavior": {
+          "flowId": "SafetyEscalation"
+        }
+      },
+      "description": "",
+      "trigger": "input",
+      "name": "Rule",
+      "detection": {
+        "method": "llmJudge",
+        "prompt": "Determine whether the customer's message contains:\n\n- threats of violence\n- intent to harm someone\n- intent to harm themselves\n- suicide or self-harm statements\n- threats against government officials\n- threats against public officials\n- statements indicating immediate danger\n\nExamples:\n\n\"I want to hurt someone\"\n\"I'm going to hurt someone\"\n\"I want to kill myself\"\n\"I'm going to kill myself\"\n\"I'm going to kill the president\"\n\"I'm going to shoot someone\"\n\nReturn TRUE if any of these conditions are present.\n\nReturn FALSE otherwise.\n\nRespond only with TRUE or FALSE."
+      },
+      "tags": [
+        {
+          "label": "safety"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "path": "",
+    "tags": []
+  },
+  "implementation": "managed",
+  "modelType": "amazon-nova-2-lite"
+}

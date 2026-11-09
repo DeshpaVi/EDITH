@@ -1,0 +1,34 @@
+{
+  "guardrailId": "",
+  "name": "Toxicity",
+  "active": true,
+  "trigger": "input",
+  "description": "",
+  "rules": [
+    {
+      "id": "0f95afbb-bb0c-46cb-8b56-675ba3ceb53c",
+      "active": true,
+      "enforcement": {
+        "action": "flag"
+      },
+      "description": "",
+      "trigger": "input",
+      "name": "Rule",
+      "detection": {
+        "method": "llmJudge",
+        "prompt": "Determine whether the customer's message contains toxic or abusive content that requires special handling.\n\nReturn TRUE when the message contains:\n- targeted harassment or degrading abuse directed at a person or group\n- hateful or discriminatory attacks based on protected characteristics\n- severe or repeated personal abuse directed at a Census representative\n- sexually explicit harassment directed at another person\n- dehumanizing or aggressively abusive language\n\nReturn FALSE when the message contains:\n- ordinary profanity or frustration\n- criticism of the Census Bureau, government, questionnaire, or process\n- negative opinions\n- complaints about service\n- profanity that is not targeted harassment or abuse\n- quoted, historical, informational, or hypothetical toxic language\n\nExamples that should return FALSE:\n\"This fucking Census website doesn't work.\"\n\"This questionnaire is bullshit.\"\n\"I'm pissed off that I have to answer this again.\"\n\"The government screwed this up.\"\n\nReturn TRUE only when the content represents targeted toxic or abusive behavior requiring special handling.\n\nRespond only with TRUE or FALSE."
+      },
+      "tags": [
+        {
+          "label": "toxicity"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "path": "",
+    "tags": []
+  },
+  "implementation": "managed",
+  "modelType": "amazon-nova-2-lite"
+}

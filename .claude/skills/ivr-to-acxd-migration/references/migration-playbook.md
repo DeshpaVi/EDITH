@@ -31,17 +31,17 @@ published.
 | Static announcement / prompt | `basic` node (`messages`) | Use as-is for wording that must stay exact (legal, compliance). |
 | DTMF menu ("press 1 for billing...") | `user_choice` node + Slot Type with `choicePayload` per value | One value per digit; `choicePayload` carries the old routing intent. |
 | DTMF menu, being upgraded to NLU | `intent_capture` node | Deliberate design upgrade, not a default — say so explicitly. |
-| Free-form digit capture (account #, PIN) | `user_input` node + Attached Slot with `regex`, `sensitive: true` | Keep the same validation regex the IVR used where possible. |
+| Free-form digit capture (account #, PIN, Census ID) | **Generative Journey** with Data capture (slot `regex`, `sensitive`), then a `data_request` + `split` | `user_input` is a routing node and `user_choice` cannot capture free-form values (verified). See pattern P4 in `worked-example-census-cqa.md`. |
 | Backend lookup / data dip | Data Request (webhook) → `data_request` node | `sensitive: true` on the Data Request if the payload includes PII. |
 | Branch on account status / hours-of-operation / queue depth | `data_request` node feeding a `choice`/`split` node | Same two-step shape regardless of what's being checked. |
-| Transfer to agent/queue | `escalate` node | Pair with `defaultFlows.escalation` at the application level for the global "0 for an agent" case. |
+| Transfer to agent/queue | `escalate` node (returns control to Connect via the Escalation branch) | Set hand-back context with state modifications; Connect maps them to contact attributes. The console has no "Escalation" default behaviour: route Incomprehension and Fallback to an escalation flow. |
 | Transfer to a different IVR application/module | `application_handoff` node | Use when decomposing one large legacy IVR into several ACXD applications. |
 | Submenu / "go back" navigation | `redirect` node between flows, or nested `user_choice` nodes within one flow | Prefer separate flows once a submenu has its own significant logic — keeps individual flows readable. |
 | Repeat prompt ("press * to repeat") | `defaultFlows.repeat` | Application-level, not per-node. |
-| Invalid entry / no-match | `defaultFlows.fallback` + `thresholds.incomprehensionCount` | Set the threshold deliberately — this is your "max invalid attempts." |
+| Invalid entry / no-match | **Incomprehension** default behaviour + `thresholds.incomprehensionCount` | Set the threshold deliberately. In the console, **Fallback** is for integration/state failures, not repeated misses. Bounded retries inside a flow use a Loop Range (`To` is inclusive). |
 | No input (silence timeout) | `conversationTTL` (session-level) + `repeatOnIncomprehension` | `conversationTTL` is the outer session bound; per-turn silence handling is closer to `repeatOnIncomprehension`. |
 | Compliance/recording disclosure | `basic` node with exact legal wording, or a `guardrail` with `trigger: "output"` if it must appear even when other flow paths change | Treat wording changes as a compliance review item, not a copy edit. |
-| PCI-scope payment collection | `user_input` node, Attached Slot `sensitive: true`, plus a masking `guardrail` on `trigger: "input"` and/or `"output"` | The IVR likely relied on carrier/network-level PCI segmentation ACXD doesn't have automatically — guardrails are the replacement. |
+| PCI-scope payment collection | Generative Journey data capture, slot `sensitive: true`, plus a masking `guardrail` on `trigger: "input"` and/or `"output"` | The IVR likely relied on carrier/network-level PCI segmentation ACXD doesn't have automatically — guardrails are the replacement. |
 | Multi-language IVR | `mainLanguageCode` + `languageCodes` on app/flow, `languageSettings[].voice` per language | Confirm every legacy locale has a matching BCP-47 code (see common types). |
 | Static FAQ content (hours, address, policy) | `basic` node (rarely-changing) or `knowledge_base` node (frequently-changing) | Move to a KB whenever content owners update it more than once a quarter. |
 | Sentiment-triggered escalation (rare in legacy IVR) | `defaultFlows.frustration` | New capability — flag as a design upgrade, not a like-for-like mapping. |
