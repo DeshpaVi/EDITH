@@ -57,6 +57,7 @@ export function Shell({ page, children }: { page: PageId; children: ReactNode })
         <div className="ax-side-foot">
           Held in this tab only; nothing is stored or sent until you deploy.<br />
           <a href="#/">Back to the site</a>
+          {import.meta.env.VITE_AUTH === 'cognito' && <> · <a href="/auth/logout">Sign out</a></>}
         </div>
       </aside>
 

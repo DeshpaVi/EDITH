@@ -1,43 +1,59 @@
 # Hosting the website (S3 + CloudFront, with a login)
 
-`site.template.json` creates, in one stack:
-- a **private** S3 bucket (public access blocked; only CloudFront can read it, through an origin access control),
-- a CloudFront distribution (HTTPS only, HTTP/2 and 3, security headers),
-- a **CloudFront Function** that asks for a login id and password before anything is served (HTTP Basic authentication).
+Two options, same bucket-and-CloudFront layout (the S3 bucket is private; only CloudFront can read it, HTTPS only, security headers):
 
-## Deploy (about 5 minutes)
+| | Cognito sign-in (default) | Shared username and password |
+|---|---|---|
+| Template | `site-cognito.template.json` | `site.template.json` |
+| Users | individual accounts, emailed temporary password, optional authenticator-app MFA | one shared login |
+| Use for | the real thing, and the demo if you can wait for the email | a quick demo |
 
-On a machine with Node 20+, the AWS CLI and AWS credentials that can create S3, CloudFront and CloudFormation resources:
+## Cognito sign-in
+
+How it works: CloudFront runs a small **CloudFront Function** on every request. It lets the request through only if it carries a valid signed session cookie; otherwise it sends the browser to `/auth/login`. `/auth/*` is served by a small **Lambda** that runs the Amazon Cognito Hosted UI sign-in (authorization code flow with PKCE), checks the result, and issues the session cookie (HttpOnly, Secure, signed with a key, 8 hours by default). Nothing but the Cognito user id is kept in the cookie; tokens are never stored or logged.
+
+Deploy (Node 20+, AWS CLI, openssl, credentials that can create S3, CloudFront, Cognito, Lambda, IAM, SSM and CloudFormation resources):
 
 ```bash
 cd Website
-SITE_USERNAME=demo SITE_PASSWORD='choose-a-long-password' ./hosting/deploy-site.sh
+ADMIN_EMAIL=you@company.com DOMAIN_PREFIX=journeyforge-yourco ./hosting/deploy-site.sh
 ```
 
-It builds the site (`npm ci && npm run build`), creates or updates the stack `journeyforge-site`, uploads `dist/` and invalidates the cache.
-The last line prints the address (`https://dxxxxxxxx.cloudfront.net`). Opening it shows the browser's login prompt.
-Without the two variables the script asks for them. `STACK` and `AWS_REGION` (default `us-east-1`) can be overridden.
+- `ADMIN_EMAIL` is the first user. Cognito emails it a temporary password; the first sign-in asks for a new one (12+ characters, mixed case, a digit and a symbol).
+- `DOMAIN_PREFIX` becomes `<prefix>.auth.<region>.amazoncognito.com`. It must be unique in the region and must not contain "aws", "amazon" or "cognito".
+- The script builds the site, creates a small packaging bucket on first use (`journeyforge-pkg-<account>-<region>`), deploys the stack `journeyforge-site`, uploads `dist/`, invalidates the cache and prints the address.
+- **Add users:** Cognito console, User pools, `journeyforge-site-users`, Create user; or
+  `aws cognito-idp admin-create-user --user-pool-id <UserPoolId output> --username them@company.com --user-attributes Name=email,Value=them@company.com Name=email_verified,Value=true`.
+  Nobody can sign themselves up.
+- **MFA:** optional. A user turns on an authenticator app after signing in through the Cognito page; to require it, set the pool's MFA to Required in the console.
+- **Remove a user or lock everyone out:** disable or delete them in Cognito; their cookie still works until it expires (8 hours by default; `SESSION_HOURS`). To cut every session at once, run the script again: each deploy makes a new session key.
+- **Sign out:** the workspace sidebar has a "Sign out" link when built by this script.
+- Region: any region that has Cognito. CloudFront itself is global.
 
-## The login id and password
+What to know:
+- Not run against real AWS yet. The pieces are tested separately (the sign-in Lambda and the session check function, 9 tests; the template for broken references and circular dependencies), but not the Cognito Hosted UI round trip or CloudFront behaviour. Expect to fix small things on the first deploy. `AuthInvokePermission` carries a `TODO(aws-schema)`.
+- The session key is a `NoEcho` parameter, but it is written into the CloudFront Function and the Lambda settings, so anyone with read access to those in that account can read it and could forge a session. Restrict the stack to the people who should have that.
+- The `/auth/*` Lambda has a public Function URL (it is only reachable through CloudFront by design, but the URL itself is not secret). It holds no secret that helps an attacker: the state and verifier live in the visitor's own cookie.
+- The Cognito pool, users included, is deleted with the stack.
+- Emails use Cognito's built-in sender (a small daily limit). Fine for a demo; use SES for more.
+- After signing in the browser lands on the landing page, not on the page that was requested (the `#/app/...` part does not survive the sign-in round trip).
 
-- They are the stack parameters `SiteUsername` (3 to 32 letters, digits, `.`, `_`, `-`) and `SitePassword` (12 to 64 characters, `NoEcho`).
-- **Change the password:** run the script again with a new `SITE_PASSWORD`; the function updates in place. Every visitor is asked again.
-- **Several people:** share the one login for a demo, or extend the function (compare against a few `Basic ...` values). For individual accounts use the next option.
-- A browser remembers the login for the session. To log out, close the browser or use a private window.
+## Shared username and password
 
-## What this protects, and what it does not
+```bash
+AUTH=basic SITE_USERNAME=demo SITE_PASSWORD='choose-a-long-password' ./hosting/deploy-site.sh
+```
 
-Good enough for a controlled demo with management. It is **not** a user system:
-- one shared credential, no individual accounts, no audit of who logged in, no lockout after wrong guesses;
-- the password is embedded (base64) in the CloudFront Function, so anyone with CloudFront or CloudFormation read access in that account can recover it, even though the parameter is `NoEcho`;
-- Basic authentication sends the credential with every request (over HTTPS, so it is encrypted in transit).
-
-For anything beyond the demo, replace the function with per-user sign-in: **Amazon Cognito** (hosted UI) with a Lambda@Edge or CloudFront Function that checks its token, or put the site behind your company's SSO (AWS IAM Identity Center or an OIDC provider). The site is static, so this needs no change to the app itself. Restrict access to the stack to the people who should see the password.
+One login for everyone (HTTP Basic authentication in a CloudFront Function). Parameters `SiteUsername` (3 to 32 letters, digits, `.`, `_`, `-`) and `SitePassword` (12 to 64 characters, `NoEcho`). To change the password, run it again. The password is embedded (base64) in the function, so anyone with CloudFront or CloudFormation read access can recover it. No individual accounts, no audit, no lockout. Switching between the two options means deploying to a different `STACK` name or deleting the old stack first.
 
 ## The app's backends
 
-The site itself needs nothing else. The workspace steps that call a backend (reading a deck with the model, deploying from the app) need those backends deployed (`extractor-api`, `deployer-api`) and their URLs given at build time (`VITE_EXTRACTOR_URL`, `VITE_DEPLOYER_URL`, then rebuild). Without them, a demo can still: load the Census example, review the checklist, generate and download the CloudFormation bundle, and generate the Amazon Connect contact flow.
+The site itself needs nothing else. The workspace steps that call a backend (reading a deck with the model, deploying from the app) need those backends deployed (`extractor-api`, `deployer-api`) and their URLs given at build time (`VITE_EXTRACTOR_URL`, `VITE_DEPLOYER_URL`, then rebuild). Without them a demo can still load the Census example, review the checklist, generate and download the CloudFormation bundle, and generate the Amazon Connect contact flow.
+
+## Changing the Cognito template
+
+It is generated: edit `build-cognito-template.mjs` (and `session-check.js`, `auth-lambda/index.mjs`), run `node hosting/build-cognito-template.mjs`, and run `npm run test:hosting` (it fails if the committed JSON is out of date).
 
 ## Remove it
 
-Empty the bucket (`aws s3 rm s3://<bucket> --recursive`), then delete the stack.
+Empty the site bucket (`aws s3 rm s3://<SiteBucketName> --recursive`), then delete the stack.
