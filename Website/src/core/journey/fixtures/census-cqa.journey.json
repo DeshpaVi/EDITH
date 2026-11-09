@@ -1,0 +1,258 @@
+{
+  "title": "2030 Census Questionnaire Assistance (CQA) demo",
+  "origin": "Census_CQA_Demo_Call_Flow_.pptx",
+  "channels": [
+    "voice"
+  ],
+  "languages": [
+    "en-US",
+    "es-US"
+  ],
+  "steps": [
+    {
+      "id": "greeting",
+      "kind": "greeting",
+      "label": "Main Greeting",
+      "text": "Thank you for calling the 2030 Census Questionnaire Assistance Center.",
+      "next": [
+        {
+          "to": "intent"
+        }
+      ],
+      "source": "slide 1, \"Main Greeting\""
+    },
+    {
+      "id": "intent",
+      "kind": "intent_capture",
+      "label": "How can I help you?",
+      "text": "How can I help you?",
+      "intents": [
+        {
+          "name": "faq",
+          "description": "General Census questions answered from knowledge",
+          "requiresAuth": false,
+          "handledBy": "self_service"
+        },
+        {
+          "name": "enumeration",
+          "description": "Complete the 2030 Census questionnaire over the phone",
+          "requiresAuth": true,
+          "handledBy": "self_service"
+        },
+        {
+          "name": "agent",
+          "description": "Caller asks for a live agent",
+          "requiresAuth": false,
+          "handledBy": "agent"
+        }
+      ],
+      "retry": {
+        "maxAttempts": 3,
+        "onExhausted": "escalate",
+        "reprompt": "I'm sorry, I didn't quite get that."
+      },
+      "next": [
+        {
+          "to": "language"
+        },
+        {
+          "to": "agent",
+          "label": "fallback 3x"
+        }
+      ],
+      "source": "slide 1, \"How can I help you?\", \"Utterance recognized?\", \"Intent Failure\""
+    },
+    {
+      "id": "language",
+      "kind": "language_detection",
+      "label": "Detect Spanish speaker?",
+      "languages": [
+        "en-US",
+        "es-US"
+      ],
+      "method": "Lambda (orange decision)",
+      "next": [
+        {
+          "to": "auth_required"
+        }
+      ],
+      "source": "slide 1, \"Detect Spanish speaker?\", \"Set en_US\", \"Set es_US\""
+    },
+    {
+      "id": "auth_required",
+      "kind": "decision",
+      "label": "Authentication required for intent?",
+      "question": "Authentication required for intent?",
+      "next": [
+        {
+          "to": "auth",
+          "label": "Y"
+        },
+        {
+          "to": "faq",
+          "label": "N"
+        }
+      ],
+      "source": "slide 1, \"Authentication required for intent?\""
+    },
+    {
+      "id": "auth",
+      "kind": "authentication",
+      "label": "Authentication",
+      "text": "To proceed, we need to verify your identity, can you please provide your Census ID and either your home zip code or the last four digits of your SSN?",
+      "failurePrompt": "I'm sorry, I didn't quite get that. Can you please provide your Census ID and either your home zip code or the last four digits of your SSN?",
+      "identifiers": [
+        "Census ID",
+        "home zip code",
+        "last four digits of SSN"
+      ],
+      "match": "any",
+      "retry": {
+        "maxAttempts": 3,
+        "onExhausted": "escalate",
+        "reprompt": "I'm sorry, I didn't quite get that. Can you please provide your Census ID and either your home zip code or the last four digits of your SSN?"
+      },
+      "verifiesAgainst": {
+        "type": "dynamodb",
+        "description": "Census respondent records held in a DynamoDB table"
+      },
+      "next": [
+        {
+          "to": "enumeration",
+          "label": "Y"
+        },
+        {
+          "to": "agent",
+          "label": "fallback 3x"
+        }
+      ],
+      "source": "slide 1, \"Authentication\", \"Authentication Successful?\", \"Auth Failure\""
+    },
+    {
+      "id": "enumeration",
+      "kind": "self_service",
+      "label": "Perform self-service (e.g., enumeration)",
+      "name": "Complete the questionnaire (enumeration)",
+      "mode": "form",
+      "separateFlow": true,
+      "content": "knowledge_base",
+      "next": [
+        {
+          "to": "anything_else"
+        }
+      ],
+      "source": "slide 1, blue \"Perform self-service (e.g., enumeration)\""
+    },
+    {
+      "id": "faq",
+      "kind": "self_service",
+      "label": "Perform self-service (e.g., FAQ)",
+      "name": "Census FAQ",
+      "mode": "faq",
+      "separateFlow": true,
+      "content": "knowledge_base",
+      "next": [
+        {
+          "to": "anything_else"
+        }
+      ],
+      "source": "slide 1, blue \"Perform self-service (e.g., FAQ)\""
+    },
+    {
+      "id": "anything_else",
+      "kind": "confirmation",
+      "label": "Anything Else",
+      "text": "Is there anything else I can help you with today?",
+      "next": [
+        {
+          "to": "auth_required",
+          "label": "Y"
+        },
+        {
+          "to": "closing",
+          "label": "N"
+        }
+      ],
+      "source": "slide 1, \"Anything Else\""
+    },
+    {
+      "id": "closing",
+      "kind": "closing",
+      "label": "Closing",
+      "text": "Thank you for calling, goodbye.",
+      "next": [
+        {
+          "to": "end"
+        }
+      ],
+      "source": "slide 1, \"Closing\""
+    },
+    {
+      "id": "end",
+      "kind": "end",
+      "label": "Disconnect Call",
+      "disposition": "disconnect",
+      "next": [],
+      "source": "slide 1, \"Disconnect Call\""
+    },
+    {
+      "id": "agent",
+      "kind": "escalation",
+      "label": "Route to Agent",
+      "reason": "Intent not recognised three times, authentication failed three times, or the caller asks for an agent",
+      "context": [
+        "conversation summary",
+        "caller intent",
+        "point at which the caller got stuck"
+      ],
+      "next": [],
+      "source": "slide 1, \"Route to Agent\"; slide 2, Alternate Paths 2 and 3"
+    }
+  ],
+  "scenarios": [
+    {
+      "name": "Happy path",
+      "description": "English caller asks to complete the 2030 CQA over the phone, authenticates with their Census ID and completes it."
+    },
+    {
+      "name": "Alternate path 1",
+      "description": "English caller asks several questions that need no authentication; answers come from knowledge, with \"anything else?\" in between."
+    },
+    {
+      "name": "Alternate path 2",
+      "description": "English caller authenticates, completes part of the CQA, is routed to a live agent who receives the context and continues."
+    },
+    {
+      "name": "Alternate path 3",
+      "description": "Spanish caller without a Census ID fails authentication three times and is passed to an agent with their intent and where they got stuck."
+    }
+  ],
+  "assumptions": [
+    {
+      "statement": "Authentication succeeds on any ONE of Census ID, home zip code or last four SSN digits (the slide says \"either\"; the owner decided any one is enough).",
+      "source": "owner decision"
+    },
+    {
+      "statement": "The Auth Failure wording on the slide reads \"Can you please provide please provide\"; the owner approved the corrected wording used here.",
+      "source": "owner decision"
+    },
+    {
+      "statement": "Census respondent records live in a DynamoDB table.",
+      "source": "owner decision"
+    },
+    {
+      "statement": "\"If already authenticated, skip, otherwise send through authentication\" means the Authentication step is skipped once the caller has authenticated in the same call.",
+      "source": "slide 1, note on \"Authentication required for intent?\""
+    },
+    {
+      "statement": "The \"Anything Else\" Yes branch returns to the intent check, so a later request that needs authentication is gated again unless already authenticated.",
+      "source": "slide 1"
+    }
+  ],
+  "unmapped": [
+    {
+      "description": "Alternate Path 4: caller speaks French; the IVR detects French, collects the call reason, translates it and passes the intent to a French-speaking agent. Deferred by the owner; French is not modelled.",
+      "source": "slide 2, Alternate Path 4"
+    }
+  ]
+}

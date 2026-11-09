@@ -6,6 +6,26 @@
 Fresh handoff. It replaces the earlier "ACXD Implementation Handoff" doc, whose open questions are now
 answered. Read this, then `CLAUDE.md`, then the skill (`.claude/skills/ivr-to-acxd-migration/`).
 
+## 0. Slice 1 status (journey in, checklist out)
+
+Built in `Website/src/core/` (pure TypeScript, no UI yet):
+- `journey/`: the **journey model** (`model.ts`), a collecting validator (`validate.ts`), the extractor port with
+  the rules an LLM extractor must follow (`extract.ts`), and the Census CQA journey fixture
+  (`fixtures/census-cqa.journey.json`, authored from the diagram and our decisions).
+- `checklist/`: deterministic rules (`rules.ts`), assembly, summary and selection (`build.ts`), a Markdown report
+  (`report.ts`), and tests. The rules encode patterns P1 to P8 from the skill. Every item says why it exists, what the
+  consultant supplies, and whether the emitter can generate it from **confirmed** schema; anything unconfirmed or
+  unmappable becomes a `requiresReview` entry.
+- Output for the Census journey: `docs/cqa-demo/CHECKLIST.generated.md` (22 items, 1 blocker: language detection).
+
+Verification caveat: this sandbox cannot reach the npm registry, so **vitest could not be installed here**. The new
+code is strictly type-checked with the global `tsc`, and its tests (43) pass under a local stand-in for vitest kept
+outside the repo. Run `npm test` and `npm run typecheck` in `Website/` on a machine with registry access before
+trusting the result. The existing parser/design/emit code was not touched.
+
+Not in slice 1: the LLM extractor and its backend, the checklist UI, the CloudFormation emitter, the ACXD
+provisioner. Next slice: the emitter (template plus provisioner) for the **confirmed** items only.
+
 ## 1. The product (unchanged, see `CLAUDE.md`)
 
 EDITH is a web app (`Website/`, TypeScript) that migrates a legacy IVR onto Amazon Connect's Agentic CX
