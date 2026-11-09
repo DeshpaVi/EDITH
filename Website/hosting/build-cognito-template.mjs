@@ -20,6 +20,8 @@ export function buildCognitoTemplate() {
       AdminEmail: { Type: 'String', AllowedPattern: '[^@\\s]+@[^@\\s]+\\.[^@\\s]+', Description: 'First user. Cognito emails this address a temporary password.' },
       DomainPrefix: { Type: 'String', AllowedPattern: '[a-z0-9]([a-z0-9-]{1,61}[a-z0-9])?', Description: 'Prefix of the Cognito sign-in address (<prefix>.auth.<region>.amazoncognito.com). Must be unique in the region and must not contain "aws", "amazon" or "cognito".' },
       SessionKey: { Type: 'String', NoEcho: true, AllowedPattern: '[A-Za-z0-9]{32,64}', Description: 'Random secret (32 to 64 letters and digits) that signs session cookies. The deploy script generates one.' },
+      AuthCodeBucket: { Type: 'String', AllowedPattern: '.+', Description: 'S3 bucket (same region as this stack) holding auth.zip, the zipped contents of hosting/auth-lambda.' },
+      AuthCodeKey: { Type: 'String', Default: 'auth.zip', Description: 'S3 key of the zip.' },
       SessionHours: { Type: 'Number', Default: 8, MinValue: 1, MaxValue: 72, Description: 'How long a sign-in lasts.' },
     },
     Resources: {
@@ -114,8 +116,8 @@ export function buildCognitoTemplate() {
           Handler: 'index.handler',
           Timeout: 10,
           Role: Att('AuthRole', 'Arn'),
-          // Local folder: `aws cloudformation package` uploads it (hosting/deploy-site.sh does this).
-          Code: './auth-lambda',
+          // index.mjs zipped at the root of auth.zip (hosting/deploy-site.sh builds and uploads it; in the console you upload it yourself).
+          Code: { S3Bucket: Ref('AuthCodeBucket'), S3Key: Ref('AuthCodeKey') },
           Environment: { Variables: { CONFIG_PARAMETER: Sub('/${AWS::StackName}/auth'), SESSION_KEY: Ref('SessionKey'), SESSION_HOURS: Ref('SessionHours') } },
         },
       },

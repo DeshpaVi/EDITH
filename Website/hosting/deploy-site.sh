@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Builds the website and publishes it to a private S3 bucket behind CloudFront, with a login.
-# Needs: Node 20+, the AWS CLI, openssl, and AWS credentials that may create S3, CloudFront, Cognito, Lambda, IAM, SSM and CloudFormation resources.
+# Needs: Node 20+, the AWS CLI, openssl, zip, and AWS credentials that may create S3, CloudFront, Cognito, Lambda, IAM, SSM and CloudFormation resources.
 #
 #   Cognito sign-in (default):
 #     ADMIN_EMAIL=you@company.com DOMAIN_PREFIX=journeyforge-acme ./hosting/deploy-site.sh
@@ -36,11 +36,12 @@ else
   ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
   PKG_BUCKET="journeyforge-pkg-$ACCOUNT-$REGION"
   aws s3api head-bucket --bucket "$PKG_BUCKET" 2>/dev/null || aws s3 mb "s3://$PKG_BUCKET" --region "$REGION"
-  PACKAGED="$(mktemp)"
-  aws cloudformation package --region "$REGION" --template-file hosting/site-cognito.template.json --s3-bucket "$PKG_BUCKET" --output-template-file "$PACKAGED" >/dev/null
-  aws cloudformation deploy --region "$REGION" --stack-name "$STACK" --template-file "$PACKAGED" --capabilities CAPABILITY_IAM \
-    --parameter-overrides "AdminEmail=$ADMIN_EMAIL" "DomainPrefix=$DOMAIN_PREFIX" "SessionKey=$(openssl rand -hex 24)" "SessionHours=${SESSION_HOURS:-8}"
-  rm -f "$PACKAGED"
+  ZIP="$(mktemp -d)/auth.zip"
+  (cd hosting/auth-lambda && zip -q -j "$ZIP" index.mjs)
+  aws s3 cp "$ZIP" "s3://$PKG_BUCKET/auth.zip" --region "$REGION" >/dev/null
+  aws cloudformation deploy --region "$REGION" --stack-name "$STACK" --template-file hosting/site-cognito.template.json --capabilities CAPABILITY_IAM \
+    --parameter-overrides "AdminEmail=$ADMIN_EMAIL" "DomainPrefix=$DOMAIN_PREFIX" "SessionKey=$(openssl rand -hex 24)" "SessionHours=${SESSION_HOURS:-8}" \
+    "AuthCodeBucket=$PKG_BUCKET" "AuthCodeKey=auth.zip"
 fi
 
 out() { aws cloudformation describe-stacks --region "$REGION" --stack-name "$STACK" --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text; }

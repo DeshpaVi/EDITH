@@ -12,7 +12,7 @@ Two options, same bucket-and-CloudFront layout (the S3 bucket is private; only C
 
 How it works: CloudFront runs a small **CloudFront Function** on every request. It lets the request through only if it carries a valid signed session cookie; otherwise it sends the browser to `/auth/login`. `/auth/*` is served by a small **Lambda** that runs the Amazon Cognito Hosted UI sign-in (authorization code flow with PKCE), checks the result, and issues the session cookie (HttpOnly, Secure, signed with a key, 8 hours by default). Nothing but the Cognito user id is kept in the cookie; tokens are never stored or logged.
 
-Deploy (Node 20+, AWS CLI, openssl, credentials that can create S3, CloudFront, Cognito, Lambda, IAM, SSM and CloudFormation resources):
+Deploy (Node 20+, AWS CLI, openssl, zip, credentials that can create S3, CloudFront, Cognito, Lambda, IAM, SSM and CloudFormation resources):
 
 ```bash
 cd Website
@@ -21,7 +21,7 @@ ADMIN_EMAIL=you@company.com DOMAIN_PREFIX=journeyforge-yourco ./hosting/deploy-s
 
 - `ADMIN_EMAIL` is the first user. Cognito emails it a temporary password; the first sign-in asks for a new one (12+ characters, mixed case, a digit and a symbol).
 - `DOMAIN_PREFIX` becomes `<prefix>.auth.<region>.amazoncognito.com`. It must be unique in the region and must not contain "aws", "amazon" or "cognito".
-- The script builds the site, creates a small packaging bucket on first use (`journeyforge-pkg-<account>-<region>`), deploys the stack `journeyforge-site`, uploads `dist/`, invalidates the cache and prints the address.
+- The script builds the site, zips `auth-lambda/index.mjs` and uploads it to a small bucket it creates on first use (`journeyforge-pkg-<account>-<region>`), deploys the stack `journeyforge-site`, uploads `dist/`, invalidates the cache and prints the address.
 - **Add users:** Cognito console, User pools, `journeyforge-site-users`, Create user; or
   `aws cognito-idp admin-create-user --user-pool-id <UserPoolId output> --username them@company.com --user-attributes Name=email,Value=them@company.com Name=email_verified,Value=true`.
   Nobody can sign themselves up.
@@ -37,6 +37,15 @@ What to know:
 - The Cognito pool, users included, is deleted with the stack.
 - Emails use Cognito's built-in sender (a small daily limit). Fine for a demo; use SES for more.
 - After signing in the browser lands on the landing page, not on the page that was requested (the `#/app/...` part does not survive the sign-in round trip).
+
+## Deploying from the console instead of the script
+
+1. Build: `cd Website && npm ci && VITE_AUTH=cognito npm run build` (PowerShell: `$env:VITE_AUTH="cognito"; npm run build`). This makes `dist/`.
+2. S3: create a bucket for code in the stack's region (public access blocked) and upload `auth.zip`: a zip with `auth-lambda/index.mjs` at its root.
+3. CloudFormation: Create stack, With new resources, upload `site-cognito.template.json`. Parameters: `AdminEmail`, `DomainPrefix`, `SessionKey` (32 to 64 letters and digits; `openssl rand -hex 24`), `SessionHours`, `AuthCodeBucket`, `AuthCodeKey`. Tick the IAM acknowledgement. Wait for CREATE_COMPLETE (5 to 10 minutes).
+4. Outputs tab: open `SiteBucketName` in S3 and upload the contents of `dist/` (files and the `assets` folder, not `dist` itself).
+5. CloudFront: the distribution (`DistributionId`), Invalidations, create `/*`.
+6. Open `SiteUrl`, sign in with the emailed temporary password.
 
 ## Shared username and password
 

@@ -161,6 +161,7 @@ test('the site is private, sign-in is admin-created only, the callback is HTTPS,
   assert.equal(r.UserPool.Properties.AdminCreateUserConfig.AllowAdminCreateUserOnly, true)
   assert.equal(r.UserPoolClient.Properties.GenerateSecret, false)
   assert.deepEqual(r.UserPoolClient.Properties.AllowedOAuthFlows, ['code'])
+  assert.deepEqual(r.AuthFunction.Properties.Code, { S3Bucket: { Ref: 'AuthCodeBucket' }, S3Key: { Ref: 'AuthCodeKey' } })
   assert.match(JSON.stringify(r.UserPoolClient.Properties.CallbackURLs), /^\[\{"Fn::Sub":"https:\/\//)
   assert.equal(template.Parameters.SessionKey.NoEcho, true)
   const cb = r.SiteDistribution.Properties.DistributionConfig

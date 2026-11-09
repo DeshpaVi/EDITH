@@ -18,6 +18,16 @@
       "AllowedPattern": "[A-Za-z0-9]{32,64}",
       "Description": "Random secret (32 to 64 letters and digits) that signs session cookies. The deploy script generates one."
     },
+    "AuthCodeBucket": {
+      "Type": "String",
+      "AllowedPattern": ".+",
+      "Description": "S3 bucket (same region as this stack) holding auth.zip, the zipped contents of hosting/auth-lambda."
+    },
+    "AuthCodeKey": {
+      "Type": "String",
+      "Default": "auth.zip",
+      "Description": "S3 key of the zip."
+    },
     "SessionHours": {
       "Type": "Number",
       "Default": 8,
@@ -297,7 +307,14 @@
             "Arn"
           ]
         },
-        "Code": "./auth-lambda",
+        "Code": {
+          "S3Bucket": {
+            "Ref": "AuthCodeBucket"
+          },
+          "S3Key": {
+            "Ref": "AuthCodeKey"
+          }
+        },
         "Environment": {
           "Variables": {
             "CONFIG_PARAMETER": {
