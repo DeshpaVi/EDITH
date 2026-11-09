@@ -153,7 +153,7 @@ export function buildCognitoTemplate() {
               TargetOriginId: 'auth',
               ViewerProtocolPolicy: 'redirect-to-https',
               AllowedMethods: ['GET', 'HEAD'],
-              CachePolicyId: '4135ea2d-6df8-481c-89c2-5ee2dfa8b33c', // CachingDisabled
+              CachePolicyId: '4135ea2d-6df8-44a3-9df3-4b5a84be39ad', // CachingDisabled
               OriginRequestPolicyId: 'b689b0a8-53d0-40ab-baf2-68738e2966ac', // AllViewerExceptHostHeader: forwards cookies and query strings
               ResponseHeadersPolicyId: '67f7725c-6f97-4210-82d7-5512b31e9d03',
             }],

@@ -170,3 +170,11 @@ test('the site is private, sign-in is admin-created only, the callback is HTTPS,
   assert.equal(cb.CacheBehaviors[0].FunctionAssociations, undefined) // the sign-in endpoints must be reachable without a session
   assert.ok(JSON.stringify(template).indexOf('acxd_live_') < 0)
 })
+
+test('CloudFront managed policy ids are the documented ones', () => {
+  const d = template.Resources.SiteDistribution.Properties.DistributionConfig
+  assert.equal(d.DefaultCacheBehavior.CachePolicyId, '658327ea-f89d-4fab-a63d-7e88639e58f6') // Managed-CachingOptimized
+  assert.equal(d.CacheBehaviors[0].CachePolicyId, '4135ea2d-6df8-44a3-9df3-4b5a84be39ad') // Managed-CachingDisabled
+  assert.equal(d.CacheBehaviors[0].OriginRequestPolicyId, 'b689b0a8-53d0-40ab-baf2-68738e2966ac') // Managed-AllViewerExceptHostHeader
+  assert.equal(d.DefaultCacheBehavior.ResponseHeadersPolicyId, '67f7725c-6f97-4210-82d7-5512b31e9d03') // Managed-SecurityHeadersPolicy
+})
