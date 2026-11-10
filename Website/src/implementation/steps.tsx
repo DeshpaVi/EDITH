@@ -162,7 +162,10 @@ export function ChecklistStep({ session, readSummary, onChange, onNext }: { sess
           ))}
         </Panel>
       ))}
-      <div><Button onClick={onNext}>Continue to the bundle</Button></div>
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <Button onClick={onNext}>Continue to the bundle</Button>
+        <Button kind="ghost" onClick={() => download('journey.json', JSON.stringify(session.journey, null, 2), 'application/json')}>Download this journey (JSON)</Button>
+      </div>
     </div>
   )
 }
