@@ -40,6 +40,7 @@ Comparing the extracted journey with the hand-made one (their checklists and the
 - On the last attempt keep the journey and record the findings as review entries ("Reader check: ..."), so the read is not lost and nothing is hidden.
 - **What the deck does not say stays unknown, by design.** The model set the authentication backend and the FAQ content source to "unknown", so no authentication flow, DynamoDB table or Lambda was generated and two blockers appeared. The consultant's **Notes** box supplies such facts ("records live in DynamoDB; any one identifier is enough; FAQ answers come from a knowledge base").
 - Granularity differs: a model gives one step per shape while a person groups related shapes. Compare checklists and bundles, not step lists.
+- **A check that asks the model to ADD things can break an answer that was fine.** The shape-coverage check flagged a narrative text box on slide 2 (not a flow); the model added a batch of steps without `next` and the whole read failed. Rules learned: apply coverage only to slides that contain arrows; tell the model what a new step must contain; and keep the best valid reading so far, falling back to it (with the open findings as "Reader check" entries) if a later repair makes the structure invalid. A read should only fail when no attempt was ever valid.
 - Keep a real model's output as a regression fixture (`fixtures/census-cqa.extracted-nova.journey.json`) and test the checks against it.
 
 ## 5. Ideas for the app

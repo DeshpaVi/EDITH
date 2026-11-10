@@ -105,3 +105,30 @@ describe('terminal steps without a next list', () => {
     if (!r.ok) expect(r.issues.some((i) => i.message === 'must be an array of edges')).toBe(true)
   })
 })
+
+describe('a repair that breaks the structure does not lose a valid reading', () => {
+  it('returns the earlier valid reading, with the open findings as review entries', async () => {
+    const broken = { ...novaJourney(), steps: [{ id: 'x', kind: 'greeting' }] }
+    let n = 0
+    const p: ExtractPort = { async extract() { n++; return n === 1 ? novaJourney() : broken } }
+    const r = await extractJourney(p, deck())
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.journey.steps.length).toBe(novaJourney().steps.length)
+    expect(r.journey.unmapped.some((u) => u.source === 'reader check')).toBe(true)
+  })
+
+  it('still fails when no reading was ever valid', async () => {
+    const p: ExtractPort = { async extract() { return { title: 'x' } } }
+    const r = await extractJourney(p, deck(), { maxAttempts: 2 })
+    expect(r.ok).toBe(false)
+  })
+})
+
+describe('slides that are not flow diagrams', () => {
+  it('does not ask for a step or an unmapped entry for the scenarios text box on slide 2', () => {
+    const missing = semanticIssues(deck(), novaJourney()).filter((i) => i.path === '$.steps').map((i) => i.message).join('\n')
+    expect(missing).not.toContain('Proposed Scenarios')
+    expect(missing).toContain('Set es_US') // the flow slide is still checked
+  })
+})

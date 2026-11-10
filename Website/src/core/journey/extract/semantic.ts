@@ -8,7 +8,7 @@ import type { SourceInput } from '../source'
  *
  * 1. A start marker ("Incoming Call", "Start") given as spoken wording.
  * 2. A diagram title kept inside the spoken wording ("Main Greeting: Thank you...") when the diagram uses that convention throughout.
- * 3. A shape on the slide that no step or unmapped entry accounts for (CLAUDE.md constraint 3: never silently drop an element).
+ * 3. A shape on a flow slide (one with arrows) that no step or unmapped entry accounts for (CLAUDE.md constraint 3: never silently drop an element).
  */
 
 const SPOKEN_KINDS = ['greeting', 'announcement', 'closing', 'confirmation', 'intent_capture', 'authentication'] as const
@@ -61,6 +61,8 @@ export function semanticIssues(source: SourceInput, journey: Journey): Validatio
       const title = norm(journey.title)
       const narrative = journey.scenarios.map((sc) => norm(`${sc.name} ${sc.description}`)).join(' ')
       for (const slide of source.deck.slides) {
+        // A slide with no arrows is not a flow diagram (for example a text box of scenarios): its shapes are not steps to account for.
+        if (slide.connectors.length === 0) continue
         for (const shape of slide.shapes) {
           const text = norm(shape.text)
           if (text === '' || shape.textBox || shape.legendMember || text === title || narrative.includes(text)) continue
@@ -68,7 +70,7 @@ export function semanticIssues(source: SourceInput, journey: Journey): Validatio
           if (!covered) {
             issues.push({
               path: '$.steps',
-              message: `the shape "${clip(text)}" (slide ${slide.index}, shape ${shape.id}) is not covered by any step or unmapped entry. Add a step for it, or add it to "unmapped" with source "slide ${slide.index}, shape ${shape.id}"`,
+              message: `the shape "${clip(text)}" (slide ${slide.index}, shape ${shape.id}) is not covered by any step or unmapped entry. Add a step for it (with id, kind, label, source and a "next" list of its outgoing edges, [] if it ends the call), or add it to "unmapped" with source "slide ${slide.index}, shape ${shape.id}"`,
             })
           }
         }

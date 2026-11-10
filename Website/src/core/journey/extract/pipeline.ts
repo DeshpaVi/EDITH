@@ -79,33 +79,39 @@ export async function extractJourney(port: ExtractPort, source: SourceInput, opt
   const max = Math.max(1, opts.maxAttempts ?? 4)
   let feedback: ValidationIssue[] | undefined
   let previous: unknown
+  // The best valid reading so far (fewest findings). A repair that breaks the structure must not lose it.
+  let best: { journey: Journey; semantic: ValidationIssue[] } | undefined
+  const accept = (journey: Journey, semantic: ValidationIssue[], attempts: number): ExtractOutcome => {
+    const text = sourceText(source)
+    const checks = text === undefined ? null : checkWording(journey, text)
+    const base: Journey = semantic.length > 0
+      ? { ...journey, unmapped: [...journey.unmapped, ...semantic.map((i) => ({ description: `Reader check: ${i.message}`, source: 'reader check' }))] }
+      : journey
+    return { ok: true, journey: recordWordingChecks({ ...base, origin: base.origin ?? source.fileName }, checks), attempts, checks }
+  }
   for (let attempt = 1; attempt <= max; attempt++) {
     let raw: unknown
     try {
       raw = await port.extract(toRequestBody(source, opts.notes, feedback, previous))
     } catch (err) {
+      if (best) return accept(best.journey, best.semantic, attempt)
       return { ok: false, issues: [{ path: '$', message: err instanceof Error ? err.message : 'The extractor failed.' }], attempts: attempt }
     }
     const result = validateJourney(normalizeTerminalNext(raw))
     if (result.ok) {
       // Valid but wrong in ways a person would notice (start marker as wording, titles in prompts, dropped shapes): ask for a repair.
-      // On the last attempt keep the journey and record what is left as review entries, so nothing is hidden and the read is not lost.
+      // When attempts run out, keep the journey and record what is left as review entries, so nothing is hidden and the read is not lost.
       const semantic = semanticIssues(source, result.journey)
-      if (semantic.length > 0 && attempt < max) {
-        feedback = semantic
-        previous = raw
-        continue
-      }
-      const text = sourceText(source)
-      const checks = text === undefined ? null : checkWording(result.journey, text)
-      const base: Journey = semantic.length > 0
-        ? { ...result.journey, unmapped: [...result.journey.unmapped, ...semantic.map((i) => ({ description: `Reader check: ${i.message}`, source: 'reader check' }))] }
-        : result.journey
-      return { ok: true, journey: recordWordingChecks({ ...base, origin: base.origin ?? source.fileName }, checks), attempts: attempt, checks }
+      if (semantic.length === 0) return accept(result.journey, [], attempt)
+      if (!best || semantic.length <= best.semantic.length) best = { journey: result.journey, semantic }
+      if (attempt === max) return accept(best.journey, best.semantic, attempt)
+      feedback = semantic
+      previous = raw
+      continue
     }
     feedback = result.issues
     previous = raw
-    if (attempt === max) return { ok: false, issues: result.issues, attempts: attempt }
+    if (attempt === max) return best ? accept(best.journey, best.semantic, attempt) : { ok: false, issues: result.issues, attempts: attempt }
   }
   return { ok: false, issues: [{ path: '$', message: 'No attempt was made.' }], attempts: 0 }
 }

@@ -325,3 +325,7 @@ The extracted journey opened the checklist (22 items for the hand-made journey, 
 ## 0ab. Terminal steps without next
 
 Nova Pro kept omitting `next` on a terminal step through four repair rounds. `normalizeTerminalNext` now treats a missing or null `next` on `end` and `escalation` steps as `[]` and records an assumption; other kinds still fail validation. 246 website tests.
+
+## 0ac. The coverage check overreached
+
+The next read failed with eight new steps (17 to 24) without `next`: the coverage check had asked for a step or unmapped entry for the slide-2 scenarios text box, and the model's additions were structurally invalid. Now coverage applies only to slides with arrows, the message says what a new step needs, and the pipeline keeps the best valid reading (fewest findings) and returns it with the open findings as "Reader check" entries when a later repair is invalid. 249 website tests.
