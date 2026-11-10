@@ -333,3 +333,7 @@ The next read failed with eight new steps (17 to 24) without `next`: the coverag
 ## 0ad. Versions are visible
 
 The journey JSON sent after the v15 deploy was byte-identical to the first (pre-fix) reading, so the new reader checks had not run. The site now shows `BUILD_ID` (`src/app/build.ts`, bump it each release) in the sidebar and in every read's summary, and the extractor returns `VERSION` (`extractor-api/index.mjs`) with each answer. Current: site-v16, extractor-v12.
+
+## 0ae. Second real reading of the Census deck (Nova Pro, with Notes): 22 of 22 items, same four flows
+
+Checklist items and generated flows match the hand-made journey (Escalation and SafetyEscalation identical; Authentication differs only by the deck's curly apostrophe, which is correct verbatim wording). Still wrong: one invented arrow, two missed (unglued) arrows, the start marker given the greeting's words, an invented escalation context entry copied from a schema example, 8 stray branch labels as warnings. Now: edge-versus-arrow check (`extract/semantic.ts`), marker check by label, no example wording in descriptions (tested), branch labels grouped as one info review. Fixture: `census-cqa.extracted-nova-v2.journey.json`. 254 website tests, 38 extractor tests. Site-v17, extractor-v13.

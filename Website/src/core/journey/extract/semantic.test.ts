@@ -8,6 +8,7 @@ import { extractJourney, semanticIssues } from './index'
 import type { ExtractPort, ExtractRequestBody } from './index'
 import handMade from '../fixtures/census-cqa.journey.json'
 import nova from '../fixtures/census-cqa.extracted-nova.journey.json'
+import nova2 from '../fixtures/census-cqa.extracted-nova-v2.journey.json'
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v))
 const deck = (): SourceInput => readSource({ fileName: 'census.pptx', bytes: new Uint8Array(readFileSync(join(__dirname, '../fixtures/census-cqa-call-flow.pptx'))) })
@@ -130,5 +131,31 @@ describe('slides that are not flow diagrams', () => {
     const missing = semanticIssues(deck(), novaJourney()).filter((i) => i.path === '$.steps').map((i) => i.message).join('\n')
     expect(missing).not.toContain('Proposed Scenarios')
     expect(missing).toContain('Set es_US') // the flow slide is still checked
+  })
+})
+
+describe('the second real reading (v12 pipeline, with Notes): what is still wrong is found', () => {
+  const issues = semanticIssues(deck(), clone(nova2) as unknown as Journey)
+  const msgs = issues.map((i) => i.message).join('\n')
+
+  it('finds the arrow the model invented and the two arrows it left out, naming the shapes', () => {
+    expect(msgs).toMatch(/no arrow from "Detect Spanish speaker\?" to "Intent Failure/)
+    expect(msgs).toMatch(/arrow from "Detect Spanish speaker\?" to "Set es_US".*nearest one/)
+    expect(msgs).toMatch(/arrow from "Perform self-service \(e\.g\., FAQ\)" to "Anything Else/)
+  })
+
+  it('finds the start marker that was given the greeting\'s words, by its label', () => {
+    expect(issues.some((i) => i.path === '$.steps[0]' && i.message.includes('only marks where the call begins'))).toBe(true)
+  })
+
+  it('does not flag the arrows the model got right, the removed titles, or the covered shapes', () => {
+    expect(msgs).not.toContain('Main Greeting:')
+    expect(issues.filter((i) => i.path === '$.steps').length).toBe(0)
+    expect(msgs).not.toMatch(/no arrow from "Main Greeting/)
+    expect(msgs).not.toMatch(/no arrow from "Utterance recognized/)
+  })
+
+  it('leaves the hand-made journey alone (it cites shapes by name, so the arrow check is skipped)', () => {
+    expect(semanticIssues(deck(), clone(handMade) as unknown as Journey)).toEqual([])
   })
 })

@@ -358,3 +358,12 @@ test('every successful answer carries the extractor version, so a stale deployme
   assert.equal(JSON.parse(res.body).version, VERSION)
   assert.match(VERSION, /^extractor-v\d+$/)
 })
+
+test('field descriptions give no example wording a model could copy into the journey as if it were data', () => {
+  const props = JOURNEY_JSON_SCHEMA.properties.steps.items.properties
+  for (const [name, p] of Object.entries(props)) {
+    if (!p.description) continue
+    assert.ok(!/summary of the conversation|Perform self-service/.test(p.description), `${name} description carries example content`)
+  }
+  assert.match(props.context.description, /Do not invent entries/)
+})

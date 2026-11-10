@@ -115,6 +115,25 @@ describe('checklist for sparse model answers (found when a read journey would no
   })
 })
 
+describe('review noise', () => {
+  it('collects stray branch labels into one info line and keeps real unmapped content as warnings', () => {
+    const j = journey()
+    j.unmapped = [
+      { description: 'Y', source: 'slide 1, shape 1' },
+      { description: 'N', source: 'slide 1, shape 2' },
+      { description: 'fallback: 3x', source: 'slide 1, shape 3' },
+      { description: 'If already authenticated, skip, otherwise send through authentication.', source: 'slide 1, shape 4' },
+    ]
+    const c = buildChecklist(j)
+    const labels = c.reviews.filter((r) => r.id === 'review.unmapped.labels')
+    expect(labels).toHaveLength(1)
+    expect(labels[0].severity).toBe('info')
+    expect(labels[0].title).toContain('(3)')
+    const warned = c.reviews.filter((r) => r.id.startsWith('review.unmapped.') && r.id !== 'review.unmapped.labels')
+    expect(warned.map((r) => r.detail)).toEqual(['If already authenticated, skip, otherwise send through authentication.'])
+  })
+})
+
 describe('checklist for other journeys', () => {
   it('builds no authentication items when the journey has no authentication', () => {
     const j = journey()

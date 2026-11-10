@@ -561,7 +561,23 @@ export function reviewRules(journey: Journey): Draft {
   for (const s of stepsOfKind(journey, 'unknown')) {
     out.reviews.push(review(`review.unknown.${s.id}`, 'warn', `Unclassified step "${s.label}"`, `The source step could not be classified: ${s.raw}`, [s.id]))
   }
+  // Stray branch labels ("Y", "N", "fallback: 3x") the reader found but nobody attached to an arrow: one info line, not a warning each,
+  // so the real gaps are not buried. Everything else stays a warning.
+  const BRANCH_LABEL = /^(y|n|yes|no|true|false|fallback:?\s*\d+\s*x?)$/i
+  const labels = journey.unmapped.filter((u) => BRANCH_LABEL.test(u.description.trim()))
+  if (labels.length > 0) {
+    out.reviews.push(
+      review(
+        'review.unmapped.labels',
+        'info',
+        `Branch labels not attached to an arrow (${labels.length})`,
+        `The reader found these labels (${[...new Set(labels.map((l) => l.description.trim()))].join(', ')}) but they are not on any edge of the journey; check that every branch is labelled as in the diagram.`,
+        [],
+      ),
+    )
+  }
   journey.unmapped.forEach((u, i) => {
+    if (BRANCH_LABEL.test(u.description.trim())) return
     out.reviews.push(review(`review.unmapped.${i}`, 'warn', 'Part of the source journey is not modelled', u.description, []))
   })
   journey.assumptions.forEach((a, i) => {
