@@ -21,6 +21,7 @@ const STEP_KINDS = ['greeting', 'announcement', 'language_detection', 'intent_ca
 
 const str = { type: 'string' }
 const strs = { type: 'array', items: { type: 'string' } }
+const described = (schema, description) => ({ ...schema, description })
 const retry = {
   type: 'object',
   properties: { maxAttempts: { type: 'integer', minimum: 0 }, onExhausted: { type: 'string', enum: ['escalate', 'end', 'unknown'] }, reprompt: str },
@@ -50,9 +51,9 @@ export const JOURNEY_JSON_SCHEMA = {
           label: str,
           source: str,
           next: { type: 'array', items: { type: 'object', properties: { to: str, label: str }, required: ['to'] } },
-          text: str,
+          text: described(str, 'The words spoken or shown to the caller, copied VERBATIM from the source. REQUIRED and non-empty for greeting, announcement, closing, confirmation, intent_capture and authentication steps; omit for other kinds.'),
           compliance: { type: 'boolean' },
-          languages: strs,
+          languages: described(strs, 'BCP-47 language codes such as en-US. REQUIRED and non-empty for language_detection steps; omit for other kinds.'),
           method: str,
           intents: {
             type: 'array',
@@ -63,8 +64,8 @@ export const JOURNEY_JSON_SCHEMA = {
             },
           },
           retry,
-          question: str,
-          identifiers: strs,
+          question: described(str, 'The question a decision step asks (it is not spoken to the caller). REQUIRED and non-empty for decision steps; omit for other kinds.'),
+          identifiers: described(strs, 'What the caller must provide to be verified, one entry each. REQUIRED and non-empty for authentication steps.'),
           match: { type: 'string', enum: ['any', 'all'] },
           failurePrompt: str,
           verifiesAgainst: dataSource,
@@ -76,11 +77,11 @@ export const JOURNEY_JSON_SCHEMA = {
           mode: { type: 'string', enum: ['faq', 'transaction', 'form', 'other'] },
           separateFlow: { type: 'boolean' },
           content: { type: 'string', enum: ['knowledge_base', 'api', 'unknown'] },
-          reason: str,
+          reason: described(str, 'Why the caller is transferred to an agent. REQUIRED for escalation steps.'),
           context: strs,
           queue: str,
           disposition: { type: 'string', enum: ['disconnect', 'return'] },
-          raw: str,
+          raw: described(str, 'The source text that could not be classified. REQUIRED for unknown steps.'),
         },
         required: ['id', 'kind', 'label', 'source', 'next'],
       },
@@ -107,6 +108,32 @@ const KIND_GUIDE = [
   'unknown: anything you cannot classify (raw = the source text).',
 ]
 
+/** The fields each kind must carry (mirrors the browser's validator). Weaker models skip optional-looking fields unless told. */
+export const FIELDS_BY_KIND = [
+  'greeting, announcement, closing, confirmation: text (non-empty, verbatim).',
+  'language_detection: languages (non-empty list of BCP-47 codes).',
+  'intent_capture: text (the prompt, verbatim), intents (each with name, requiresAuth, handledBy), retry (maxAttempts, onExhausted).',
+  'decision: question (non-empty).',
+  'authentication: text (the prompt, verbatim), identifiers (non-empty), match (any or all), retry, verifiesAgainst (type, even if "unknown").',
+  'data_lookup: name, purpose, inputs, outputs, dataSource (type).',
+  'self_service: name, mode, separateFlow, content.',
+  'escalation: reason, context (a list, possibly empty).',
+  'end: disposition (disconnect or return).',
+  'unknown: raw.',
+  'Every step: id, kind, label, source, next. Leave out fields that belong to other kinds.',
+]
+
+/** One line of help per field the validator names, so a repair attempt knows what to put there. */
+const FIELD_HINTS = {
+  text: 'put the exact words spoken to the caller, copied from the source (greeting, announcement, closing, confirmation, intent_capture, authentication steps).',
+  question: 'put the question the decision asks, from the source (decision steps).',
+  languages: 'put the language codes the step detects or sets, such as ["en-US", "es-US"] (language_detection steps).',
+  identifiers: 'list what the caller must give to be verified (authentication steps).',
+  reason: 'say why the caller is transferred (escalation steps).',
+  disposition: 'use "disconnect" or "return" (end steps).',
+  raw: 'copy the source text you could not classify (unknown steps).',
+}
+
 export function buildSystemPrompt() {
   return [
     'You turn a customer journey (an IVR or virtual-agent call flow, drawn or written) into a structured journey for an implementation tool.',
@@ -117,6 +144,9 @@ export function buildSystemPrompt() {
     '',
     'STEP KINDS',
     ...KIND_GUIDE.map((k) => `- ${k}`),
+    '',
+    'FIELDS EACH KIND MUST HAVE (a missing or empty field makes the answer invalid)',
+    ...FIELDS_BY_KIND.map((k) => `- ${k}`),
     '',
     'READING A DIAGRAM',
     '- When the source lists shapes and arrows, each arrow is an edge from the first shape to the second. A decision shape has one edge per branch; the branch label comes from the nearest label text.',
@@ -136,7 +166,11 @@ export function buildUserText({ fileName, kind, text, notes, feedback }) {
   if (feedback && feedback.length > 0) {
     parts.push(
       'YOUR PREVIOUS ANSWER FAILED VALIDATION. Return the corrected, complete journey.',
-      ...feedback.map((f) => `- ${f.path}: ${f.message}`),
+      ...feedback.map((f) => {
+        const field = /\.([A-Za-z]+)(?:\[\d+\])?$/.exec(f.path)?.[1]
+        const hint = field && FIELD_HINTS[field] ? ` Fix: ${FIELD_HINTS[field]}` : ''
+        return `- ${f.path}: ${f.message}.${hint}`
+      }),
     )
   }
   return parts.join('\n\n')

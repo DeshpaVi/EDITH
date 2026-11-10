@@ -84,6 +84,11 @@ export function makeHandler(deps) {
         }
       }
       const journey = journeyFromResponse(response)
+      // DEBUG_SHAPE=1: log which fields each step has and which are empty (names only, never values), to see what a model leaves out.
+      if (env.DEBUG_SHAPE === '1') {
+        const shape = (Array.isArray(journey.steps) ? journey.steps : []).map((st) => ({ kind: st?.kind, has: Object.keys(st ?? {}), empty: Object.entries(st ?? {}).filter(([, v]) => v === '' || (Array.isArray(v) && v.length === 0)).map(([k]) => k) }))
+        console.log(JSON.stringify({ shape }))
+      }
       console.log(JSON.stringify({ kind: request.kind, status: 200, ms: Date.now() - started, usage: response.usage }))
       return json(200, { journey, usage: response.usage ?? null })
     } catch (err) {

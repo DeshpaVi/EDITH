@@ -297,3 +297,7 @@ The available model is `openai.gpt-5.5` (text and image input, function calling,
 ## 0u. Model access reality on this account
 
 Claude models: refused (channel-program account). OpenAI models (gpt-oss, GPT-5.5): sold through AWS Marketplace and refused for lack of `aws-marketplace:Subscribe`/`ViewSubscriptions` (even the user's own role); the extractor template has an optional `AllowMarketplaceSubscribe` switch. **Amazon Nova Pro works** in the Bedrock playground; use it for the extractor (an Amazon model, no Marketplace). The extractor retries with a lower output limit when a model rejects 16,000 `maxTokens` (30 tests). Not yet run with Nova Pro.
+
+## 0v. Nova Pro reads the deck but omits fields
+
+Nova Pro answered with steps of the right kinds, but `text`, `question` and `languages` came back empty after 3 repair rounds (the schema marks only id/kind/label/source/next required). The contract now lists the fields each kind needs in the prompt and in the property descriptions, and repair feedback adds a one-line fix hint per field. `DEBUG_SHAPE=1` (Lambda environment variable) logs which fields each step has or leaves empty, never values. 32 extractor tests; not yet run with Nova Pro.

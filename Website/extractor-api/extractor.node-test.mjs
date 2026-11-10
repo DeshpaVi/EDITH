@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { ExtractError, LIMITS, buildConverseInput, documentName, journeyFromResponse, jsonFromText, parseRequest } from './converse.mjs'
-import { TOOL_NAME, buildSystemPrompt, buildUserText, EXTRACTION_RULES, JOURNEY_JSON_SCHEMA } from './contract.mjs'
+import { TOOL_NAME, buildSystemPrompt, buildUserText, EXTRACTION_RULES, JOURNEY_JSON_SCHEMA, FIELDS_BY_KIND } from './contract.mjs'
 import { makeHandler } from './index.mjs'
 
 const textBody = (extra = {}) => ({ fileName: 'journey.pptx', kind: 'deck', text: 'SLIDE 1 ... Main Greeting: Hello', ...extra })
@@ -277,4 +277,32 @@ test('a model with a smaller output limit gets the request again with the limit 
   }
   assert.deepEqual(await run('The maximum tokens you requested exceeds the model limit of 10000.'), { status: 200, seen: [16000, 10000] })
   assert.deepEqual(await run('Invalid value for maxTokens'), { status: 200, seen: [16000, 5000] })
+})
+
+test('the prompt and schema spell out the fields each kind needs, and repair feedback says what to put in each missing field', () => {
+  const prompt = buildSystemPrompt()
+  assert.match(prompt, /FIELDS EACH KIND MUST HAVE/)
+  for (const line of FIELDS_BY_KIND) assert.ok(prompt.includes(line))
+  const props = JOURNEY_JSON_SCHEMA.properties.steps.items.properties
+  for (const field of ['text', 'question', 'languages', 'identifiers']) assert.match(props[field].description, /REQUIRED/)
+  const text = buildUserText({ fileName: 'a.pptx', kind: 'deck', text: 'x', feedback: [{ path: '$.steps[0].text', message: 'must be a non-empty string' }, { path: '$.steps[3].question', message: 'must be a non-empty string' }, { path: '$.steps[5].languages', message: 'must be an array of non-empty strings' }] })
+  assert.match(text, /\$\.steps\[0\]\.text: must be a non-empty string\. Fix: put the exact words spoken/)
+  assert.match(text, /question: must be a non-empty string\. Fix: put the question/)
+  assert.match(text, /languages: must be an array of non-empty strings\. Fix: put the language codes/)
+})
+
+test('DEBUG_SHAPE logs which step fields are present or empty, never their values', async () => {
+  const { makeHandler } = await import('./index.mjs')
+  const lines = []
+  const original = console.log
+  console.log = (...a) => lines.push(a.join(' '))
+  try {
+    const converse = async () => ({ output: { message: { content: [{ toolUse: { name: TOOL_NAME, input: { title: 'T', steps: [{ id: 'a', kind: 'greeting', text: '', label: 'SECRET-LABEL' }] } } }] } } })
+    await makeHandler({ env: { ACCESS_TOKEN: 'tok', MODEL_ID: 'm', DEBUG_SHAPE: '1' }, converse })({ requestContext: { http: { method: 'POST' } }, headers: { authorization: 'Bearer tok' }, body: JSON.stringify(textBody()) })
+  } finally {
+    console.log = original
+  }
+  const all = lines.join('\n')
+  assert.match(all, /"kind":"greeting".*"empty":\["text"\]/)
+  assert.ok(!all.includes('SECRET-LABEL'))
 })
