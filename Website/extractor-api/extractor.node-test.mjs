@@ -137,7 +137,9 @@ test('bad JSON and invalid requests are 400', async () => {
 test('returns the journey and usage on success', async () => {
   const res = await handlerWith(async (input) => (assert.equal(input.modelId, 'model-1'), okResponse({ title: 'T' })))(event(textBody()))
   assert.equal(res.statusCode, 200)
-  assert.deepEqual(JSON.parse(res.body), { journey: { title: 'T' }, usage: { inputTokens: 10, outputTokens: 5 } })
+  const { version, ...rest } = JSON.parse(res.body)
+  assert.deepEqual(rest, { journey: { title: 'T' }, usage: { inputTokens: 10, outputTokens: 5 } })
+  assert.match(version, /^extractor-v\d+$/)
 })
 
 test('accepts a base64-encoded body (as Function URLs may send)', async () => {
@@ -347,4 +349,12 @@ test('the rules cover diagram titles in prompts and shapes that must not be drop
   assert.match(prompt, /ONLY the wording after the colon/)
   assert.match(prompt, /never leave a shape out/)
   assert.match(buildUserText({ fileName: 'a', kind: 'deck', text: 'x', feedback: [{ path: '$.steps', message: 'the shape "X" is not covered' }] }), /every non-legend shape with text must become a step/)
+})
+
+test('every successful answer carries the extractor version, so a stale deployment is visible', async () => {
+  const { makeHandler, VERSION } = await import('./index.mjs')
+  const converse = async () => ({ output: { message: { content: [{ toolUse: { name: TOOL_NAME, input: { title: 'T' } } }] } } })
+  const res = await makeHandler({ env: { ACCESS_TOKEN: 'tok', MODEL_ID: 'm' }, converse })({ requestContext: { http: { method: 'POST' } }, headers: { authorization: 'Bearer tok' }, body: JSON.stringify(textBody()) })
+  assert.equal(JSON.parse(res.body).version, VERSION)
+  assert.match(VERSION, /^extractor-v\d+$/)
 })

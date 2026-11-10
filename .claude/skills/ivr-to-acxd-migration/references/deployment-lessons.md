@@ -49,7 +49,8 @@ real failure or surprise; the fix is in the code and the check is in a test. Use
 
 ## Process
 18. One step at a time, with a screenshot or log excerpt after each, found every one of these quickly. Keep doing that.
-19. Every first-run failure became: a code fix, a test that would have caught it, and a line here. Do that for the next ones.
+19. **Make versions visible.** Stale deployments (an old website bundle, an old Lambda zip, a cached page) cost several rounds. The site shows its release id in the sidebar and with every read, and the extractor returns its version with every answer; compare them with the release you meant to deploy before debugging a result. A result byte-identical to an earlier one means the new code did not run.
+20. Every first-run failure became: a code fix, a test that would have caught it, and a line here. Do that for the next ones.
 
 ## Ideas for the app (from these lessons)
 - **Preflight panel** before deploy: SDK commands the provisioner needs exist; referenced workspace objects are in the spec; model access works

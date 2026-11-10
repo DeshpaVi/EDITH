@@ -329,3 +329,7 @@ Nova Pro kept omitting `next` on a terminal step through four repair rounds. `no
 ## 0ac. The coverage check overreached
 
 The next read failed with eight new steps (17 to 24) without `next`: the coverage check had asked for a step or unmapped entry for the slide-2 scenarios text box, and the model's additions were structurally invalid. Now coverage applies only to slides with arrows, the message says what a new step needs, and the pipeline keeps the best valid reading (fewest findings) and returns it with the open findings as "Reader check" entries when a later repair is invalid. 249 website tests.
+
+## 0ad. Versions are visible
+
+The journey JSON sent after the v15 deploy was byte-identical to the first (pre-fix) reading, so the new reader checks had not run. The site now shows `BUILD_ID` (`src/app/build.ts`, bump it each release) in the sidebar and in every read's summary, and the extractor returns `VERSION` (`extractor-api/index.mjs`) with each answer. Current: site-v16, extractor-v12.

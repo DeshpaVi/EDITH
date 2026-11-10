@@ -22,6 +22,8 @@ export interface ExtractRequestBody {
 /** The port to whatever answers an extraction request (the backend in production, a fake in tests). */
 export interface ExtractPort {
   extract(body: ExtractRequestBody): Promise<unknown>
+  /** The backend's version from its last answer, when it reports one. */
+  version?: string
 }
 
 export function toBase64(bytes: Uint8Array): string {

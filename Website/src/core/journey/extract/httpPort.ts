@@ -12,7 +12,7 @@ export interface HttpPortOptions {
 /** Talks to the extractor backend. Every failure becomes a plain message the consultant can act on. */
 export function createHttpPort(opts: HttpPortOptions): ExtractPort {
   const doFetch = opts.fetchImpl ?? fetch
-  return {
+  const port: ExtractPort = {
     async extract(body: ExtractRequestBody): Promise<unknown> {
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? 300_000)
@@ -30,15 +30,17 @@ export function createHttpPort(opts: HttpPortOptions): ExtractPort {
       } finally {
         clearTimeout(timer)
       }
-      let payload: { journey?: unknown; error?: string } | null = null
+      let payload: { journey?: unknown; error?: string; version?: string } | null = null
       try {
-        payload = (await res.json()) as { journey?: unknown; error?: string }
+        payload = (await res.json()) as { journey?: unknown; error?: string; version?: string }
       } catch {
         payload = null
       }
       if (!res.ok) throw new Error(payload?.error ?? `The extractor returned an error (${res.status}).`)
       if (!payload || payload.journey === undefined) throw new Error('The extractor returned no journey.')
+      if (typeof payload.version === 'string') port.version = payload.version
       return payload.journey
     },
   }
+  return port
 }

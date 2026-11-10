@@ -8,6 +8,9 @@
 import { timingSafeEqual } from 'node:crypto'
 import { ExtractError, buildConverseInput, journeyFromResponse, parseRequest } from './converse.mjs'
 
+/** Shown by the site next to every read, so a stale deployment is visible. Change it with every release of this folder. */
+export const VERSION = 'extractor-v12'
+
 const json = (statusCode, body) => ({ statusCode, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
 
 function tokenMatches(header, expected) {
@@ -90,7 +93,7 @@ export function makeHandler(deps) {
         console.log(JSON.stringify({ shape }))
       }
       console.log(JSON.stringify({ kind: request.kind, status: 200, ms: Date.now() - started, usage: response.usage }))
-      return json(200, { journey, usage: response.usage ?? null })
+      return json(200, { journey, usage: response.usage ?? null, version: VERSION })
     } catch (err) {
       const status = err instanceof ExtractError ? err.status : 500
       console.log(JSON.stringify({ status, ms: Date.now() - started, error: err instanceof ExtractError ? err.message : 'unexpected' }))

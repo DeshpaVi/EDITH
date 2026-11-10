@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { BRAND, COMPANY } from '../site/brand'
+import { BUILD_ID } from './build'
 import { Icon } from './icons'
 import { Palette } from './Palette'
 import { PAGES, pageInfo } from './pages'
@@ -56,6 +57,7 @@ export function Shell({ page, children }: { page: PageId; children: ReactNode })
         ))}
         <div className="ax-side-foot">
           Held in this tab only; nothing is stored or sent until you deploy.<br />
+          <span title="The release of this site">{BUILD_ID}</span><br />
           <a href="#/">Back to the site</a>
           {import.meta.env.VITE_AUTH === 'cognito' && <> · <a href="/auth/logout">Sign out</a></>}
         </div>

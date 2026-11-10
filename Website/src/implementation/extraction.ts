@@ -1,6 +1,7 @@
 import { createHttpPort, extractJourney, readSource, SourceError, SUPPORTED_EXTENSIONS } from '../core/journey'
 import type { Journey } from '../core/journey'
 import { parseJourneyText } from './controller'
+import { BUILD_ID } from '../app/build'
 
 /**
  * Reads an uploaded file into a journey: a journey JSON loads directly; a deck, document, PDF, image or text
@@ -73,5 +74,6 @@ export async function readAndExtract(file: { fileName: string; bytes: Uint8Array
     const typographic = outcome.checks.filter((c) => c.result === 'typographic').length
     summary.push(`Wording check: ${outcome.checks.length - missing - typographic} exact, ${typographic} differ only in typographic characters, ${missing} not found in the source.`)
   }
+  summary.push(`Read with ${port.version ?? 'an extractor that does not report its version (an older one)'}, site ${BUILD_ID}.`)
   return { ok: true, journey: j, summary }
 }
