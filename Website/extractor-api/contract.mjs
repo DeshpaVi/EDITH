@@ -15,6 +15,10 @@ export const EXTRACTION_RULES = [
   'Anything you inferred rather than read goes into "assumptions", one statement each.',
   'Do not invent backends, queues, data stores, intents or wording. Use dataSource type "unknown" when the source does not say. Consultant notes may state facts; treat them as authoritative and record that they came from the notes.',
   'Arrows marked as not attached to a target, and branch-label matches, are heuristics from the file reader: confirm them from meaning, and add an assumption when you rely on one.',
+  'A shape or box titled "Legend", and the sample shapes inside it that only explain colours (for example "Start", "Settings", "Announcements", "Lambda", "Separate Flow", "Prompts / Input"), are NOT steps. Use them only to interpret colours.',
+  'Markers that only show where the call begins ("Incoming Call", "Start") are NOT steps and say nothing to the caller. The first real step (usually the greeting) is where the journey starts. Never give a spoken kind (greeting, announcement, closing, confirmation, intent_capture, authentication) to a shape that has no wording.',
+  'One step per source shape. If several arrows lead to the same shape, give the arrows the same target id (several edges to one step); never create a second step for a shape you already used, so every step id is unique.',
+  'Every "unmapped" item needs a "source" saying where it came from, for example "slide 1, shape 69"; if you cannot tell, write "source not identified".',
 ]
 
 const STEP_KINDS = ['greeting', 'announcement', 'language_detection', 'intent_capture', 'decision', 'authentication', 'data_lookup', 'self_service', 'confirmation', 'escalation', 'closing', 'end', 'unknown']
@@ -125,6 +129,8 @@ export const FIELDS_BY_KIND = [
 
 /** One line of help per field the validator names, so a repair attempt knows what to put there. */
 const FIELD_HINTS = {
+  source: 'say where it came from in the source, for example "slide 1, shape 69", or write "source not identified".',
+  id: 'every step needs its own id: one step per shape; when several arrows reach the same shape, point them at the same step instead of creating a second one.',
   text: 'put the exact words spoken to the caller, copied from the source (greeting, announcement, closing, confirmation, intent_capture, authentication steps).',
   question: 'put the question the decision asks, from the source (decision steps).',
   languages: 'put the language codes the step detects or sets, such as ["en-US", "es-US"] (language_detection steps).',

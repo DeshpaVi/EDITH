@@ -76,6 +76,16 @@ describe('reading the Census call-flow deck', () => {
     expect(text).toContain('Alternate Path 4: Customer calls, speaks French')
   })
 
+  it('leaves the Legend and its sample shapes out of the shape list, so a model cannot turn them into steps', () => {
+    const text = describeDeck(deck)
+    const shapes = text.slice(text.indexOf('Shapes ('), text.indexOf('Arrows'))
+    expect(text).toContain('Legend (shape colour = meaning):') // the colour meanings are still given
+    expect(shapes).not.toMatch(/\[19\] /) // the Legend box
+    for (const sample of ['Settings', 'Announcements', 'Lambda', 'Separate Flow', 'Prompts / Input']) expect(shapes).not.toMatch(new RegExp(`\\n {6}${sample}\\n`))
+    expect(shapes).toContain('Main Greeting') // real steps stay
+    expect(shapes).toContain('Set en_US') // so do settings steps that are part of the flow
+  })
+
   it('keeps the full wording of every shape in the description (nothing a model must copy is clipped)', () => {
     const text = describeDeck(deck)
     expect(text).toContain('To proceed, we need to verify your identity, can you please provide your Census ID and either your home zip code or the last four digits of your SSN?')

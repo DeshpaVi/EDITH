@@ -95,7 +95,9 @@ function readSlide(xml: string, index: number): DeckSlide {
       const entry = s.text.replace(/\s+/g, ' ').trim()
       // Two entries can share a colour key when they differ only by a tint this reader does not see.
       legend[s.color] = s.color in legend && !legend[s.color].split(' OR ').includes(entry) ? `${legend[s.color]} OR ${entry}` : (legend[s.color] ?? entry)
+      s.legendMember = true
     }
+    legendShape.legendMember = true
   }
   return { index, shapes, connectors, labels, legend }
 }

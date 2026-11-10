@@ -301,3 +301,7 @@ Claude models: refused (channel-program account). OpenAI models (gpt-oss, GPT-5.
 ## 0v. Nova Pro reads the deck but omits fields
 
 Nova Pro answered with steps of the right kinds, but `text`, `question` and `languages` came back empty after 3 repair rounds (the schema marks only id/kind/label/source/next required). The contract now lists the fields each kind needs in the prompt and in the property descriptions, and repair feedback adds a one-line fix hint per field. `DEBUG_SHAPE=1` (Lambda environment variable) logs which fields each step has or leaves empty, never values. 32 extractor tests; not yet run with Nova Pro.
+
+## 0w. Nova Pro and the Census deck: legend shapes became steps
+
+With Nova Pro the remaining errors were empty `text` on two steps (the Legend samples and the "Incoming Call" marker were turned into steps), empty `unmapped[].source`, and a duplicated step id. The file reader now leaves the Legend box and its sample shapes out of the shape list it gives the model (colour meanings are still given), and the rules say: legend items and start markers are not steps, one step per shape (several edges to one target), every unmapped item needs a source. Repair hints exist for `source` and `id`. 233 website tests, 33 extractor tests; not yet run with Nova Pro. Needs both the website rebuild (reader) and the extractor code (rules).

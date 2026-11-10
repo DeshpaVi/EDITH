@@ -306,3 +306,13 @@ test('DEBUG_SHAPE logs which step fields are present or empty, never their value
   assert.match(all, /"kind":"greeting".*"empty":\["text"\]/)
   assert.ok(!all.includes('SECRET-LABEL'))
 })
+
+test('the rules keep legend items and start markers out of the steps and keep ids unique', () => {
+  const prompt = buildSystemPrompt()
+  assert.match(prompt, /"Legend".*NOT steps/)
+  assert.match(prompt, /"Incoming Call".*NOT steps/)
+  assert.match(prompt, /every step id is unique/)
+  const text = buildUserText({ fileName: 'a.pptx', kind: 'deck', text: 'x', feedback: [{ path: '$.unmapped[0].source', message: 'must be a non-empty string' }, { path: '$.steps[17].id', message: 'duplicate step id "172"' }] })
+  assert.match(text, /unmapped\[0\]\.source: must be a non-empty string\. Fix: say where it came from/)
+  assert.match(text, /duplicate step id "172"\. Fix: every step needs its own id/)
+})

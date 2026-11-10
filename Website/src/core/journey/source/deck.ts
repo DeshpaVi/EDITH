@@ -18,6 +18,8 @@ export interface DeckShape {
   y: number
   w: number
   h: number
+  /** The Legend box or a sample shape inside it: it explains colours and is not part of the call flow. */
+  legendMember?: boolean
 }
 
 export interface Point {
@@ -110,9 +112,9 @@ export function describeDeck(deck: Deck): string {
       out.push('Legend (shape colour = meaning):')
       for (const [k, v] of Object.entries(slide.legend)) out.push(`  ${k} = ${v}${v.includes(' OR ') ? '   (ambiguous: same colour key)' : ''}`)
     }
-    out.push('Shapes (id, kind, colour, text):')
+    out.push('Shapes (id, kind, colour, text)' + (legendKeys.length > 0 ? '; the legend and its sample shapes are not listed because they are not part of the call flow:' : ':'))
     for (const s of slide.shapes) {
-      if (s.text.trim() === '') continue
+      if (s.text.trim() === '' || s.legendMember) continue
       const meaning = slide.legend[s.color] ? `, meaning: ${slide.legend[s.color]}` : ''
       out.push(`  [${s.id}] ${s.geometry}${s.textBox ? ' textbox' : ''}, colour ${s.color}${meaning}`)
       out.push(...s.text.split('\n').map((line) => `      ${line}`))
