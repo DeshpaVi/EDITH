@@ -321,3 +321,7 @@ The v10 read produced no errors but did not open the checklist: with empty escal
 ## 0aa. First successful read of the Census deck (Nova Pro) and what it taught
 
 The extracted journey opened the checklist (22 items for the hand-made journey, 18 for the extracted one: no authentication backend, table, Lambda or knowledge base because the deck does not say, which is by design and what the Notes box is for). Compared with the hand-made journey the reading had three real defects, now caught by `extract/semantic.ts` (start marker as wording; diagram titles inside prompts; shapes not covered), repaired through the previous-answer feedback, and kept as review entries on the last attempt. The real reading is a fixture. 244 website tests, 36 extractor tests. Next check: re-read the deck with Notes and generate a bundle whose spec matches the hand-made one.
+
+## 0ab. Terminal steps without next
+
+Nova Pro kept omitting `next` on a terminal step through four repair rounds. `normalizeTerminalNext` now treats a missing or null `next` on `end` and `escalation` steps as `[]` and records an assumption; other kinds still fail validation. 246 website tests.

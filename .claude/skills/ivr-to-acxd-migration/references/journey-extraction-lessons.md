@@ -20,7 +20,7 @@ A model will turn anything it is shown into a step. Do the cleanup in the file r
 - Duplicate ids: one step per shape; several arrows to the same shape are several edges to one step.
 - Every "unmapped" item needs a source ("slide 1, shape 69", or "source not identified").
 - **Send the model its previous answer with the problems**, and say "change only what the problems require". Without it each repair re-reads the source from scratch and the errors move around between rounds instead of shrinking.
-- Terminal steps (end, transfer) have `next: []`, never a missing field; an edge target must be a step id (add an `end` step; never point to the word "end"). The pipeline never patches the model's answer itself: fix by prompt and hint, then validate again.
+- Terminal steps (end, transfer) have `next: []`, never a missing field; an edge target must be a step id (add an `end` step; never point to the word "end"). The pipeline does not patch the model's answer, with one recorded exception: a missing `next` on an `end` or `escalation` step (terminal by definition) is treated as `[]` and noted in `assumptions`, because models omit it however often they are told. A missing `next` on any other kind stays an error (it could be a dropped edge). When a rule plus a hint plus a repair round still do not change a model's habit, add a narrow, recorded normalisation rather than failing the read.
 - Show the consultant the validation result, not a silent guess. Unmapped content stays visible as review items.
 
 ## 4. Different models fail differently: make the extractor tolerant, and measure

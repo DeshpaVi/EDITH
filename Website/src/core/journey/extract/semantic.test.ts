@@ -78,3 +78,30 @@ describe('the pipeline repairs what the checks find', () => {
     expect(reader[0].description).toMatch(/^Reader check:/)
   })
 })
+
+describe('terminal steps without a next list', () => {
+  const port = (answer: unknown): ExtractPort => ({ async extract() { return answer } })
+  const withoutNext = (kind: string) => {
+    const j = clone(handMade) as unknown as Journey & { steps: Array<Record<string, unknown>> }
+    const step = j.steps.find((s) => s.kind === kind) as unknown as Record<string, unknown>
+    delete step.next
+    return { journey: j, id: String(step.id) }
+  }
+
+  it('treats a missing next on an end or escalation step as empty, and records it as an assumption', async () => {
+    for (const kind of ['end', 'escalation']) {
+      const { journey, id } = withoutNext(kind)
+      const r = await extractJourney(port(journey), deck())
+      expect(r.ok && r.attempts, kind).toBe(1)
+      if (!r.ok) continue
+      expect(r.journey.assumptions.some((a) => a.statement.includes(`Step "${id}" (${kind}) had no "next" list`))).toBe(true)
+    }
+  })
+
+  it('does not hide a missing next on any other kind: it could be a dropped edge', async () => {
+    const { journey } = withoutNext('confirmation')
+    const r = await extractJourney(port(journey), deck(), { maxAttempts: 1 })
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.issues.some((i) => i.message === 'must be an array of edges')).toBe(true)
+  })
+})

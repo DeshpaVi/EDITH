@@ -48,9 +48,31 @@ export type ExtractOutcome =
   | { ok: true; journey: Journey; attempts: number; checks: WordingCheck[] | null }
   | { ok: false; issues: ValidationIssue[]; attempts: number }
 
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v)
+
+/**
+ * The one repair made without asking the model: an `end` or `escalation` step is terminal by definition, so a missing (or null) `next` list means
+ * the same as an empty one. Models leave it off however often they are told. It is recorded in `assumptions`, never silent. A missing `next` on
+ * any other kind is NOT changed: it could be a dropped edge, so it stays a validation error.
+ */
+export function normalizeTerminalNext(raw: unknown): unknown {
+  if (!isObj(raw) || !Array.isArray(raw.steps)) return raw
+  const notes: string[] = []
+  const steps = raw.steps.map((step) => {
+    if (isObj(step) && (step.kind === 'end' || step.kind === 'escalation') && !Array.isArray(step.next)) {
+      notes.push(`Step "${String(step.id)}" (${String(step.kind)}) had no "next" list; it ends the journey, so it was treated as having no outgoing steps.`)
+      return { ...step, next: [] }
+    }
+    return step
+  })
+  if (notes.length === 0) return raw
+  const assumptions = Array.isArray(raw.assumptions) ? raw.assumptions : []
+  return { ...raw, steps, assumptions: [...assumptions, ...notes.map((statement) => ({ statement }))] }
+}
+
 /**
  * Source in, validated journey out. The model's answer is never trusted: it is validated, and if it fails the
- * issues are sent back for ONE corrected answer per attempt (we never patch it ourselves). Then the wording is
+ * issues are sent back for ONE corrected answer per attempt (we never patch it ourselves, except the terminal-step `next` case above). Then the wording is
  * checked against the source text and the result recorded in the journey.
  */
 export async function extractJourney(port: ExtractPort, source: SourceInput, opts: { notes?: string; maxAttempts?: number } = {}): Promise<ExtractOutcome> {
@@ -64,7 +86,7 @@ export async function extractJourney(port: ExtractPort, source: SourceInput, opt
     } catch (err) {
       return { ok: false, issues: [{ path: '$', message: err instanceof Error ? err.message : 'The extractor failed.' }], attempts: attempt }
     }
-    const result = validateJourney(raw)
+    const result = validateJourney(normalizeTerminalNext(raw))
     if (result.ok) {
       // Valid but wrong in ways a person would notice (start marker as wording, titles in prompts, dropped shapes): ask for a repair.
       // On the last attempt keep the journey and record what is left as review entries, so nothing is hidden and the read is not lost.
