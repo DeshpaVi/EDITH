@@ -16,8 +16,12 @@ function tokenMatches(header, expected) {
   return given.length === want.length && timingSafeEqual(given, want)
 }
 
-function mapModelError(err) {
+function mapModelError(err, kind) {
   const name = err?.name ?? err?.__type ?? ''
+  const message = String(err?.message ?? '')
+  if (name.includes('Validation') && (kind === 'image' || kind === 'pdf') && /image|document|content ?block|modalit|support/i.test(message)) {
+    return new ExtractError(502, 'This model cannot read images or PDFs. Upload a deck, document or text file instead, or use a model that accepts images.')
+  }
   if (name.includes('Throttling')) return new ExtractError(429, 'The model is busy. Try again in a moment.')
   if (name.includes('AccessDenied')) return new ExtractError(502, 'The model could not be used: check Bedrock model access and the ModelId.')
   if (name.includes('Validation')) return new ExtractError(502, `The model rejected the request: ${String(err.message ?? '').slice(0, 300)}`)
@@ -43,13 +47,21 @@ export function makeHandler(deps) {
         return json(400, { error: 'The request body is not valid JSON.' })
       }
       const request = parseRequest(body)
-      const input = buildConverseInput({ modelId: env.MODEL_ID, request, maxTokens: Number(env.MAX_TOKENS) || undefined })
-
+      const maxTokens = Number(env.MAX_TOKENS) || undefined
+      let toolChoice = env.TOOL_CHOICE === 'auto' ? 'auto' : 'tool'
       let response
-      try {
-        response = await deps.converse(input)
-      } catch (err) {
-        throw mapModelError(err)
+      for (let attempt = 0; ; attempt++) {
+        try {
+          response = await deps.converse(buildConverseInput({ modelId: env.MODEL_ID, request, maxTokens, toolChoice }))
+          break
+        } catch (err) {
+          // A model that does not allow a forced tool call: try once more letting it choose (the prompt then asks for the tool).
+          if (attempt === 0 && toolChoice === 'tool' && /tool ?choice|tool_choice/i.test(String(err?.message ?? ''))) {
+            toolChoice = 'auto'
+            continue
+          }
+          throw mapModelError(err, request.kind)
+        }
       }
       const journey = journeyFromResponse(response)
       console.log(JSON.stringify({ kind: request.kind, status: 200, ms: Date.now() - started, usage: response.usage }))

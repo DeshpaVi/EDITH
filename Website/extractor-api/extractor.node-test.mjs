@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { ExtractError, LIMITS, buildConverseInput, documentName, journeyFromResponse, parseRequest } from './converse.mjs'
+import { ExtractError, LIMITS, buildConverseInput, documentName, journeyFromResponse, jsonFromText, parseRequest } from './converse.mjs'
 import { TOOL_NAME, buildSystemPrompt, buildUserText, EXTRACTION_RULES, JOURNEY_JSON_SCHEMA } from './contract.mjs'
 import { makeHandler } from './index.mjs'
 
@@ -169,4 +169,43 @@ test('never logs the source content, the notes or the token', async () => {
   const all = lines.join('\n')
   assert.ok(lines.length > 0)
   for (const secret of ['CONFIDENTIAL-SOURCE-TEXT', 'CONFIDENTIAL-NOTES', 'secret-token']) assert.ok(!all.includes(secret), secret)
+})
+
+test('toolChoice auto drops the forced tool call and asks for the tool in the prompt', () => {
+  const forced = buildConverseInput({ modelId: 'm', request: parseRequest(textBody()) })
+  const auto = buildConverseInput({ modelId: 'm', request: parseRequest(textBody()), toolChoice: 'auto' })
+  assert.ok(forced.toolConfig.toolChoice)
+  assert.equal(auto.toolConfig.toolChoice, undefined)
+  assert.ok(auto.toolConfig.tools.length === 1)
+  assert.match(auto.system[0].text, new RegExp(`Call the tool ${TOOL_NAME} exactly once`))
+})
+
+test('a journey in the model\'s text is accepted, with or without a code fence, and reasoning blocks are ignored', () => {
+  const journey = { title: 'T' }
+  assert.deepEqual(jsonFromText('```json\n{"title":"T"}\n```'), journey)
+  assert.deepEqual(jsonFromText('Here it is: {"title":"T"} done'), journey)
+  assert.equal(jsonFromText('no json here'), null)
+  assert.equal(jsonFromText('{broken'), null)
+  const response = { output: { message: { content: [{ reasoningContent: { reasoningText: { text: 'thinking' } } }, { text: '{"title":"T"}' }] } } }
+  assert.deepEqual(journeyFromResponse(response), journey)
+})
+
+test('the handler retries once without a forced tool call when the model refuses one, and explains an image sent to a text-only model', async () => {
+  const { makeHandler } = await import('./index.mjs')
+  const seen = []
+  const env = { ACCESS_TOKEN: 'tok', MODEL_ID: 'm' }
+  const journey = { title: 'T' }
+  const converse = async (input) => {
+    seen.push(Boolean(input.toolConfig.toolChoice))
+    if (input.toolConfig.toolChoice) throw Object.assign(new Error('This model does not support toolChoice of type tool'), { name: 'ValidationException' })
+    return { output: { message: { content: [{ toolUse: { name: TOOL_NAME, input: journey } }] } } }
+  }
+  const call = (body, deps) => makeHandler(deps)({ requestContext: { http: { method: 'POST' } }, headers: { authorization: 'Bearer tok' }, body: JSON.stringify(body) })
+  const ok = await call(textBody(), { env, converse })
+  assert.equal(ok.statusCode, 200)
+  assert.deepEqual(seen, [true, false])
+  const textOnly = async () => { throw Object.assign(new Error('The model does not support the image content block'), { name: 'ValidationException' }) }
+  const img = await call({ fileName: 'a.png', kind: 'image', attachment: { mimeType: 'image/png', base64: 'AAAA' } }, { env, converse: textOnly })
+  assert.equal(img.statusCode, 502)
+  assert.match(JSON.parse(img.body).error, /cannot read images or PDFs/)
 })

@@ -25,6 +25,11 @@ real failure or surprise; the fix is in the code and the check is in a test. Use
 7. Newer models are served through **cross-region inference profiles**: use the inference-profile id (e.g. `us.<model>`), not the bare model id.
    Copy it from the console; never type it from memory.
 
+8. **Not every Bedrock model behaves like Claude.** The extractor forces a tool call so the answer is structured; some models refuse a forced
+   `toolChoice` (retry with auto and ask for the tool in the prompt), some answer in text (accept a JSON object in the text, then validate), some return
+   reasoning blocks (ignore them; allow more output tokens) and text-only models (the OpenAI open-weight models) cannot read images or PDFs, so a deck,
+   document or text file is the input. Whatever the model, validate its output the same way.
+
 ## CloudFormation and Lambda
 8. **Lambda code from a local folder needs the CLI to package it.** For console deployment take the code from S3 parameters (bucket, key).
 9. **A Lambda does not re-read a zip when the S3 key is unchanged.** Publish updated code under a new key (`v1`, `v2`...) and change the parameter.

@@ -53,7 +53,7 @@ export function documentName(fileName) {
 }
 
 /** The Converse request: forced tool call so the answer is structured JSON, temperature 0 for repeatability. */
-export function buildConverseInput({ modelId, request, maxTokens = 12000 }) {
+export function buildConverseInput({ modelId, request, maxTokens = 16000, toolChoice = 'tool' }) {
   const content = []
   if (request.kind === 'pdf') {
     content.push({ document: { format: 'pdf', name: documentName(request.fileName), source: { bytes: Buffer.from(request.attachment.base64, 'base64') } } })
@@ -63,11 +63,12 @@ export function buildConverseInput({ modelId, request, maxTokens = 12000 }) {
   content.push({ text: buildUserText({ fileName: request.fileName, kind: request.kind, text: request.text, notes: request.notes, feedback: request.feedback }) })
   return {
     modelId,
-    system: [{ text: buildSystemPrompt() }],
+    // 'auto': for models that do not allow a forced tool call, say so in the prompt instead (the answer is validated either way).
+    system: [{ text: toolChoice === 'tool' ? buildSystemPrompt() : `${buildSystemPrompt()}\n\nCall the tool ${TOOL_NAME} exactly once with the complete journey. Do not answer in plain text.` }],
     messages: [{ role: 'user', content }],
     toolConfig: {
       tools: [{ toolSpec: { name: TOOL_NAME, description: 'Submit the structured customer journey read from the source.', inputSchema: { json: JOURNEY_JSON_SCHEMA } } }],
-      toolChoice: { tool: { name: TOOL_NAME } },
+      ...(toolChoice === 'tool' ? { toolChoice: { tool: { name: TOOL_NAME } } } : {}),
     },
     inferenceConfig: { maxTokens, temperature: 0 },
   }
@@ -78,6 +79,24 @@ export function journeyFromResponse(response) {
   if (response?.stopReason === 'max_tokens') throw new ExtractError(502, 'The journey was too large for one answer (output limit reached). Try a smaller source or split it.')
   const blocks = response?.output?.message?.content ?? []
   const use = blocks.find((b) => b?.toolUse?.name === TOOL_NAME)?.toolUse
-  if (!use || !isObj(use.input)) throw new ExtractError(502, 'The model did not return a journey.')
-  return use.input
+  if (use && isObj(use.input)) return use.input
+  // Some models answer in text even when given a tool: accept a JSON object in the text (the caller validates it like any other answer).
+  const fromText = jsonFromText(blocks.filter((b) => typeof b?.text === 'string').map((b) => b.text).join('\n'))
+  if (fromText) return fromText
+  throw new ExtractError(502, 'The model did not return a journey.')
+}
+
+/** The first JSON object in a model's text, with or without a code fence; null if there is none. */
+export function jsonFromText(text) {
+  const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(text)
+  const candidate = fenced ? fenced[1] : text
+  const start = candidate.indexOf('{')
+  const end = candidate.lastIndexOf('}')
+  if (start < 0 || end <= start) return null
+  try {
+    const value = JSON.parse(candidate.slice(start, end + 1))
+    return isObj(value) ? value : null
+  } catch {
+    return null
+  }
 }

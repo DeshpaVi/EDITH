@@ -281,3 +281,7 @@ The ACXD Test tab ended in "We encountered an issue" after the Census ID: the da
 ## 0q. The data request shape and secret reference (found by the ACXD Test tab)
 
 The conversation failed after the caller's ID because the data request header held `{{secrets.verifyAuthApiKey}}` (documented) instead of `{verifyAuthApiKey:NLX.Secret}` (what the console stores; shown red in the editor). A real export of the data request gave the true v3 shape. The emitter now produces exactly that shape, and a test compares the emitted data request with the real export (`fixtures/dataRequest.verifyAuth.json`). The user fixed the header by hand in the workspace; the next stack update (with the regenerated template and the CommonJS Lambda fix from 0p) makes it permanent. Next consistency check worth doing: export the flows, guardrails, context variables and the application from the built workspace and diff them against the generated spec.
+
+## 0r. Extractor tolerates other model families
+
+The only model the account could use was an OpenAI open-weight model (text only). The extractor now retries without a forced tool call if refused, accepts JSON in the model's text, ignores reasoning blocks, defaults to 16,000 output tokens, and explains clearly when a model cannot read images or PDFs. 25 extractor tests. Not yet run against a live Bedrock model.

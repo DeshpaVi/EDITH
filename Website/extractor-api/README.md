@@ -18,6 +18,13 @@ the output schema are fixed in `contract.mjs`, so the endpoint cannot be used as
    ```
 4. In the tool, paste the `ExtractorUrl` output and the access token on the Journey page (or build with `VITE_EXTRACTOR_URL` to prefill it).
 
+## Which model
+
+Claude (and Amazon Nova) models accept a forced tool call and images. For other models the extractor adapts: it retries once without a forced tool call if the
+model refuses one, accepts a JSON journey in the model's text, ignores reasoning blocks, and tells the user plainly when a model cannot read images or PDFs
+(decks, documents and text files still work, because they are read in the browser). `TOOL_CHOICE=auto` skips the forced call from the start; `MAX_TOKENS` raises
+the output limit (default 16,000, which reasoning models spend partly on thinking).
+
 ## Notes
 
 - Auth is a single shared bearer token, which is enough for a small team demo. Put a real authorizer (for example Cognito
