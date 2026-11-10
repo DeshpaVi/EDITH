@@ -8,5 +8,6 @@ export function buildUserText(input: {
   text?: string
   notes?: string
   feedback?: Array<{ path: string; message: string }>
+  previous?: unknown
 }): string
 export const FIELDS_BY_KIND: string[]

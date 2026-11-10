@@ -19,6 +19,8 @@ A model will turn anything it is shown into a step. Do the cleanup in the file r
 - The extractor validates the answer and asks the model to repair it (up to 3 times). A bare "must be a non-empty string" is not enough: add a one-line fix hint per field ("put the exact words spoken to the caller, copied from the source").
 - Duplicate ids: one step per shape; several arrows to the same shape are several edges to one step.
 - Every "unmapped" item needs a source ("slide 1, shape 69", or "source not identified").
+- **Send the model its previous answer with the problems**, and say "change only what the problems require". Without it each repair re-reads the source from scratch and the errors move around between rounds instead of shrinking.
+- Terminal steps (end, transfer) have `next: []`, never a missing field; an edge target must be a step id (add an `end` step; never point to the word "end"). The pipeline never patches the model's answer itself: fix by prompt and hint, then validate again.
 - Show the consultant the validation result, not a silent guess. Unmapped content stays visible as review items.
 
 ## 4. Different models fail differently: make the extractor tolerant, and measure

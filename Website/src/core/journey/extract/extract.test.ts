@@ -123,6 +123,8 @@ describe('extractJourney', () => {
     expect(r.ok && r.attempts).toBe(2)
     expect(port.requests[0].feedback).toBeUndefined()
     expect(port.requests[1].feedback?.map((f) => f.path)).toContain('$.title')
+    expect(port.requests[0].previous).toBeUndefined()
+    expect(port.requests[1].previous).toEqual(bad) // the repair edits the previous answer instead of starting over
   })
 
   it('gives up after the attempt limit and reports the last problems', async () => {

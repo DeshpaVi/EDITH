@@ -18,6 +18,7 @@ export const EXTRACTION_RULES = [
   'A shape or box titled "Legend", and the sample shapes inside it that only explain colours (for example "Start", "Settings", "Announcements", "Lambda", "Separate Flow", "Prompts / Input"), are NOT steps. Use them only to interpret colours.',
   'Markers that only show where the call begins ("Incoming Call", "Start") are NOT steps and say nothing to the caller. The first real step (usually the greeting) is where the journey starts. Never give a spoken kind (greeting, announcement, closing, confirmation, intent_capture, authentication) to a shape that has no wording.',
   'One step per source shape. If several arrows lead to the same shape, give the arrows the same target id (several edges to one step); never create a second step for a shape you already used, so every step id is unique.',
+  'Every step has a "next" list. A step that leads nowhere (the call ends, or the caller is transferred) has "next": [] (an empty list), never a missing field. Every edge "to" must be the id of another step you defined: if a path ends the call, add a step of kind "end" with its own id and point to that id; never point to a name such as "end" that is not a step id.',
   'Every "unmapped" item needs a "source" saying where it came from, for example "slide 1, shape 69"; if you cannot tell, write "source not identified".',
 ]
 
@@ -129,6 +130,8 @@ export const FIELDS_BY_KIND = [
 
 /** One line of help per field the validator names, so a repair attempt knows what to put there. */
 const FIELD_HINTS = {
+  next: 'every step has a "next" list; use [] for a step that leads nowhere (an end or a transfer), never leave it out.',
+  to: 'an edge target must be the id of a step you defined; if the path ends the call, add a step of kind "end" with its own id and point to that id.',
   source: 'say where it came from in the source, for example "slide 1, shape 69", or write "source not identified".',
   id: 'every step needs its own id: one step per shape; when several arrows reach the same shape, point them at the same step instead of creating a second one.',
   text: 'put the exact words spoken to the caller, copied from the source (greeting, announcement, closing, confirmation, intent_capture, authentication steps).',
@@ -164,20 +167,23 @@ export function buildSystemPrompt() {
 }
 
 /** The user message text: what the source is, its content, consultant notes, and any validation feedback to fix. */
-export function buildUserText({ fileName, kind, text, notes, feedback }) {
+export function buildUserText({ fileName, kind, text, notes, feedback, previous }) {
   const parts = [`Source file: ${fileName} (${kind}).`]
   if (text) parts.push('SOURCE CONTENT', text)
   else parts.push('The source is attached. Read it carefully, including any text inside images.')
   if (notes && notes.trim() !== '') parts.push('CONSULTANT NOTES (authoritative facts from the person running this migration)', notes.trim())
   if (feedback && feedback.length > 0) {
     parts.push(
-      'YOUR PREVIOUS ANSWER FAILED VALIDATION. Return the corrected, complete journey.',
+      previous
+        ? 'YOUR PREVIOUS ANSWER FAILED VALIDATION. Below are the problems and then your previous answer. Return the COMPLETE corrected journey: change only what the problems require and keep everything else exactly as it was.'
+        : 'YOUR PREVIOUS ANSWER FAILED VALIDATION. Return the corrected, complete journey.',
       ...feedback.map((f) => {
         const field = /\.([A-Za-z]+)(?:\[\d+\])?$/.exec(f.path)?.[1]
         const hint = field && FIELD_HINTS[field] ? ` Fix: ${FIELD_HINTS[field]}` : ''
         return `- ${f.path}: ${f.message}.${hint}`
       }),
     )
+    if (previous) parts.push('YOUR PREVIOUS ANSWER', JSON.stringify(previous))
   }
   return parts.join('\n\n')
 }

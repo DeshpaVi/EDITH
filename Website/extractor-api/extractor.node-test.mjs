@@ -316,3 +316,18 @@ test('the rules keep legend items and start markers out of the steps and keep id
   assert.match(text, /unmapped\[0\]\.source: must be a non-empty string\. Fix: say where it came from/)
   assert.match(text, /duplicate step id "172"\. Fix: every step needs its own id/)
 })
+
+test('a repair request carries the previous answer so the model edits it, and the rules cover missing next and edges to unknown ids', () => {
+  const previous = { title: 'T', steps: [{ id: 'a', kind: 'end' }] }
+  const request = parseRequest(textBody({ feedback: [{ path: '$.steps[0].next', message: 'must be an array of edges' }], previous }))
+  assert.deepEqual(request.previous, previous)
+  const text = buildUserText({ fileName: 'a.pptx', kind: 'deck', text: 'x', feedback: request.feedback, previous })
+  assert.match(text, /change only what the problems require/)
+  assert.ok(text.includes('YOUR PREVIOUS ANSWER\n\n' + JSON.stringify(previous)))
+  assert.match(text, /use \[\] for a step that leads nowhere/)
+  assert.throws(() => parseRequest(textBody({ previous: 'not an object' })), /previous must be/)
+  assert.ok(!buildUserText({ fileName: 'a', kind: 'text', text: 'x' }).includes('PREVIOUS ANSWER'))
+  const prompt = buildSystemPrompt()
+  assert.match(prompt, /"next": \[\] \(an empty list\)/)
+  assert.match(prompt, /never point to a name such as "end"/)
+})

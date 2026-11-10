@@ -309,3 +309,7 @@ With Nova Pro the remaining errors were empty `text` on two steps (the Legend sa
 ## 0x. Extraction lessons captured
 
 The lessons from reading the Census deck (legend and start markers must be removed by the reader, per-kind required fields, repair hints, model tolerance, a "what the model will read" preview) are in `.claude/skills/ivr-to-acxd-migration/references/journey-extraction-lessons.md`.
+
+## 0y. Repair rounds now carry the previous answer
+
+After the Legend fix, Nova Pro's remaining errors were a missing `next` on an end step and an edge to a non-existent step "end". Added rules and hints for both, and the repair request now carries the model's previous answer (`previous`, browser and Lambda) so it edits instead of re-reading the source. The pipeline still never patches the answer itself. 233 website tests, 34 extractor tests; not yet run with Nova Pro.

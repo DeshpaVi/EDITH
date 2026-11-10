@@ -14,6 +14,8 @@ export interface ExtractRequestBody {
   attachment?: { mimeType: string; base64: string }
   notes?: string
   feedback?: Array<{ path: string; message: string }>
+  /** The model's previous (invalid) answer, so a repair edits it instead of starting over. */
+  previous?: unknown
 }
 
 /** The port to whatever answers an extraction request (the backend in production, a fake in tests). */
@@ -28,13 +30,16 @@ export function toBase64(bytes: Uint8Array): string {
   return btoa(binary)
 }
 
-export function toRequestBody(source: SourceInput, notes?: string, feedback?: ValidationIssue[]): ExtractRequestBody {
+export function toRequestBody(source: SourceInput, notes?: string, feedback?: ValidationIssue[], previous?: unknown): ExtractRequestBody {
   const body: ExtractRequestBody = { fileName: source.fileName, kind: source.kind }
   if (source.kind === 'pdf') body.attachment = { mimeType: 'application/pdf', base64: toBase64(source.bytes) }
   else if (source.kind === 'image') body.attachment = { mimeType: source.mimeType, base64: toBase64(source.bytes) }
   else body.text = source.text
   if (notes && notes.trim() !== '') body.notes = notes.trim()
-  if (feedback && feedback.length > 0) body.feedback = feedback.slice(0, 40).map((f) => ({ path: f.path, message: f.message }))
+  if (feedback && feedback.length > 0) {
+    body.feedback = feedback.slice(0, 40).map((f) => ({ path: f.path, message: f.message }))
+    if (previous !== undefined && previous !== null) body.previous = previous
+  }
   return body
 }
 
@@ -50,10 +55,11 @@ export type ExtractOutcome =
 export async function extractJourney(port: ExtractPort, source: SourceInput, opts: { notes?: string; maxAttempts?: number } = {}): Promise<ExtractOutcome> {
   const max = Math.max(1, opts.maxAttempts ?? 3)
   let feedback: ValidationIssue[] | undefined
+  let previous: unknown
   for (let attempt = 1; attempt <= max; attempt++) {
     let raw: unknown
     try {
-      raw = await port.extract(toRequestBody(source, opts.notes, feedback))
+      raw = await port.extract(toRequestBody(source, opts.notes, feedback, previous))
     } catch (err) {
       return { ok: false, issues: [{ path: '$', message: err instanceof Error ? err.message : 'The extractor failed.' }], attempts: attempt }
     }
@@ -64,6 +70,7 @@ export async function extractJourney(port: ExtractPort, source: SourceInput, opt
       return { ok: true, journey: recordWordingChecks({ ...result.journey, origin: result.journey.origin ?? source.fileName }, checks), attempts: attempt, checks }
     }
     feedback = result.issues
+    previous = raw
     if (attempt === max) return { ok: false, issues: result.issues, attempts: attempt }
   }
   return { ok: false, issues: [{ path: '$', message: 'No attempt was made.' }], attempts: 0 }

@@ -3,7 +3,7 @@
 
 import { JOURNEY_JSON_SCHEMA, TOOL_NAME, buildSystemPrompt, buildUserText } from './contract.mjs'
 
-export const LIMITS = { maxTextChars: 400_000, maxBase64Chars: 4_500_000, maxNotesChars: 8_000, maxFeedback: 40 }
+export const LIMITS = { maxTextChars: 400_000, maxBase64Chars: 4_500_000, maxNotesChars: 8_000, maxFeedback: 40, maxPreviousChars: 200_000 }
 
 const TEXT_KINDS = ['deck', 'diagram', 'document', 'text']
 const BINARY_KINDS = ['image', 'pdf']
@@ -21,7 +21,7 @@ const isObj = (v) => typeof v === 'object' && v !== null && !Array.isArray(v)
 /** Validates the browser's request body. Throws ExtractError(400 or 413) with a message safe to show. */
 export function parseRequest(body) {
   if (!isObj(body)) throw new ExtractError(400, 'The request body must be a JSON object.')
-  const { fileName, kind, text, attachment, notes, feedback } = body
+  const { fileName, kind, text, attachment, notes, feedback, previous } = body
   if (typeof fileName !== 'string' || fileName.trim() === '' || fileName.length > 200) throw new ExtractError(400, 'fileName is required (up to 200 characters).')
   if (![...TEXT_KINDS, ...BINARY_KINDS].includes(kind)) throw new ExtractError(400, `kind must be one of: ${[...TEXT_KINDS, ...BINARY_KINDS].join(', ')}.`)
   if (notes !== undefined && (typeof notes !== 'string' || notes.length > LIMITS.maxNotesChars)) throw new ExtractError(400, `notes must be text up to ${LIMITS.maxNotesChars} characters.`)
@@ -43,7 +43,12 @@ export function parseRequest(body) {
     }
     cleanFeedback = feedback.map((f) => ({ path: f.path.slice(0, 200), message: f.message.slice(0, 400) }))
   }
-  return { fileName: fileName.trim(), kind, text, attachment, notes, feedback: cleanFeedback }
+  let cleanPrevious
+  if (previous !== undefined) {
+    if (!isObj(previous) || JSON.stringify(previous).length > LIMITS.maxPreviousChars) throw new ExtractError(400, `previous must be the earlier journey object (up to ${LIMITS.maxPreviousChars} characters).`)
+    cleanPrevious = previous
+  }
+  return { fileName: fileName.trim(), kind, text, attachment, notes, feedback: cleanFeedback, previous: cleanPrevious }
 }
 
 /** Bedrock document names allow only letters, digits, single spaces, hyphens, parentheses and brackets. */
@@ -66,7 +71,7 @@ export function buildConverseInput({ modelId, request, maxTokens = 16000, toolCh
   } else if (request.kind === 'image') {
     content.push({ image: { format: IMAGE_FORMATS[request.attachment.mimeType], source: { bytes: Buffer.from(request.attachment.base64, 'base64') } } })
   }
-  content.push({ text: buildUserText({ fileName: request.fileName, kind: request.kind, text: request.text, notes: request.notes, feedback: request.feedback }) })
+  content.push({ text: buildUserText({ fileName: request.fileName, kind: request.kind, text: request.text, notes: request.notes, feedback: request.feedback, previous: request.previous }) })
   const system =
     toolChoice === 'tool'
       ? buildSystemPrompt()
