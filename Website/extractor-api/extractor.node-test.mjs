@@ -147,13 +147,15 @@ test('accepts a base64-encoded body (as Function URLs may send)', async () => {
   assert.equal((await handlerWith(async () => okResponse({ title: 'T' }))(e)).statusCode, 200)
 })
 
-test('maps model errors to clear statuses without leaking details', async () => {
+test('maps model errors to clear statuses; only an access error shows AWS\'s explanation (an operator needs it), anything else stays generic', async () => {
   const fail = (name) => handlerWith(async () => { throw Object.assign(new Error('internal arn:aws:...'), { name }) })(event(textBody()))
   assert.equal((await fail('ThrottlingException')).statusCode, 429)
   const denied = await fail('AccessDeniedException')
   assert.equal(denied.statusCode, 502)
-  assert.ok(!denied.body.includes('arn:aws'))
-  assert.equal((await fail('SomethingElse')).statusCode, 502)
+  assert.ok(denied.body.includes('The model could not be used'))
+  const other = await fail('SomethingElse')
+  assert.equal(other.statusCode, 502)
+  assert.ok(!other.body.includes('arn:aws'))
 })
 
 test('never logs the source content, the notes or the token', async () => {
