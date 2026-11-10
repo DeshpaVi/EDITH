@@ -209,3 +209,30 @@ test('the handler retries once without a forced tool call when the model refuses
   assert.equal(img.statusCode, 502)
   assert.match(JSON.parse(img.body).error, /cannot read images or PDFs/)
 })
+
+test('toolChoice none sends no tool and puts the schema in the prompt', () => {
+  const none = buildConverseInput({ modelId: 'm', request: parseRequest(textBody()), toolChoice: 'none' })
+  assert.equal(none.toolConfig, undefined)
+  assert.match(none.system[0].text, /exactly one JSON object/)
+  assert.ok(none.system[0].text.includes('"type"'))
+})
+
+test('the handler steps down tool, auto, none as the model refuses each, and stops there', async () => {
+  const { makeHandler } = await import('./index.mjs')
+  const modes = []
+  const env = { ACCESS_TOKEN: 'tok', MODEL_ID: 'm' }
+  const call = (deps) => makeHandler(deps)({ requestContext: { http: { method: 'POST' } }, headers: { authorization: 'Bearer tok' }, body: JSON.stringify(textBody()) })
+  const converse = async (input) => {
+    modes.push(!input.toolConfig ? 'none' : input.toolConfig.toolChoice ? 'tool' : 'auto')
+    if (input.toolConfig) throw Object.assign(new Error('This model does not support tool use'), { name: 'ValidationException' })
+    return { output: { message: { content: [{ text: '{"title":"T"}' }] } } }
+  }
+  const ok = await call({ env, converse })
+  assert.equal(ok.statusCode, 200)
+  assert.deepEqual(modes, ['tool', 'auto', 'none'])
+  // A validation error unrelated to tools is not retried.
+  modes.length = 0
+  const bad = await call({ env, converse: async () => { modes.push('x'); throw Object.assign(new Error('Malformed input request'), { name: 'ValidationException' }) } })
+  assert.equal(bad.statusCode, 502)
+  assert.equal(modes.length, 1)
+})

@@ -52,7 +52,13 @@ export function documentName(fileName) {
   return /[A-Za-z0-9]/.test(base) ? base.slice(0, 60) : 'journey'
 }
 
-/** The Converse request: forced tool call so the answer is structured JSON, temperature 0 for repeatability. */
+/**
+ * The Converse request. `toolChoice`:
+ * - 'tool' (default): a forced tool call, so the answer is structured JSON (Claude, Nova).
+ * - 'auto': the tool is offered and the prompt asks for it, for models that refuse a forced call.
+ * - 'none': no tool at all; the prompt carries the schema and asks for one JSON object, for models without tool use (e.g. gpt-oss, whose
+ *   Bedrock page does not document tools). The answer is validated downstream in every mode. Temperature 0 for repeatability.
+ */
 export function buildConverseInput({ modelId, request, maxTokens = 16000, toolChoice = 'tool' }) {
   const content = []
   if (request.kind === 'pdf') {
@@ -61,17 +67,20 @@ export function buildConverseInput({ modelId, request, maxTokens = 16000, toolCh
     content.push({ image: { format: IMAGE_FORMATS[request.attachment.mimeType], source: { bytes: Buffer.from(request.attachment.base64, 'base64') } } })
   }
   content.push({ text: buildUserText({ fileName: request.fileName, kind: request.kind, text: request.text, notes: request.notes, feedback: request.feedback }) })
-  return {
-    modelId,
-    // 'auto': for models that do not allow a forced tool call, say so in the prompt instead (the answer is validated either way).
-    system: [{ text: toolChoice === 'tool' ? buildSystemPrompt() : `${buildSystemPrompt()}\n\nCall the tool ${TOOL_NAME} exactly once with the complete journey. Do not answer in plain text.` }],
-    messages: [{ role: 'user', content }],
-    toolConfig: {
+  const system =
+    toolChoice === 'tool'
+      ? buildSystemPrompt()
+      : toolChoice === 'auto'
+        ? `${buildSystemPrompt()}\n\nCall the tool ${TOOL_NAME} exactly once with the complete journey. Do not answer in plain text.`
+        : `${buildSystemPrompt()}\n\nReply with exactly one JSON object and nothing else, with no code fence, that matches this JSON Schema:\n${JSON.stringify(JOURNEY_JSON_SCHEMA)}`
+  const input = { modelId, system: [{ text: system }], messages: [{ role: 'user', content }], inferenceConfig: { maxTokens, temperature: 0 } }
+  if (toolChoice !== 'none') {
+    input.toolConfig = {
       tools: [{ toolSpec: { name: TOOL_NAME, description: 'Submit the structured customer journey read from the source.', inputSchema: { json: JOURNEY_JSON_SCHEMA } } }],
       ...(toolChoice === 'tool' ? { toolChoice: { tool: { name: TOOL_NAME } } } : {}),
-    },
-    inferenceConfig: { maxTokens, temperature: 0 },
+    }
   }
+  return input
 }
 
 /** Reads the journey out of a Converse response, or throws ExtractError(502) with a safe message. */

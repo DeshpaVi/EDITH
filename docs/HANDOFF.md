@@ -285,3 +285,7 @@ The conversation failed after the caller's ID because the data request header he
 ## 0r. Extractor tolerates other model families
 
 The only model the account could use was an OpenAI open-weight model (text only). The extractor now retries without a forced tool call if refused, accepts JSON in the model's text, ignores reasoning blocks, defaults to 16,000 output tokens, and explains clearly when a model cannot read images or PDFs. 25 extractor tests. Not yet run against a live Bedrock model.
+
+## 0s. Extractor: three tool modes
+
+From AWS's page for the OpenAI models on Bedrock: gpt-oss-20b/120b (`openai.gpt-oss-20b-1:0`, `openai.gpt-oss-120b-1:0`), Converse supported, text input/output only, 128k context, tool use not documented; reasoning precedes the text. The extractor now steps down tool (forced), auto, none (schema in the prompt, one JSON object back), moving on only for validation errors that mention tools. 27 extractor tests. `openai.gpt-6.1-sol` (Mantle) / `us.openai.gpt-6.1-sol` (Runtime) is also mentioned on that page; its modalities and tool support are on a separate model card (not read).

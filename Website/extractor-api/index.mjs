@@ -48,16 +48,18 @@ export function makeHandler(deps) {
       }
       const request = parseRequest(body)
       const maxTokens = Number(env.MAX_TOKENS) || undefined
-      let toolChoice = env.TOOL_CHOICE === 'auto' ? 'auto' : 'tool'
+      // Tool modes, most structured first. A validation error about tools moves to the next mode (once per mode).
+      const modes = ['tool', 'auto', 'none']
+      let mode = Math.max(0, modes.indexOf(env.TOOL_CHOICE))
       let response
-      for (let attempt = 0; ; attempt++) {
+      for (;;) {
         try {
-          response = await deps.converse(buildConverseInput({ modelId: env.MODEL_ID, request, maxTokens, toolChoice }))
+          response = await deps.converse(buildConverseInput({ modelId: env.MODEL_ID, request, maxTokens, toolChoice: modes[mode] }))
           break
         } catch (err) {
-          // A model that does not allow a forced tool call: try once more letting it choose (the prompt then asks for the tool).
-          if (attempt === 0 && toolChoice === 'tool' && /tool ?choice|tool_choice/i.test(String(err?.message ?? ''))) {
-            toolChoice = 'auto'
+          const aboutTools = String(err?.name ?? err?.__type ?? '').includes('Validation') && /tool/i.test(String(err?.message ?? ''))
+          if (aboutTools && mode < modes.length - 1) {
+            mode++
             continue
           }
           throw mapModelError(err, request.kind)
