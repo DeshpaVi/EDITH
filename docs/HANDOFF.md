@@ -341,3 +341,7 @@ Checklist items and generated flows match the hand-made journey (Escalation and 
 ## 0af. Third real reading: arrows perfect, repairs damaged two kinds
 
 The summary (extractor-v13, site-v17): 22 of 22 items, 18 steps, 9 exact wording and 1 not found, the model corrected its answer 3 times. Arrows: 0 invented, 0 missed. Damage from repairs: the "Utterance recognized?" diamond became an intent_capture, "How can I help you?" an announcement, "Incoming Call" an unclassified step, 13 empty edge labels. Added: diamond must be a decision (check and rule), start-marker unknown step dropped, empty edge labels dropped (both recorded). Fixture `census-cqa.extracted-nova-v3.journey.json`. 259 website tests, 39 extractor tests. Site-v18, extractor-v14.
+
+## 0ag. Fourth reading got worse; the file now settles the graph
+
+Summary (extractor-v14, site-v18): 16 items, authentication lost (the model re-labelled steps during repair rounds; the old "fewest findings" choice preferred it). New: `extract/reconcile.ts` (start markers, titles, edges and labels from the file, all recorded as assumptions), `semanticIssues` reduced to what needs judgement (diamonds, uncovered shapes), best reading chosen by distinct step kinds first. Replaying the four real readings: 18, 22, 22 and 16 items; only the fourth lacks authentication, which no graph correction can supply. Fixture `census-cqa.extracted-nova-v4.journey.json`. 253 website tests. Site-v19 (the extractor stays v14).

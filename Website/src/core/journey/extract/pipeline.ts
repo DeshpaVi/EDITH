@@ -1,4 +1,5 @@
 import type { Journey } from '../model'
+import { reconcile } from './reconcile'
 import { START_MARKER, semanticIssues } from './semantic'
 import { validateJourney } from '../validate'
 import type { ValidationIssue } from '../validate'
@@ -100,14 +101,17 @@ export async function extractJourney(port: ExtractPort, source: SourceInput, opt
   const max = Math.max(1, opts.maxAttempts ?? 4)
   let feedback: ValidationIssue[] | undefined
   let previous: unknown
-  // The best valid reading so far (fewest findings). A repair that breaks the structure must not lose it.
-  let best: { journey: Journey; semantic: ValidationIssue[] } | undefined
-  const accept = (journey: Journey, semantic: ValidationIssue[], attempts: number): ExtractOutcome => {
+  // The best valid reading so far. Repair rounds drift (one lost the authentication step), so a reading with fewer distinct step kinds never
+  // beats one with more, and only then do fewer findings win. A repair that breaks the structure must not lose it either.
+  type Reading = { journey: Journey; semantic: ValidationIssue[]; kinds: number }
+  let best: Reading | undefined
+  const better = (a: Reading, b: Reading) => a.kinds > b.kinds || (a.kinds === b.kinds && a.semantic.length <= b.semantic.length)
+  const accept = (r: Reading, attempts: number): ExtractOutcome => {
     const text = sourceText(source)
-    const checks = text === undefined ? null : checkWording(journey, text)
-    const base: Journey = semantic.length > 0
-      ? { ...journey, unmapped: [...journey.unmapped, ...semantic.map((i) => ({ description: `Reader check: ${i.message}`, source: 'reader check' }))] }
-      : journey
+    const checks = text === undefined ? null : checkWording(r.journey, text)
+    const base: Journey = r.semantic.length > 0
+      ? { ...r.journey, unmapped: [...r.journey.unmapped, ...r.semantic.map((i) => ({ description: `Reader check: ${i.message}`, source: 'reader check' }))] }
+      : r.journey
     return { ok: true, journey: recordWordingChecks({ ...base, origin: base.origin ?? source.fileName }, checks), attempts, checks }
   }
   for (let attempt = 1; attempt <= max; attempt++) {
@@ -115,24 +119,28 @@ export async function extractJourney(port: ExtractPort, source: SourceInput, opt
     try {
       raw = await port.extract(toRequestBody(source, opts.notes, feedback, previous))
     } catch (err) {
-      if (best) return accept(best.journey, best.semantic, attempt)
+      if (best) return accept(best, attempt)
       return { ok: false, issues: [{ path: '$', message: err instanceof Error ? err.message : 'The extractor failed.' }], attempts: attempt }
     }
     const result = validateJourney(normalizeTerminalNext(raw))
     if (result.ok) {
-      // Valid but wrong in ways a person would notice (start marker as wording, titles in prompts, dropped shapes): ask for a repair.
-      // When attempts run out, keep the journey and record what is left as review entries, so nothing is hidden and the read is not lost.
-      const semantic = semanticIssues(source, result.journey)
-      if (semantic.length === 0) return accept(result.journey, [], attempt)
-      if (!best || semantic.length <= best.semantic.length) best = { journey: result.journey, semantic }
-      if (attempt === max) return accept(best.journey, best.semantic, attempt)
-      feedback = semantic
-      previous = raw
+      // The file settles the graph (start markers, titles, arrows): correct it here and record it. What still needs judgement (a diamond given a
+      // spoken kind, a shape nobody accounts for) goes back to the model, until attempts run out; then the findings become review entries.
+      const rec = reconcile(source, result.journey)
+      const journey: Journey = rec.notes.length > 0 ? { ...rec.journey, assumptions: [...rec.journey.assumptions, ...rec.notes.map((statement) => ({ statement }))] } : rec.journey
+      const semantic = semanticIssues(source, journey)
+      const reading: Reading = { journey, semantic, kinds: new Set(journey.steps.map((st) => st.kind).filter((k) => k !== 'unknown')).size }
+      if (!best || better(reading, best)) best = reading
+      if (semantic.length === 0 && best === reading) return accept(reading, attempt)
+      if (attempt === max) return accept(best, attempt)
+      feedback = semantic.length > 0 ? semantic : undefined
+      previous = semantic.length > 0 ? raw : undefined
+      if (feedback === undefined) return accept(best, attempt)
       continue
     }
     feedback = result.issues
     previous = raw
-    if (attempt === max) return best ? accept(best.journey, best.semantic, attempt) : { ok: false, issues: result.issues, attempts: attempt }
+    if (attempt === max) return best ? accept(best, attempt) : { ok: false, issues: result.issues, attempts: attempt }
   }
   return { ok: false, issues: [{ path: '$', message: 'No attempt was made.' }], attempts: 0 }
 }
