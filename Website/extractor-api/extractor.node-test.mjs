@@ -331,3 +331,12 @@ test('a repair request carries the previous answer so the model edits it, and th
   assert.match(prompt, /"next": \[\] \(an empty list\)/)
   assert.match(prompt, /never point to a name such as "end"/)
 })
+
+test('the schema and hints say what name and context need for the step kinds that use them', () => {
+  const props = JOURNEY_JSON_SCHEMA.properties.steps.items.properties
+  assert.match(props.name.description, /REQUIRED and non-empty for self_service and data_lookup/)
+  assert.match(props.context.description, /Never use empty strings/)
+  const text = buildUserText({ fileName: 'a.pptx', kind: 'deck', text: 'x', feedback: [{ path: '$.steps[8].context', message: 'must be an array of non-empty strings' }, { path: '$.steps[10].name', message: 'must be a non-empty string' }] })
+  assert.match(text, /context: must be an array of non-empty strings\. Fix: list what the agent should receive/)
+  assert.match(text, /name: must be a non-empty string\. Fix: give a short name taken from the source label/)
+})

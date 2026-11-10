@@ -53,7 +53,7 @@ export type ExtractOutcome =
  * checked against the source text and the result recorded in the journey.
  */
 export async function extractJourney(port: ExtractPort, source: SourceInput, opts: { notes?: string; maxAttempts?: number } = {}): Promise<ExtractOutcome> {
-  const max = Math.max(1, opts.maxAttempts ?? 3)
+  const max = Math.max(1, opts.maxAttempts ?? 4)
   let feedback: ValidationIssue[] | undefined
   let previous: unknown
   for (let attempt = 1; attempt <= max; attempt++) {

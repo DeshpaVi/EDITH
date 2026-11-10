@@ -62,7 +62,7 @@ describe('readAndExtract', () => {
     const r = await readAndExtract(deck(), form, answering(200, { journey: { title: 'x' } }))
     expect(r.ok).toBe(false)
     if (!r.ok) {
-      expect(r.errors[0]).toContain('3 attempts')
+      expect(r.errors[0]).toContain('4 attempts')
       expect(r.errors.some((e) => e.includes('$.steps'))).toBe(true)
     }
   })
