@@ -236,3 +236,19 @@ test('the handler steps down tool, auto, none as the model refuses each, and sto
   assert.equal(bad.statusCode, 502)
   assert.equal(modes.length, 1)
 })
+
+test('a model that rejects the temperature field gets the request again without it', async () => {
+  const { makeHandler } = await import('./index.mjs')
+  const seen = []
+  const env = { ACCESS_TOKEN: 'tok', MODEL_ID: 'm' }
+  const converse = async (input) => {
+    seen.push('temperature' in input.inferenceConfig)
+    if ('temperature' in input.inferenceConfig) throw Object.assign(new Error("This model doesn't support the temperature field. Remove temperature and try again."), { name: 'ValidationException' })
+    return { output: { message: { content: [{ toolUse: { name: TOOL_NAME, input: { title: 'T' } } }] } } }
+  }
+  const res = await makeHandler({ env, converse })({ requestContext: { http: { method: 'POST' } }, headers: { authorization: 'Bearer tok' }, body: JSON.stringify(textBody()) })
+  assert.equal(res.statusCode, 200)
+  assert.deepEqual(seen, [true, false])
+  assert.equal('temperature' in buildConverseInput({ modelId: 'm', request: parseRequest(textBody()), temperature: null }).inferenceConfig, false)
+  assert.equal(buildConverseInput({ modelId: 'm', request: parseRequest(textBody()) }).inferenceConfig.temperature, 0)
+})

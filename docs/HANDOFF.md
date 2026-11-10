@@ -289,3 +289,7 @@ The only model the account could use was an OpenAI open-weight model (text only)
 ## 0s. Extractor: three tool modes
 
 From AWS's page for the OpenAI models on Bedrock: gpt-oss-20b/120b (`openai.gpt-oss-20b-1:0`, `openai.gpt-oss-120b-1:0`), Converse supported, text input/output only, 128k context, tool use not documented; reasoning precedes the text. The extractor now steps down tool (forced), auto, none (schema in the prompt, one JSON object back), moving on only for validation errors that mention tools. 27 extractor tests. `openai.gpt-6.1-sol` (Mantle) / `us.openai.gpt-6.1-sol` (Runtime) is also mentioned on that page; its modalities and tool support are on a separate model card (not read).
+
+## 0t. GPT-5.5 as the extractor model
+
+The available model is `openai.gpt-5.5` (text and image input, function calling, cross-region inference, so an inference-profile id). First read failed with "This model doesn't support the temperature field": the extractor now retries without temperature (`TEMPERATURE=off` skips it from the start). 28 extractor tests.

@@ -51,13 +51,21 @@ export function makeHandler(deps) {
       // Tool modes, most structured first. A validation error about tools moves to the next mode (once per mode).
       const modes = ['tool', 'auto', 'none']
       let mode = Math.max(0, modes.indexOf(env.TOOL_CHOICE))
+      let temperature = env.TEMPERATURE === 'off' ? null : 0
       let response
       for (;;) {
         try {
-          response = await deps.converse(buildConverseInput({ modelId: env.MODEL_ID, request, maxTokens, toolChoice: modes[mode] }))
+          response = await deps.converse(buildConverseInput({ modelId: env.MODEL_ID, request, maxTokens, toolChoice: modes[mode], temperature }))
           break
         } catch (err) {
-          const aboutTools = String(err?.name ?? err?.__type ?? '').includes('Validation') && /tool/i.test(String(err?.message ?? ''))
+          const validation = String(err?.name ?? err?.__type ?? '').includes('Validation')
+          const message = String(err?.message ?? '')
+          // Some models reject the temperature field (e.g. GPT-5.5): send the request again without it.
+          if (validation && temperature !== null && /temperature/i.test(message)) {
+            temperature = null
+            continue
+          }
+          const aboutTools = validation && /tool/i.test(message)
           if (aboutTools && mode < modes.length - 1) {
             mode++
             continue

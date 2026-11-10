@@ -28,7 +28,7 @@ real failure or surprise; the fix is in the code and the check is in a test. Use
 8. **Not every Bedrock model behaves like Claude.** The extractor forces a tool call so the answer is structured; some models refuse a forced
    `toolChoice` (retry with auto and ask for the tool in the prompt), some answer in text (accept a JSON object in the text, then validate), some return
    reasoning blocks (ignore them; allow more output tokens) and text-only models (the OpenAI open-weight models) cannot read images or PDFs, so a deck,
-   document or text file is the input. Whatever the model, validate its output the same way.
+   document or text file is the input. Some reject the `temperature` field outright (GPT-5.5: "This model doesn't support the temperature field"): retry without it. Whatever the model, validate its output the same way.
 
 ## CloudFormation and Lambda
 8. **Lambda code from a local folder needs the CLI to package it.** For console deployment take the code from S3 parameters (bucket, key).
