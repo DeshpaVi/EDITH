@@ -252,3 +252,11 @@ test('a model that rejects the temperature field gets the request again without 
   assert.equal('temperature' in buildConverseInput({ modelId: 'm', request: parseRequest(textBody()), temperature: null }).inferenceConfig, false)
   assert.equal(buildConverseInput({ modelId: 'm', request: parseRequest(textBody()) }).inferenceConfig.temperature, 0)
 })
+
+test('an access error shows AWS\'s own explanation so the cause can be told apart', async () => {
+  const { makeHandler } = await import('./index.mjs')
+  const converse = async () => { throw Object.assign(new Error('User: arn:aws:sts::1:assumed-role/x/y is not authorized to perform: bedrock:InvokeModel on resource: arn:aws:bedrock:us-east-1:1:inference-profile/us.m'), { name: 'AccessDeniedException' }) }
+  const res = await makeHandler({ env: { ACCESS_TOKEN: 'tok', MODEL_ID: 'm' }, converse })({ requestContext: { http: { method: 'POST' } }, headers: { authorization: 'Bearer tok' }, body: JSON.stringify(textBody()) })
+  assert.equal(res.statusCode, 502)
+  assert.match(JSON.parse(res.body).error, /not authorized to perform: bedrock:InvokeModel on resource/)
+})

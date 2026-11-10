@@ -23,7 +23,8 @@ function mapModelError(err, kind) {
     return new ExtractError(502, 'This model cannot read images or PDFs. Upload a deck, document or text file instead, or use a model that accepts images.')
   }
   if (name.includes('Throttling')) return new ExtractError(429, 'The model is busy. Try again in a moment.')
-  if (name.includes('AccessDenied')) return new ExtractError(502, 'The model could not be used: check Bedrock model access and the ModelId.')
+  // AWS's own message names the role, the action and the resource (no source content), which is what tells the cause apart.
+  if (name.includes('AccessDenied')) return new ExtractError(502, `The model could not be used: ${message.slice(0, 400) || 'check Bedrock model access and the ModelId.'}`)
   if (name.includes('Validation')) return new ExtractError(502, `The model rejected the request: ${String(err.message ?? '').slice(0, 300)}`)
   if (name.includes('ModelTimeout') || name.includes('Timeout')) return new ExtractError(504, 'The model took too long. Try a smaller source.')
   return new ExtractError(502, 'The model request failed.')
@@ -70,6 +71,7 @@ export function makeHandler(deps) {
             mode++
             continue
           }
+          console.log(JSON.stringify({ modelError: String(err?.name ?? err?.__type ?? 'Error'), message: String(err?.message ?? '').slice(0, 400) }))
           throw mapModelError(err, request.kind)
         }
       }
