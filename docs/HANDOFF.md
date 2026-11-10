@@ -293,3 +293,7 @@ From AWS's page for the OpenAI models on Bedrock: gpt-oss-20b/120b (`openai.gpt-
 ## 0t. GPT-5.5 as the extractor model
 
 The available model is `openai.gpt-5.5` (text and image input, function calling, cross-region inference, so an inference-profile id). First read failed with "This model doesn't support the temperature field": the extractor now retries without temperature (`TEMPERATURE=off` skips it from the start). 28 extractor tests.
+
+## 0u. Model access reality on this account
+
+Claude models: refused (channel-program account). OpenAI models (gpt-oss, GPT-5.5): sold through AWS Marketplace and refused for lack of `aws-marketplace:Subscribe`/`ViewSubscriptions` (even the user's own role); the extractor template has an optional `AllowMarketplaceSubscribe` switch. **Amazon Nova Pro works** in the Bedrock playground; use it for the extractor (an Amazon model, no Marketplace). The extractor retries with a lower output limit when a model rejects 16,000 `maxTokens` (30 tests). Not yet run with Nova Pro.

@@ -48,10 +48,11 @@ export function makeHandler(deps) {
         return json(400, { error: 'The request body is not valid JSON.' })
       }
       const request = parseRequest(body)
-      const maxTokens = Number(env.MAX_TOKENS) || undefined
+      let maxTokens = Number(env.MAX_TOKENS) || undefined
       // Tool modes, most structured first. A validation error about tools moves to the next mode (once per mode).
       const modes = ['tool', 'auto', 'none']
       let mode = Math.max(0, modes.indexOf(env.TOOL_CHOICE))
+      let tokensLowered = false
       let temperature = env.TEMPERATURE === 'off' ? null : 0
       let response
       for (;;) {
@@ -64,6 +65,13 @@ export function makeHandler(deps) {
           // Some models reject the temperature field (e.g. GPT-5.5): send the request again without it.
           if (validation && temperature !== null && /temperature/i.test(message)) {
             temperature = null
+            continue
+          }
+          // A model with a smaller output limit than requested (e.g. Nova Pro): use the limit the error names, else a conservative 5,000.
+          if (validation && /max(imum)?[ _]?(output[ _])?tokens|maxTokens/i.test(message) && !tokensLowered) {
+            const named = Number(/(?:limit|maximum|max)[^0-9]{0,40}(\d{3,6})/i.exec(message)?.[1])
+            maxTokens = Math.min(named > 0 ? named : 5000, 16000)
+            tokensLowered = true
             continue
           }
           const aboutTools = validation && /tool/i.test(message)

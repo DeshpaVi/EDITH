@@ -262,3 +262,19 @@ test('an access error shows AWS\'s own explanation so the cause can be told apar
   assert.equal(res.statusCode, 502)
   assert.match(JSON.parse(res.body).error, /not authorized to perform: bedrock:InvokeModel on resource/)
 })
+
+test('a model with a smaller output limit gets the request again with the limit its error names, or 5000 if none is named', async () => {
+  const { makeHandler } = await import('./index.mjs')
+  const run = async (message) => {
+    const seen = []
+    const converse = async (input) => {
+      seen.push(input.inferenceConfig.maxTokens)
+      if (input.inferenceConfig.maxTokens > 10000) throw Object.assign(new Error(message), { name: 'ValidationException' })
+      return { output: { message: { content: [{ toolUse: { name: TOOL_NAME, input: { title: 'T' } } }] } } }
+    }
+    const res = await makeHandler({ env: { ACCESS_TOKEN: 'tok', MODEL_ID: 'm' }, converse })({ requestContext: { http: { method: 'POST' } }, headers: { authorization: 'Bearer tok' }, body: JSON.stringify(textBody()) })
+    return { status: res.statusCode, seen }
+  }
+  assert.deepEqual(await run('The maximum tokens you requested exceeds the model limit of 10000.'), { status: 200, seen: [16000, 10000] })
+  assert.deepEqual(await run('Invalid value for maxTokens'), { status: 200, seen: [16000, 5000] })
+})
