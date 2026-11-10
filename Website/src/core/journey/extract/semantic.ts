@@ -9,11 +9,12 @@ import type { SourceInput } from '../source'
  * 1. A start marker ("Incoming Call", "Start") given as spoken wording.
  * 2. A diagram title kept inside the spoken wording ("Main Greeting: Thank you...") when the diagram uses that convention throughout.
  * 3. An arrow the model invented, or one in the file that it left out (the reader knows the arrows exactly, glued or nearest-shape).
+ * 3b. A decision diamond (flowChartDecision) given a spoken kind: a diamond is a branch point whose question is not spoken to the caller.
  * 4. A shape on a flow slide (one with arrows) that no step or unmapped entry accounts for (CLAUDE.md constraint 3: never silently drop an element).
  */
 
 const SPOKEN_KINDS = ['greeting', 'announcement', 'closing', 'confirmation', 'intent_capture', 'authentication'] as const
-const START_MARKER = /^(incoming call|call (starts?|begins?|arrives?)|start|begin|entry( point)?)\.?$/i
+export const START_MARKER = /^(incoming call|call (starts?|begins?|arrives?)|start|begin|entry( point)?)\.?$/i
 const TITLE_PREFIX = /^([A-Z][A-Za-z0-9 ]{1,30}):\s+(\S.*)$/s
 
 const norm = (s: string) => s.replace(/\s+/g, ' ').trim()
@@ -52,6 +53,25 @@ export function semanticIssues(source: SourceInput, journey: Journey): Validatio
         path: `$.steps[${s.index}].text`,
         message: `starts with "${title}:", which is the diagram's title for the shape (most prompts in this diagram follow that convention), not spoken wording. Keep the title in "label" and put only the wording after the colon in "text"`,
       })
+    }
+  }
+
+  // 3b. diamonds are decisions
+  if (source.kind === 'deck' || source.kind === 'diagram') {
+    for (const [index, st] of journey.steps.entries()) {
+      if (!(SPOKEN_KINDS as readonly string[]).includes(st.kind)) continue
+      const ref = shapeRefs(st.source)
+      for (const slide of source.deck.slides) {
+        if (ref.slide !== undefined && ref.slide !== slide.index) continue
+        const diamond = slide.shapes.find((sh) => ref.ids.includes(sh.id) && /decision/i.test(sh.geometry))
+        if (diamond) {
+          issues.push({
+            path: `$.steps[${index}]`,
+            message: `is tied to "${clip(diamond.text, 40)}", a decision diamond in the drawing: a branch point whose question is not spoken to the caller. Use kind "decision" with that question (and put the real spoken prompt, if the source has one, in its own step)`,
+          })
+          break
+        }
+      }
     }
   }
 

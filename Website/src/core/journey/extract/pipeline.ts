@@ -1,5 +1,5 @@
 import type { Journey } from '../model'
-import { semanticIssues } from './semantic'
+import { START_MARKER, semanticIssues } from './semantic'
 import { validateJourney } from '../validate'
 import type { ValidationIssue } from '../validate'
 import { sourceText } from '../source'
@@ -60,21 +60,40 @@ const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object
 export function normalizeTerminalNext(raw: unknown): unknown {
   if (!isObj(raw) || !Array.isArray(raw.steps)) return raw
   const notes: string[] = []
+  let changed = false
   const steps = raw.steps.map((step) => {
-    if (isObj(step) && (step.kind === 'end' || step.kind === 'escalation') && !Array.isArray(step.next)) {
+    if (!isObj(step)) return step
+    let out = step
+    if ((step.kind === 'end' || step.kind === 'escalation') && !Array.isArray(step.next)) {
       notes.push(`Step "${String(step.id)}" (${String(step.kind)}) had no "next" list; it ends the journey, so it was treated as having no outgoing steps.`)
-      return { ...step, next: [] }
+      out = { ...out, next: [] }
+      changed = true
     }
-    return step
+    // An empty edge label means "no label": drop it (no information is lost).
+    if (Array.isArray(out.next) && out.next.some((e) => isObj(e) && e.label === '')) {
+      out = { ...out, next: out.next.map((e) => (isObj(e) && e.label === '' ? Object.fromEntries(Object.entries(e).filter(([k]) => k !== 'label')) : e)) }
+      changed = true
+    }
+    return out
   })
-  if (notes.length === 0) return raw
+  // A start marker ("Incoming Call") that the model kept as an unclassified step has no wording and nothing leads into it: drop it.
+  const targets = new Set(steps.flatMap((st) => (isObj(st) && Array.isArray(st.next) ? st.next.map((e) => (isObj(e) ? String(e.to) : '')) : [])))
+  const kept = steps.filter((st) => {
+    if (isObj(st) && st.kind === 'unknown' && START_MARKER.test(String(st.raw ?? st.label ?? '').replace(/\s+/g, ' ').trim()) && !targets.has(String(st.id))) {
+      notes.push(`The start marker "${String(st.raw ?? st.label)}" is not a step: it only shows where the call begins, so it was left out.`)
+      changed = true
+      return false
+    }
+    return true
+  })
+  if (!changed) return raw
   const assumptions = Array.isArray(raw.assumptions) ? raw.assumptions : []
-  return { ...raw, steps, assumptions: [...assumptions, ...notes.map((statement) => ({ statement }))] }
+  return { ...raw, steps: kept, assumptions: [...assumptions, ...notes.map((statement) => ({ statement }))] }
 }
 
 /**
  * Source in, validated journey out. The model's answer is never trusted: it is validated, and if it fails the
- * issues are sent back for ONE corrected answer per attempt (we never patch it ourselves, except the terminal-step `next` case above). Then the wording is
+ * issues are sent back for ONE corrected answer per attempt (we never patch it ourselves, except the information-free cases in normalizeTerminalNext above). Then the wording is
  * checked against the source text and the result recorded in the journey.
  */
 export async function extractJourney(port: ExtractPort, source: SourceInput, opts: { notes?: string; maxAttempts?: number } = {}): Promise<ExtractOutcome> {

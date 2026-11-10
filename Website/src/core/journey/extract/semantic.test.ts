@@ -9,6 +9,7 @@ import type { ExtractPort, ExtractRequestBody } from './index'
 import handMade from '../fixtures/census-cqa.journey.json'
 import nova from '../fixtures/census-cqa.extracted-nova.journey.json'
 import nova2 from '../fixtures/census-cqa.extracted-nova-v2.journey.json'
+import nova3Fixture from '../fixtures/census-cqa.extracted-nova-v3.journey.json'
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v))
 const deck = (): SourceInput => readSource({ fileName: 'census.pptx', bytes: new Uint8Array(readFileSync(join(__dirname, '../fixtures/census-cqa-call-flow.pptx'))) })
@@ -157,5 +158,50 @@ describe('the second real reading (v12 pipeline, with Notes): what is still wron
 
   it('leaves the hand-made journey alone (it cites shapes by name, so the arrow check is skipped)', () => {
     expect(semanticIssues(deck(), clone(handMade) as unknown as Journey)).toEqual([])
+  })
+})
+
+describe('the third real reading: repairs must not damage what was right', () => {
+  const nova3 = () => clone(nova3Fixture) as unknown as Journey
+  const issues = semanticIssues(deck(), nova3())
+
+  it('has no invented or missed arrows (the arrow check did its job)', () => {
+    expect(issues.some((i) => /no arrow from|source has an arrow/.test(i.message))).toBe(false)
+  })
+
+  it('flags a decision diamond that was given a spoken kind', () => {
+    const i = nova3().steps.findIndex((s) => s.id === '56')
+    const hit = issues.find((x) => x.path === `$.steps[${i}]`)
+    expect(hit?.message).toMatch(/decision diamond/)
+    expect(issues.filter((x) => /decision diamond/.test(x.message))).toHaveLength(1) // the real decisions (48, 67, 71) are fine
+  })
+
+  it('drops empty edge labels without losing anything', async () => {
+    const answer = clone(nova3Fixture)
+    const p: ExtractPort = { async extract() { return answer } }
+    const r = await extractJourney(p, deck(), { maxAttempts: 1 })
+    expect(r.ok).toBe(true)
+    if (r.ok) expect(r.journey.steps.every((s) => s.next.every((e) => e.label !== ''))).toBe(true)
+  })
+})
+
+describe('a start marker kept as an unclassified step', () => {
+  it('is left out, with an assumption, and the journey then starts at the first real step', async () => {
+    const answer = clone(nova3Fixture)
+    const p: ExtractPort = { async extract() { return answer } }
+    const r = await extractJourney(p, deck(), { maxAttempts: 1 })
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.journey.steps.some((s) => s.label === 'Incoming Call')).toBe(false)
+    expect(r.journey.steps[0].id).toBe('25')
+    expect(r.journey.assumptions.some((a) => a.statement.includes('start marker "Incoming Call"'))).toBe(true)
+  })
+
+  it('does not remove an unknown step that something leads into', async () => {
+    const answer = clone(nova3Fixture) as unknown as { steps: Array<{ id: string; next: Array<{ to: string }> }> }
+    answer.steps.find((s) => s.id === '25')!.next.push({ to: '4' })
+    const p: ExtractPort = { async extract() { return answer } }
+    const r = await extractJourney(p, deck(), { maxAttempts: 1 })
+    expect(r.ok && r.journey.steps.some((s) => s.id === '4')).toBe(true)
   })
 })

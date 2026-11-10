@@ -166,6 +166,7 @@ export function buildSystemPrompt() {
     '',
     'READING A DIAGRAM',
     '- When the source lists shapes and arrows, each arrow is an edge from the first shape to the second. A decision shape has one edge per branch; the branch label comes from the nearest label text.',
+    '- A diamond (geometry flowChartDecision) is a branch point: kind "decision", with the question it holds. A decision is never a spoken kind; the prompt asked before it is its own step (for example the "How can I help you?" prompt before a "recognized?" diamond is the intent_capture step).',
     '- A loop back to an earlier step is an edge back to it.',
     '- Shape colours usually match a legend; use the legend meaning as a hint, not as proof.',
     '- Short scenario or narrative text belongs in "scenarios"; do not turn it into steps unless the diagram lacks them.',

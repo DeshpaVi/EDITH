@@ -337,3 +337,7 @@ The journey JSON sent after the v15 deploy was byte-identical to the first (pre-
 ## 0ae. Second real reading of the Census deck (Nova Pro, with Notes): 22 of 22 items, same four flows
 
 Checklist items and generated flows match the hand-made journey (Escalation and SafetyEscalation identical; Authentication differs only by the deck's curly apostrophe, which is correct verbatim wording). Still wrong: one invented arrow, two missed (unglued) arrows, the start marker given the greeting's words, an invented escalation context entry copied from a schema example, 8 stray branch labels as warnings. Now: edge-versus-arrow check (`extract/semantic.ts`), marker check by label, no example wording in descriptions (tested), branch labels grouped as one info review. Fixture: `census-cqa.extracted-nova-v2.journey.json`. 254 website tests, 38 extractor tests. Site-v17, extractor-v13.
+
+## 0af. Third real reading: arrows perfect, repairs damaged two kinds
+
+The summary (extractor-v13, site-v17): 22 of 22 items, 18 steps, 9 exact wording and 1 not found, the model corrected its answer 3 times. Arrows: 0 invented, 0 missed. Damage from repairs: the "Utterance recognized?" diamond became an intent_capture, "How can I help you?" an announcement, "Incoming Call" an unclassified step, 13 empty edge labels. Added: diamond must be a decision (check and rule), start-marker unknown step dropped, empty edge labels dropped (both recorded). Fixture `census-cqa.extracted-nova-v3.journey.json`. 259 website tests, 39 extractor tests. Site-v18, extractor-v14.

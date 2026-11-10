@@ -46,6 +46,9 @@ Comparing the extracted journey with the hand-made one (their checklists and the
 - A step the reader marks as a start marker stays a marker even if the model gives it another step's wording (check the label as well as the text).
 - Group stray branch labels ("Y", "N", "fallback: 3x") into one info review so the real "not modelled" warnings are visible.
 - A diagram can be genuinely incomplete (the enumeration box in the Census deck has no arrow at all): "never reached" is then a true finding for the consultant, not a model error.
+- **Repair rounds can damage what was right.** In the third Census reading the arrows became perfect (0 invented, 0 missed of 22) but the repairs re-labelled a decision diamond ("Utterance recognized?") as an `intent_capture` and the real intent prompt as a plain announcement. Add a deterministic check for every kind of damage you see: here, a shape whose geometry is `flowChartDecision` must be a `decision`. Compare readings round to round (kind changes, dropped and added steps) before trusting a repaired answer; the pipeline picks the valid reading with the fewest findings, which does not see kind damage.
+- A diamond is a branch point: the question inside it is not spoken. The prompt asked before it is its own step.
+- **Information-free cleanups are fine and are recorded as assumptions:** an empty edge label is no label; a missing `next` on `end`/`escalation` is `[]`; a start marker kept as an unclassified step with nothing leading into it is dropped.
 - Keep a real model's output as a regression fixture (`fixtures/census-cqa.extracted-nova.journey.json`) and test the checks against it.
 
 ## 5. Ideas for the app

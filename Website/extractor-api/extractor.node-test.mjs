@@ -367,3 +367,7 @@ test('field descriptions give no example wording a model could copy into the jou
   }
   assert.match(props.context.description, /Do not invent entries/)
 })
+
+test('the rules say a decision diamond is a branch point, never a spoken kind', () => {
+  assert.match(buildSystemPrompt(), /A diamond \(geometry flowChartDecision\) is a branch point/)
+})

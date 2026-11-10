@@ -9,7 +9,7 @@ import { timingSafeEqual } from 'node:crypto'
 import { ExtractError, buildConverseInput, journeyFromResponse, parseRequest } from './converse.mjs'
 
 /** Shown by the site next to every read, so a stale deployment is visible. Change it with every release of this folder. */
-export const VERSION = 'extractor-v13'
+export const VERSION = 'extractor-v14'
 
 const json = (statusCode, body) => ({ statusCode, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
 
