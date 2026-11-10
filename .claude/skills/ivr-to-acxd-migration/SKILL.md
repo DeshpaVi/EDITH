@@ -254,6 +254,7 @@ Load only what the task needs:
 - `references/live-sync-and-touchpoint.md` — Live Sync Scripts and the Touchpoint web
   widget, for the web chat/voice-on-a-webpage side of omnichannel migrations (distinct
   from phone IVR).
+- `references/journey-extraction-lessons.md` — **Read before changing how a deck, PDF, diagram or image is read**: remove noise (legends, start markers) in the reader, per-kind required fields, repair hints, model tolerance.
 - `references/deployment-lessons.md` — **Read before deploying anything programmatically**: SDK facts, AWS account and Bedrock constraints, CloudFormation pitfalls, and the order of work for a first deployment.
 - `references/verified-console-and-export-findings.md` — **Start here for exact behaviour.** What the console
   nodes really do, real export JSON shapes, Connect block JSON, built-in slot types, default behaviours,

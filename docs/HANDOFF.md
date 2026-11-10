@@ -305,3 +305,7 @@ Nova Pro answered with steps of the right kinds, but `text`, `question` and `lan
 ## 0w. Nova Pro and the Census deck: legend shapes became steps
 
 With Nova Pro the remaining errors were empty `text` on two steps (the Legend samples and the "Incoming Call" marker were turned into steps), empty `unmapped[].source`, and a duplicated step id. The file reader now leaves the Legend box and its sample shapes out of the shape list it gives the model (colour meanings are still given), and the rules say: legend items and start markers are not steps, one step per shape (several edges to one target), every unmapped item needs a source. Repair hints exist for `source` and `id`. 233 website tests, 33 extractor tests; not yet run with Nova Pro. Needs both the website rebuild (reader) and the extractor code (rules).
+
+## 0x. Extraction lessons captured
+
+The lessons from reading the Census deck (legend and start markers must be removed by the reader, per-kind required fields, repair hints, model tolerance, a "what the model will read" preview) are in `.claude/skills/ivr-to-acxd-migration/references/journey-extraction-lessons.md`.
