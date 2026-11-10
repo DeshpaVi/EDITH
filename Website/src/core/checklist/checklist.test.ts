@@ -76,6 +76,45 @@ describe('checklist for the Census CQA journey', () => {
   })
 })
 
+describe('checklist for sparse model answers (found when a read journey would not open)', () => {
+  const noDangling = (j: Journey) => {
+    const c = buildChecklist(j) // must not throw
+    const ids = new Set(c.items.map((i) => i.id))
+    for (const i of c.items) for (const r of i.requires) expect(ids.has(r), `${i.id} requires ${r}`).toBe(true)
+    return c
+  }
+
+  it('builds when every escalation lists no hand-over context, and still creates the baseline variables', () => {
+    const j = journey()
+    for (const st of j.steps) if (st.kind === 'escalation') st.context = []
+    const c = noDangling(j)
+    const ids = c.items.map((i) => i.id)
+    expect(ids).toContain(IDS.ctx('transferSummary'))
+    expect(ids).toContain(IDS.ctx('customerIntent'))
+  })
+
+  it('still creates the escalation flow and its variables when the diagram has authentication but no escalation step', () => {
+    const j = journey()
+    j.steps = j.steps.filter((st) => st.kind !== 'escalation')
+    for (const st of j.steps) st.next = st.next.filter((e) => j.steps.some((o) => o.id === e.to))
+    const ids = noDangling(j).items.map((i) => i.id)
+    for (const id of [IDS.escalationFlow, IDS.ctx('transferSummary'), IDS.ctx('customerIntent'), IDS.ctx('stuckPoint')]) expect(ids).toContain(id)
+  })
+
+  it('builds when the journey has no escalation and no authentication, because the safety flow still needs the hand-back variables', () => {
+    const j = journey()
+    j.steps = j.steps.filter((st) => st.kind !== 'escalation' && st.kind !== 'authentication')
+    for (const st of j.steps) {
+      st.next = st.next.filter((e) => j.steps.some((o) => o.id === e.to))
+      if (st.kind === 'intent_capture') st.retry.onExhausted = 'end'
+    }
+    const ids = noDangling(j).items.map((i) => i.id)
+    expect(ids).toContain(IDS.ctx('customerIntent'))
+    expect(ids).toContain(IDS.ctx('transferSummary'))
+    expect(ids).not.toContain(IDS.escalationFlow)
+  })
+})
+
 describe('checklist for other journeys', () => {
   it('builds no authentication items when the journey has no authentication', () => {
     const j = journey()

@@ -247,7 +247,7 @@ export function authenticationRules(journey: Journey): Draft {
       kind: 'acxd.flow',
       title: 'Authentication flow',
       reason: `The caller is verified before the intents that require it (${auth.identifiers.join(', ')}; ${auth.match === 'any' ? 'any one is enough' : 'all must match'}).`,
-      requires: [IDS.verifyRequest, IDS.ctx('isAuthenticated'), IDS.escalationFlow, IDS.mainFlow],
+      requires: [IDS.verifyRequest, IDS.ctx('isAuthenticated'), IDS.escalationFlow, IDS.mainFlow, IDS.ctx('stuckPoint'), IDS.ctx('customerIntent')],
       sources: src,
       schemaStatus: 'confirmed',
       notes: [
@@ -353,12 +353,31 @@ export function contextVariableFor(label: string): { name: string; known: boolea
 }
 
 /** Escalation: flow, hand-back variables and contact attributes. */
+/**
+ * Steps that lead to a live agent: explicit escalations, intent retry limits that escalate, and every authentication step (the authentication
+ * flow always redirects to the escalation flow when its attempts run out, whatever the diagram says).
+ */
+function escalationSources(journey: Journey) {
+  const escalations = stepsOfKind(journey, 'escalation')
+  const retried = [
+    ...stepsOfKind(journey, 'intent_capture').filter((s) => s.retry.maxAttempts > 0 && s.retry.onExhausted === 'escalate'),
+    ...stepsOfKind(journey, 'authentication'),
+  ]
+  return { escalations, retried }
+}
+
+/** The hand-back variables every escalation (including the baseline safety flow) needs, whatever the journey's own list says. */
+const BASELINE_CONTEXT = [
+  { name: 'transferSummary', label: 'conversation summary' },
+  { name: 'customerIntent', label: 'caller intent' },
+] as const
+
+/** With an escalation flow, the authentication flow also sets where the caller got stuck. */
+const ESCALATION_CONTEXT = [...BASELINE_CONTEXT, { name: 'stuckPoint', label: 'point at which the caller got stuck' }] as const
+
 export function escalationRules(journey: Journey): Draft {
   const out = empty()
-  const escalations = stepsOfKind(journey, 'escalation')
-  const retried = [...stepsOfKind(journey, 'intent_capture'), ...stepsOfKind(journey, 'authentication')].filter(
-    (s) => s.retry.maxAttempts > 0 && s.retry.onExhausted === 'escalate',
-  )
+  const { escalations, retried } = escalationSources(journey)
   if (escalations.length === 0 && retried.length === 0) return out
 
   const src = ids([...escalations, ...retried])
@@ -369,8 +388,8 @@ export function escalationRules(journey: Journey): Draft {
       context.set(v.name, { known: v.known, label })
     }
   }
-  // Agents always benefit from a summary, even if the journey did not ask for one.
-  if (!context.has('transferSummary')) context.set('transferSummary', { known: true, label: 'conversation summary' })
+  // Agents always benefit from a summary and the caller's intent, even if the journey did not ask for them (and the safety flow needs both).
+  for (const b of ESCALATION_CONTEXT) if (!context.has(b.name)) context.set(b.name, { known: true, label: b.label })
 
   const queue = escalations.find((e) => e.queue)?.queue
   out.items.push(
@@ -426,10 +445,27 @@ export function escalationRules(journey: Journey): Draft {
 }
 
 /** Baseline guardrails are not in the diagram; they are recommended for any caller-facing agent. */
-export function guardrailRules(_journey: Journey): Draft {
+export function guardrailRules(journey: Journey): Draft {
   const reason = 'Not in the journey. Recommended baseline from the Census build.'
+  // The safety flow needs the hand-back variables. When the journey has no escalation, nothing else creates them.
+  const { escalations, retried } = escalationSources(journey)
+  const baselineContext =
+    escalations.length === 0 && retried.length === 0
+      ? BASELINE_CONTEXT.map((b) =>
+          item({
+            id: IDS.ctx(b.name),
+            kind: 'acxd.contextVariable',
+            title: `Context variable ${b.name}`,
+            reason: `Carries "${b.label}" to the agent; the safety escalation flow uses it.`,
+            need: 'recommended',
+            sources: [],
+            schemaStatus: 'confirmed',
+          }),
+        )
+      : []
   return {
     items: [
+      ...baselineContext,
       item({
         id: IDS.guardrailSafety,
         kind: 'acxd.guardrail',

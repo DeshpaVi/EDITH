@@ -313,3 +313,7 @@ The lessons from reading the Census deck (legend and start markers must be remov
 ## 0y. Repair rounds now carry the previous answer
 
 After the Legend fix, Nova Pro's remaining errors were a missing `next` on an end step and an edge to a non-existent step "end". Added rules and hints for both, and the repair request now carries the model's previous answer (`previous`, browser and Lambda) so it edits instead of re-reading the source. The pipeline still never patches the answer itself. 233 website tests, 34 extractor tests; not yet run with Nova Pro.
+
+## 0z. A valid read that would not open
+
+The v10 read produced no errors but did not open the checklist: with empty escalation `context` lists (which the new rules allow) `buildChecklist` threw (the safety flow requires `customerIntent`), and the screen swallowed the exception. Fixed: the escalation flow now always carries `transferSummary`, `customerIntent` and `stuckPoint`; authentication steps always count as escalation sources; with neither, the guardrail rules create the two baseline variables; the screen shows an error and offers the read journey as JSON. 236 tests, including sparse-journey variants.

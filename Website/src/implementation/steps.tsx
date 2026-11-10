@@ -25,6 +25,7 @@ export function JourneyStep({ issues, onLoad, onExtracted }: { issues: Validatio
   const [form, setForm] = useState<ExtractionForm>({ url: import.meta.env.VITE_EXTRACTOR_URL ?? '', token: '', notes: '' })
   const [busy, setBusy] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
+  const [readJourney, setReadJourney] = useState<Journey | null>(null)
 
   const update = (next: ExtractionForm) => {
     setForm(next)
@@ -46,9 +47,17 @@ export function JourneyStep({ issues, onLoad, onExtracted }: { issues: Validatio
     setBusy(true)
     setErrors([])
     try {
+      setReadJourney(null)
       const out = await readAndExtract(file, form)
-      if (out.ok) onExtracted(out.journey, out.summary)
-      else setErrors(out.errors)
+      if (out.ok) {
+        try {
+          onExtracted(out.journey, out.summary)
+        } catch (err) {
+          // The read was valid but turning it into a checklist failed: say so, and keep the journey so it can be downloaded and reported.
+          setReadJourney(out.journey)
+          setErrors([`The journey was read (${out.journey.steps.length} steps) but the checklist could not be built from it: ${err instanceof Error ? err.message : 'unexpected error'}`])
+        }
+      } else setErrors(out.errors)
     } finally {
       setBusy(false)
     }
@@ -72,6 +81,7 @@ export function JourneyStep({ issues, onLoad, onExtracted }: { issues: Validatio
         <Field label="Notes for the reader (optional)" hint="Facts the file does not say, for example that records live in DynamoDB or that any one identifier is enough."><TextArea value={form.notes} onChange={(v) => update({ ...form, notes: v })} rows={3} /></Field>
         <Button onClick={() => { void read() }} disabled={!file || busy}>{busy ? 'Reading…' : 'Read journey'}</Button>
         <Problems items={errors} />
+        {readJourney && <div style={{ marginTop: 8 }}><Button kind="ghost" onClick={() => download('journey-read.json', JSON.stringify(readJourney, null, 2), 'application/json')}>Download the journey that was read (JSON)</Button></div>}
       </Panel>
       <Panel>
         <h3 style={{ ...heading, fontSize: 20, marginBottom: 8 }}>Or load a structured journey</h3>

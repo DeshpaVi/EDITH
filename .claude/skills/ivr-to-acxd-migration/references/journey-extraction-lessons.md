@@ -28,6 +28,10 @@ A model will turn anything it is shown into a step. Do the cleanup in the file r
 - `DEBUG_SHAPE=1` logs which fields each step has or leaves empty (names only, never content). Use it to see what a model omits before changing a prompt.
 - A good test source is a real deck with a legend, start markers, loops back to earlier steps, branch labels as separate text boxes, and shapes reached from several arrows (the Census deck has all of these). Keep it as the regression fixture for every reader change.
 
+## 4b. A journey that validates can still break the next stage
+- The checklist builder crashed on a valid journey whose escalation lists no hand-over context ("requires unknown item acxd.contextVariable.customerIntent"). Baseline items that other items rely on (the safety flow's hand-back variables, the escalation flow after authentication, `stuckPoint`) must be created whatever the journey says, and a test must build the checklist and the bundle from sparse variants of the real journey (empty lists, missing optional fields, no escalation, no authentication).
+- Never swallow an error after a successful read: show it, keep the journey, and offer it for download so it can be reproduced. A silent "nothing happened" cost a round trip.
+
 ## 5. Ideas for the app
 - **"What the model will read" preview:** show the consultant the text and graph the reader extracted (with the legend and ignored items marked) before calling the model. Most extraction problems are visible there.
 - **Per-format readers share one graph model** (shapes, arrows, labels, legend): add legend and noise handling once in the shared model, and per format only the parsing.
