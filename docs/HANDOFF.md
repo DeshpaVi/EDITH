@@ -317,3 +317,7 @@ After the Legend fix, Nova Pro's remaining errors were a missing `next` on an en
 ## 0z. A valid read that would not open
 
 The v10 read produced no errors but did not open the checklist: with empty escalation `context` lists (which the new rules allow) `buildChecklist` threw (the safety flow requires `customerIntent`), and the screen swallowed the exception. Fixed: the escalation flow now always carries `transferSummary`, `customerIntent` and `stuckPoint`; authentication steps always count as escalation sources; with neither, the guardrail rules create the two baseline variables; the screen shows an error and offers the read journey as JSON. 236 tests, including sparse-journey variants.
+
+## 0aa. First successful read of the Census deck (Nova Pro) and what it taught
+
+The extracted journey opened the checklist (22 items for the hand-made journey, 18 for the extracted one: no authentication backend, table, Lambda or knowledge base because the deck does not say, which is by design and what the Notes box is for). Compared with the hand-made journey the reading had three real defects, now caught by `extract/semantic.ts` (start marker as wording; diagram titles inside prompts; shapes not covered), repaired through the previous-answer feedback, and kept as review entries on the last attempt. The real reading is a fixture. 244 website tests, 36 extractor tests. Next check: re-read the deck with Notes and generate a bundle whose spec matches the hand-made one.

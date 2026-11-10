@@ -1,4 +1,5 @@
 import type { Journey } from '../model'
+import { semanticIssues } from './semantic'
 import { validateJourney } from '../validate'
 import type { ValidationIssue } from '../validate'
 import { sourceText } from '../source'
@@ -65,9 +66,20 @@ export async function extractJourney(port: ExtractPort, source: SourceInput, opt
     }
     const result = validateJourney(raw)
     if (result.ok) {
+      // Valid but wrong in ways a person would notice (start marker as wording, titles in prompts, dropped shapes): ask for a repair.
+      // On the last attempt keep the journey and record what is left as review entries, so nothing is hidden and the read is not lost.
+      const semantic = semanticIssues(source, result.journey)
+      if (semantic.length > 0 && attempt < max) {
+        feedback = semantic
+        previous = raw
+        continue
+      }
       const text = sourceText(source)
       const checks = text === undefined ? null : checkWording(result.journey, text)
-      return { ok: true, journey: recordWordingChecks({ ...result.journey, origin: result.journey.origin ?? source.fileName }, checks), attempts: attempt, checks }
+      const base: Journey = semantic.length > 0
+        ? { ...result.journey, unmapped: [...result.journey.unmapped, ...semantic.map((i) => ({ description: `Reader check: ${i.message}`, source: 'reader check' }))] }
+        : result.journey
+      return { ok: true, journey: recordWordingChecks({ ...base, origin: base.origin ?? source.fileName }, checks), attempts: attempt, checks }
     }
     feedback = result.issues
     previous = raw

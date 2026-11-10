@@ -1,0 +1,347 @@
+{
+  "channels": [
+    "voice"
+  ],
+  "languages": [
+    "en-US",
+    "es-US"
+  ],
+  "origin": "Census CQA Demo Call Flow.pptx",
+  "scenarios": [
+    {
+      "name": "Happy Path",
+      "description": "Customer calls, speaks English, asks if they can complete their 2030 CQA over the phone. Has their census ID and authenticates and completes 2030 CQA over the phone."
+    },
+    {
+      "name": "Alternate Path 1",
+      "description": "Customer calls, speaks English, asks several questions that do not require authentication. IVR collects intents (FAQs), retrieves knowledge, answers each question asking inbetween if the customer is satisfied."
+    },
+    {
+      "name": "Alternate Path 2",
+      "description": "Customer calls, speaks English, asks if they can complete their 2030 CQA over the phone. Has their census ID and authenticates, only gets through a part of the 2030 CQA, routes to a live agent who gets context of call and picks up where the IVR left off, completes 2030 CQA with live agent assistance."
+    },
+    {
+      "name": "Alternate Path 3",
+      "description": "Customer calls, speaks Spanish, asks if they can complete their 2030 CQA over the phone. Does not have their census ID, but IVR collects intent (enumeration) and passes to a live agent after 3 failed attempts to authenticate. Live agent gets context of call including customer intent and point at which customer got stuck, picks up where the IVR left off."
+    },
+    {
+      "name": "Alternate Path 4",
+      "description": "Customer calls, speaks French, IVR detects French, IVR asks for call reason, customer provides, IVR translates and passes to a French speaking live agent the customer’s intent."
+    }
+  ],
+  "title": "Demo Proof-of-Concept Call Flow",
+  "steps": [
+    {
+      "id": "4",
+      "kind": "greeting",
+      "label": "Incoming Call",
+      "source": "slide 1, shape 4",
+      "text": "Incoming Call",
+      "next": [
+        {
+          "to": "25",
+          "label": "Y"
+        }
+      ]
+    },
+    {
+      "id": "25",
+      "kind": "announcement",
+      "label": "Main Greeting: Thank you for calling the 2030 Census Questionnaire Assistance Center.",
+      "source": "slide 1, shape 25",
+      "text": "Main Greeting: Thank you for calling the 2030 Census Questionnaire Assistance Center.",
+      "next": [
+        {
+          "to": "54",
+          "label": "Y"
+        }
+      ]
+    },
+    {
+      "id": "54",
+      "kind": "intent_capture",
+      "label": "How can I help you?",
+      "source": "slide 1, shape 54",
+      "text": "How can I help you?",
+      "intents": [],
+      "retry": {
+        "maxAttempts": 3,
+        "onExhausted": "escalate",
+        "reprompt": "Intent Failure: I’m sorry, I didn’t quite get that."
+      },
+      "next": [
+        {
+          "to": "48",
+          "label": "Y"
+        }
+      ]
+    },
+    {
+      "id": "48",
+      "kind": "decision",
+      "label": "Detect Spanish / speaker?",
+      "source": "slide 1, shape 48",
+      "question": "Detect Spanish / speaker?",
+      "next": [
+        {
+          "to": "39",
+          "label": "Y"
+        },
+        {
+          "to": "119",
+          "label": "N"
+        }
+      ]
+    },
+    {
+      "id": "39",
+      "kind": "language_detection",
+      "label": "Set en_US",
+      "source": "slide 1, shape 39",
+      "languages": [
+        "en-US"
+      ],
+      "next": [
+        {
+          "to": "56",
+          "label": "Y"
+        }
+      ]
+    },
+    {
+      "id": "56",
+      "kind": "decision",
+      "label": "Utterance / recognized?",
+      "source": "slide 1, shape 56",
+      "question": "Utterance / recognized?",
+      "next": [
+        {
+          "to": "67",
+          "label": "Y"
+        },
+        {
+          "to": "119",
+          "label": "N"
+        }
+      ]
+    },
+    {
+      "id": "119",
+      "kind": "announcement",
+      "label": "Intent Failure: I’m sorry, I didn’t quite get that.",
+      "source": "slide 1, shape 119",
+      "text": "Intent Failure: I’m sorry, I didn’t quite get that.",
+      "next": [
+        {
+          "to": "48",
+          "label": "Y"
+        },
+        {
+          "to": "136",
+          "label": "N"
+        }
+      ]
+    },
+    {
+      "id": "136",
+      "kind": "escalation",
+      "label": "Route to Agent",
+      "source": "slide 1, shape 136",
+      "reason": "Intent Failure",
+      "context": [],
+      "next": []
+    },
+    {
+      "id": "67",
+      "kind": "decision",
+      "label": "Authentication / required for intent?",
+      "source": "slide 1, shape 67",
+      "question": "Authentication / required for intent?",
+      "next": [
+        {
+          "to": "202",
+          "label": "Y"
+        },
+        {
+          "to": "69",
+          "label": "N"
+        }
+      ]
+    },
+    {
+      "id": "202",
+      "kind": "self_service",
+      "label": "Perform self-service (e.g., FAQ)",
+      "source": "slide 1, shape 202",
+      "name": "Perform self-service (e.g., FAQ)",
+      "mode": "faq",
+      "separateFlow": true,
+      "content": "unknown",
+      "next": [
+        {
+          "to": "81",
+          "label": "Y"
+        }
+      ]
+    },
+    {
+      "id": "69",
+      "kind": "authentication",
+      "label": "Authentication: To proceed, we need to verify your identity, can you please provide your Census ID and either your home zip code or the last four digits of your SSN?",
+      "source": "slide 1, shape 69",
+      "text": "Authentication: To proceed, we need to verify your identity, can you please provide your Census ID and either your home zip code or the last four digits of your SSN?",
+      "identifiers": [
+        "Census ID",
+        "home zip code",
+        "last four digits of SSN"
+      ],
+      "match": "any",
+      "retry": {
+        "maxAttempts": 3,
+        "onExhausted": "escalate",
+        "reprompt": "Auth Failure: I’m sorry, I didn’t quite get that. Can you provide please provide your Census ID and either your home zip code or the last four digits of your SSN?"
+      },
+      "verifiesAgainst": {
+        "type": "unknown"
+      },
+      "next": [
+        {
+          "to": "71",
+          "label": "Y"
+        }
+      ]
+    },
+    {
+      "id": "71",
+      "kind": "decision",
+      "label": "Authentication / Successful?",
+      "source": "slide 1, shape 71",
+      "question": "Authentication / Successful?",
+      "next": [
+        {
+          "to": "81",
+          "label": "Y"
+        },
+        {
+          "to": "172",
+          "label": "N"
+        }
+      ]
+    },
+    {
+      "id": "172",
+      "kind": "announcement",
+      "label": "Auth Failure: I’m sorry, I didn’t quite get that. Can you provide please provide your Census ID and either your home zip code or the last four digits of your SSN?",
+      "source": "slide 1, shape 172",
+      "text": "Auth Failure: I’m sorry, I didn’t quite get that. Can you provide please provide your Census ID and either your home zip code or the last four digits of your SSN?",
+      "next": [
+        {
+          "to": "71",
+          "label": "Y"
+        },
+        {
+          "to": "136",
+          "label": "N"
+        }
+      ]
+    },
+    {
+      "id": "81",
+      "kind": "confirmation",
+      "label": "Anything Else: Is there anything else I can help you with today?",
+      "source": "slide 1, shape 81",
+      "text": "Anything Else: Is there anything else I can help you with today?",
+      "next": [
+        {
+          "to": "67",
+          "label": "Y"
+        },
+        {
+          "to": "245",
+          "label": "N"
+        }
+      ]
+    },
+    {
+      "id": "245",
+      "kind": "closing",
+      "label": "Closing: Thank you for calling, goodbye.",
+      "source": "slide 1, shape 245",
+      "text": "Closing: Thank you for calling, goodbye.",
+      "next": [
+        {
+          "to": "239",
+          "label": "Y"
+        }
+      ]
+    },
+    {
+      "id": "239",
+      "kind": "end",
+      "label": "Disconnect Call",
+      "source": "slide 1, shape 239",
+      "disposition": "disconnect",
+      "next": []
+    }
+  ],
+  "assumptions": [
+    {
+      "statement": "The language code 'en_US' was converted to 'en-US'."
+    },
+    {
+      "statement": "The heuristic match for the free end of arrow 41 was confirmed."
+    },
+    {
+      "statement": "The heuristic match for the free end of arrow 212 was confirmed."
+    },
+    {
+      "statement": "The channel is voice based on the nature of the call flow."
+    }
+  ],
+  "unmapped": [
+    {
+      "description": "fallback: 3x",
+      "source": "slide 1, shape 129"
+    },
+    {
+      "description": "fallback: 3x",
+      "source": "slide 1, shape 197"
+    },
+    {
+      "description": "If already authenticated, skip, otherwise send through authentication.",
+      "source": "slide 1, shape 237"
+    },
+    {
+      "description": "Y",
+      "source": "slide 1, shape 148"
+    },
+    {
+      "description": "Y",
+      "source": "slide 1, shape 163"
+    },
+    {
+      "description": "Y",
+      "source": "slide 1, shape 183"
+    },
+    {
+      "description": "N",
+      "source": "slide 1, shape 209"
+    },
+    {
+      "description": "N",
+      "source": "slide 1, shape 222"
+    },
+    {
+      "description": "N",
+      "source": "slide 1, shape 251"
+    },
+    {
+      "description": "Y",
+      "source": "slide 1, shape 253"
+    },
+    {
+      "description": "N",
+      "source": "slide 1, shape 285"
+    }
+  ]
+}

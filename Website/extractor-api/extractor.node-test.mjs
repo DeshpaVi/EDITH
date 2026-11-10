@@ -340,3 +340,11 @@ test('the schema and hints say what name and context need for the step kinds tha
   assert.match(text, /context: must be an array of non-empty strings\. Fix: list what the agent should receive/)
   assert.match(text, /name: must be a non-empty string\. Fix: give a short name taken from the source label/)
 })
+
+test('the rules cover diagram titles in prompts and shapes that must not be dropped', () => {
+  const prompt = buildSystemPrompt()
+  assert.match(prompt, /"Title: wording"/)
+  assert.match(prompt, /ONLY the wording after the colon/)
+  assert.match(prompt, /never leave a shape out/)
+  assert.match(buildUserText({ fileName: 'a', kind: 'deck', text: 'x', feedback: [{ path: '$.steps', message: 'the shape "X" is not covered' }] }), /every non-legend shape with text must become a step/)
+})

@@ -17,6 +17,8 @@ export const EXTRACTION_RULES = [
   'Arrows marked as not attached to a target, and branch-label matches, are heuristics from the file reader: confirm them from meaning, and add an assumption when you rely on one.',
   'A shape or box titled "Legend", and the sample shapes inside it that only explain colours (for example "Start", "Settings", "Announcements", "Lambda", "Separate Flow", "Prompts / Input"), are NOT steps. Use them only to interpret colours.',
   'Markers that only show where the call begins ("Incoming Call", "Start") are NOT steps and say nothing to the caller. The first real step (usually the greeting) is where the journey starts. Never give a spoken kind (greeting, announcement, closing, confirmation, intent_capture, authentication) to a shape that has no wording.',
+  'When shapes read "Title: wording" (a short name, a colon, then the words), the title is the diagram\'s name for the shape: put the whole shape text in "label" and ONLY the wording after the colon in "text". Only do this when the diagram uses that convention for its prompts; wording that merely starts with a word and a colon (for example "Note: this call is recorded") is copied whole.',
+  'Every non-legend shape that has text must become a step or an "unmapped" entry (cite it as "slide N, shape M"); never leave a shape out.',
   'One step per source shape. If several arrows lead to the same shape, give the arrows the same target id (several edges to one step); never create a second step for a shape you already used, so every step id is unique.',
   'Every step has a "next" list. A step that leads nowhere (the call ends, or the caller is transferred) has "next": [] (an empty list), never a missing field. Every edge "to" must be the id of another step you defined: if a path ends the call, add a step of kind "end" with its own id and point to that id; never point to a name such as "end" that is not a step id.',
   'Every "unmapped" item needs a "source" saying where it came from, for example "slide 1, shape 69"; if you cannot tell, write "source not identified".',
@@ -130,6 +132,7 @@ export const FIELDS_BY_KIND = [
 
 /** One line of help per field the validator names, so a repair attempt knows what to put there. */
 const FIELD_HINTS = {
+  steps: 'every non-legend shape with text must become a step or an unmapped entry; cite it as "slide N, shape M".',
   name: 'give a short name taken from the source label of that flow or lookup (self_service and data_lookup steps).',
   context: 'list what the agent should receive, each entry a non-empty string, or use [] if the source names nothing; never empty strings (escalation steps).',
   purpose: 'say in one sentence what the lookup is for (data_lookup steps).',

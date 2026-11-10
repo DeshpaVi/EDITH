@@ -32,6 +32,16 @@ A model will turn anything it is shown into a step. Do the cleanup in the file r
 - The checklist builder crashed on a valid journey whose escalation lists no hand-over context ("requires unknown item acxd.contextVariable.customerIntent"). Baseline items that other items rely on (the safety flow's hand-back variables, the escalation flow after authentication, `stuckPoint`) must be created whatever the journey says, and a test must build the checklist and the bundle from sparse variants of the real journey (empty lists, missing optional fields, no escalation, no authentication).
 - Never swallow an error after a successful read: show it, keep the journey, and offer it for download so it can be reproduced. A silent "nothing happened" cost a round trip.
 
+## 4c. What a real model reading of the Census deck got wrong even when the answer validated (Nova Pro)
+Comparing the extracted journey with the hand-made one (their checklists and their generated bundles) showed what a schema cannot catch. Each is now a deterministic check in the browser (`extract/semantic.ts`) that sends the finding back to the model with its previous answer:
+- **A start marker became the greeting.** "Incoming Call" was given as spoken wording, so the generated main flow would have greeted callers with "Incoming Call".
+- **Diagram titles inside prompts.** Shapes read "Main Greeting: Thank you for calling...", "Authentication: To proceed...", "Intent Failure: I'm sorry...". The title is the diagram's name for the shape, not spoken wording. Detect the convention (most spoken steps follow it) before treating it as a title; a genuine "Note: this call is recorded" is wording and must be kept whole.
+- **Shapes silently dropped** ("Set es_US", the enumeration self-service box): in neither a step nor `unmapped`. Check every non-legend shape with text is cited as `slide N, shape M` somewhere. Skip the check when the model cites no shape numbers at all.
+- On the last attempt keep the journey and record the findings as review entries ("Reader check: ..."), so the read is not lost and nothing is hidden.
+- **What the deck does not say stays unknown, by design.** The model set the authentication backend and the FAQ content source to "unknown", so no authentication flow, DynamoDB table or Lambda was generated and two blockers appeared. The consultant's **Notes** box supplies such facts ("records live in DynamoDB; any one identifier is enough; FAQ answers come from a knowledge base").
+- Granularity differs: a model gives one step per shape while a person groups related shapes. Compare checklists and bundles, not step lists.
+- Keep a real model's output as a regression fixture (`fixtures/census-cqa.extracted-nova.journey.json`) and test the checks against it.
+
 ## 5. Ideas for the app
 - **"What the model will read" preview:** show the consultant the text and graph the reader extracted (with the legend and ignored items marked) before calling the model. Most extraction problems are visible there.
 - **Per-format readers share one graph model** (shapes, arrows, labels, legend): add legend and noise handling once in the shared model, and per format only the parsing.
