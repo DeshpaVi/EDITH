@@ -22,6 +22,7 @@ real failure or surprise; the fix is in the code and the check is in a test. Use
    "Access to this model is not available for channel program accounts". Find this out before the demo: try the model in the Bedrock
    playground in the account first. Options: ask the account owner / Solution Provider, use a direct AWS account for the extractor only
    (with approval for the data), or a non-Anthropic model.
+6b. **Third-party models (OpenAI and others) are sold through AWS Marketplace.** The first call needs `aws-marketplace:Subscribe` and `ViewSubscriptions` on the caller; then the account stays subscribed. Subscribe once from the playground with a privileged user, or give the extractor role the permission temporarily. Access errors from Bedrock say which actions are missing: show AWS's message to the operator.
 7. Newer models are served through **cross-region inference profiles**: use the inference-profile id (e.g. `us.<model>`), not the bare model id.
    Copy it from the console; never type it from memory.
 

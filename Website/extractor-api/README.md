@@ -25,6 +25,12 @@ model refuses one, accepts a JSON journey in the model's text, ignores reasoning
 (decks, documents and text files still work, because they are read in the browser). If a model rejects tools altogether (the OpenAI open-weight models are not documented to support them), it asks for one JSON object in plain text with the schema in the prompt. `TOOL_CHOICE=auto` or `none` skips the earlier modes from the start; `MAX_TOKENS` raises
 the output limit (default 16,000, which reasoning models spend partly on thinking).
 
+## Models sold through AWS Marketplace (OpenAI, others)
+
+The first call in an account subscribes it to the model, which needs `aws-marketplace:Subscribe` and `ViewSubscriptions`. If the extractor reports that
+those actions are not authorized, either call the model once from the Bedrock playground with a user who has them, or update the stack with
+`AllowMarketplaceSubscribe=true`, make one successful call, then set it back to `false` (the subscription stays). The permission cannot be restricted to one product.
+
 ## Notes
 
 - Auth is a single shared bearer token, which is enough for a small team demo. Put a real authorizer (for example Cognito

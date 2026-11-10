@@ -29,6 +29,25 @@
       "Default": "extractor.zip",
       "AllowedPattern": "[^\\s]+",
       "Description": "S3 key of the zip (index.mjs, contract.mjs, converse.mjs and package.json at its root)."
+    },
+    "AllowMarketplaceSubscribe": {
+      "Type": "String",
+      "Default": "false",
+      "AllowedValues": [
+        "true",
+        "false"
+      ],
+      "Description": "Set to true only for the first call of a model sold through AWS Marketplace (for example OpenAI models): the role may then subscribe the account to it. The subscription lasts; set it back to false afterwards. The permission cannot be limited to one product."
+    }
+  },
+  "Conditions": {
+    "MarketplaceSubscribeOn": {
+      "Fn::Equals": [
+        {
+          "Ref": "AllowMarketplaceSubscribe"
+        },
+        "true"
+      ]
     }
   },
   "Resources": {
@@ -77,6 +96,30 @@
                 }
               ]
             }
+          },
+          {
+            "Fn::If": [
+              "MarketplaceSubscribeOn",
+              {
+                "PolicyName": "MarketplaceSubscribeOnce",
+                "PolicyDocument": {
+                  "Version": "2012-10-17",
+                  "Statement": [
+                    {
+                      "Effect": "Allow",
+                      "Action": [
+                        "aws-marketplace:ViewSubscriptions",
+                        "aws-marketplace:Subscribe"
+                      ],
+                      "Resource": "*"
+                    }
+                  ]
+                }
+              },
+              {
+                "Ref": "AWS::NoValue"
+              }
+            ]
           }
         ]
       }
