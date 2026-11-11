@@ -112,6 +112,43 @@ export function reconcile(source: SourceInput, input: Journey): Reconciled {
       }
     })
   }
+  // 4. a caption or title that no arrow touches is not a step (the deck's title was read as an "unknown" step once)
+  for (const slide of source.deck.slides) {
+    if (slide.connectors.length === 0) continue
+    const touched = new Set<string>()
+    for (const c of slide.connectors) for (const id of [c.fromId, c.toId, c.guessedTarget?.shapeId]) if (id) touched.add(id)
+    const loose = j.steps.filter((s: Loose) => {
+      const r = shapeRefs(s.source)
+      return s.kind === 'unknown' && s.next.length === 0 && r.ids.length > 0 && (r.slide === undefined || r.slide === slide.index) && !r.ids.some((id) => touched.has(id))
+        && !j.steps.some((o: Loose) => o.next.some((e: Loose) => e.to === s.id))
+    })
+    if (loose.length === 0) continue
+    const gone = new Set(loose.map((s: Loose) => s.id))
+    j.steps = j.steps.filter((s: Loose) => !gone.has(s.id))
+    notes.push(`Left out ${loose.map((s: Loose) => `"${norm(s.label ?? s.raw ?? '')}"`).join(', ')}: no arrow touches it, so it is a title or caption and not a step.`)
+  }
+
+  // 5. branch labels the reader attached to an arrow are no longer "unmapped"
+  const attached = new Set<string>()
+  for (const slide of source.deck.slides) {
+    const arrowsFrom = new Set(slide.connectors.map((c) => c.id))
+    for (const l of slide.labels) if (l.nearest[0] && arrowsFrom.has(l.nearest[0].connectorId)) attached.add(`slide ${slide.index}, shape ${l.shapeId}`)
+  }
+  const before = j.unmapped.length
+  j.unmapped = j.unmapped.filter((u: Loose) => !(attached.has(norm(u.source ?? '')) && ['y', 'n', 'yes', 'no'].includes(norm(u.description ?? '').toLowerCase()) || attached.has(norm(u.source ?? '')) && /^fallback/i.test(norm(u.description ?? ''))))
+  if (j.unmapped.length < before) notes.push(`${before - j.unmapped.length} branch label(s) (Y, N, fallback) are now on their arrows, so they were removed from the unmapped list.`)
+
+  // 6. a step nothing leads to is a gap for the owner to settle, never a guess
+  j.steps.forEach((s: Loose, i: number) => {
+    if (i === 0 || j.steps.some((o: Loose) => o.next.some((e: Loose) => e.to === s.id))) return
+    if (!shapeRefs(s.source).ids.length) return
+    j.unmapped.push({ description: `Nothing leads to "${norm(s.label ?? '')}": the diagram has no arrow into it, so the call never reaches it. Confirm where it belongs.`, source: s.source })
+  })
+  for (const s of j.steps) {
+    if (s.kind === 'intent_capture' && Array.isArray(s.intents) && s.intents.length === 0) {
+      j.unmapped.push({ description: `"${norm(s.label ?? '')}" lists no intents. The deck does not name them; add them in the notes box and read again, or in the checklist.`, source: s.source })
+    }
+  }
   if (removed.length > 0) notes.push(`Removed ${removed.length} edge(s) the diagram does not have: ${removed.join('; ')}.`)
   if (added.length > 0) notes.push(`Added ${added.length} edge(s) the diagram has but the reading missed: ${added.join('; ')}.`)
   return { journey: j as Journey, notes }

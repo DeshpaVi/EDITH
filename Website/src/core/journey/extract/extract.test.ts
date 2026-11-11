@@ -192,3 +192,17 @@ describe('http port', () => {
     await expect(createHttpPort({ url: 'u', token: 't', fetchImpl: reply(200, {}) }).extract(body)).rejects.toThrow('no journey')
   })
 })
+
+describe('reconcile on the fifth real reading', () => {
+  it('drops the deck title, tidies branch labels, flags an unreachable step and empty intents', async () => {
+    const reading = JSON.parse(readFileSync(join(__dirname, '../fixtures/census-cqa.extracted-nova-v5.journey.json'), 'utf8'))
+    const r = await extractJourney(fakePort(reading), deck())
+    expect(r.ok).toBe(true)
+    if (!r.ok) return
+    expect(r.journey.steps.some((s) => s.id === '264')).toBe(false)
+    expect(r.journey.assumptions.some((a) => a.statement.includes('Demo Proof-of-Concept Call Flow') && a.statement.includes('title or caption'))).toBe(true)
+    expect(r.journey.unmapped.some((u) => /^(Y|N)$/.test(u.description) || /^fallback/.test(u.description))).toBe(false)
+    expect(r.journey.unmapped.some((u) => u.description.startsWith('Nothing leads to'))).toBe(true)
+    expect(r.journey.unmapped.some((u) => u.description.includes('lists no intents'))).toBe(true)
+  })
+})
