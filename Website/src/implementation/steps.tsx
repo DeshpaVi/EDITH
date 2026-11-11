@@ -9,7 +9,7 @@ import exampleToxicity from '../core/emit/acxd/fixtures/guardrail.Toxicity.json'
 import type { Journey, ValidationIssue } from '../core/journey'
 import { defaultContactFlowForm, describeChecklist, generateBundle, generateContactFlow, toggleItem, zipFiles } from './controller'
 import type { BuildResult, ContactFlowForm, ContactFlowResult, Details, Session } from './controller'
-import { ACCEPTED_FILES, readAndExtract } from './extraction'
+import { ACCEPTED_FILES, notesPrompts, readAndExtract } from './extraction'
 import type { ExtractionForm } from './extraction'
 import { color, heading, input as inputStyle, muted, severityColor, statusColor } from './theme'
 import { Button, Chip, Code, Field, Panel, Problems, Summary, TextArea, TextInput, download } from './ui'
@@ -26,6 +26,8 @@ export function JourneyStep({ issues, onLoad, onExtracted }: { issues: Validatio
   const [busy, setBusy] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
   const [readJourney, setReadJourney] = useState<Journey | null>(null)
+
+  const missingNotes = file ? notesPrompts(file, form.notes) : []
 
   const update = (next: ExtractionForm) => {
     setForm(next)
@@ -79,6 +81,12 @@ export function JourneyStep({ issues, onLoad, onExtracted }: { issues: Validatio
         <Field label="Extractor URL" hint="The Function URL from the extractor stack (or set VITE_EXTRACTOR_URL)."><TextInput value={form.url} onChange={(v) => update({ ...form, url: v })} placeholder="https://..." /></Field>
         <Field label="Access token" hint="Kept in memory only; you re-enter it each visit."><input type="password" style={inputStyle} value={form.token} onChange={(e) => update({ ...form, token: e.target.value })} autoComplete="off" /></Field>
         <Field label="Notes for the reader (optional)" hint="Facts the file does not say, for example that records live in DynamoDB or that any one identifier is enough."><TextArea value={form.notes} onChange={(v) => update({ ...form, notes: v })} rows={3} /></Field>
+        {missingNotes.length > 0 && (
+          <div style={{ ...muted, fontSize: 13, margin: '0 0 12px', padding: 10, border: `1px solid ${color.border}`, borderRadius: 6 }}>
+            <strong>Before reading, add these to the notes if you know them:</strong>
+            <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>{missingNotes.map((n) => <li key={n}>{n}</li>)}</ul>
+          </div>
+        )}
         <Button onClick={() => { void read() }} disabled={!file || busy}>{busy ? 'Reading…' : 'Read journey'}</Button>
         <Problems items={errors} />
         {readJourney && <div style={{ marginTop: 8 }}><Button kind="ghost" onClick={() => download('journey-read.json', JSON.stringify(readJourney, null, 2), 'application/json')}>Download the journey that was read (JSON)</Button></div>}

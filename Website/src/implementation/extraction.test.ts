@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { ACCEPTED_FILES, readAndExtract, validateExtractionForm } from './extraction'
+import { ACCEPTED_FILES, notesPrompts, readAndExtract, validateExtractionForm } from './extraction'
 import census from '../core/journey/fixtures/census-cqa.journey.json'
 
 const deck = () => ({ fileName: 'flow.pptx', bytes: new Uint8Array(readFileSync(join(__dirname, '../core/journey/fixtures/census-cqa-call-flow.pptx'))) })
@@ -71,5 +71,16 @@ describe('readAndExtract', () => {
     const bytes = new TextEncoder().encode('{"hello": "world"}')
     const r = await readAndExtract({ fileName: 'notes.json', bytes }, form, answering(200, { journey: census }))
     expect(r.ok).toBe(true)
+  })
+})
+
+describe('notesPrompts', () => {
+  const text = (t: string) => ({ fileName: 'a.txt', bytes: new TextEncoder().encode(t) })
+  it('asks for intents and the data source when neither the file nor the notes say them', () => {
+    expect(notesPrompts(text('Greet the caller. Then say goodbye.'), '')).toHaveLength(2)
+  })
+  it('stops asking once the notes supply them, and ignores structured journeys', () => {
+    expect(notesPrompts(text('Greet the caller.'), 'Intents: faq, agent. Records live in DynamoDB.')).toEqual([])
+    expect(notesPrompts({ fileName: 'j.json', bytes: new Uint8Array() }, '')).toEqual([])
   })
 })

@@ -11,6 +11,8 @@ import nova1 from '../fixtures/census-cqa.extracted-nova.journey.json'
 import nova2 from '../fixtures/census-cqa.extracted-nova-v2.journey.json'
 import nova3 from '../fixtures/census-cqa.extracted-nova-v3.journey.json'
 import nova4 from '../fixtures/census-cqa.extracted-nova-v4.journey.json'
+import nova5 from '../fixtures/census-cqa.extracted-nova-v5.journey.json'
+const nova5Fixture = () => nova5
 
 const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v))
 const J = (v: unknown) => clone(v) as unknown as Journey
@@ -159,5 +161,13 @@ describe('terminal steps, empty labels and start markers kept as unknown', () =>
     if (!r.ok) return
     expect(r.journey.steps.some((s) => s.label === 'Incoming Call')).toBe(false)
     expect(r.journey.steps.every((s) => s.next.every((e) => e.label !== ''))).toBe(true)
+  })
+})
+
+describe('start markers count as covered', () => {
+  it('does not report "Incoming Call" as an unaccounted shape when reconcile removed it', () => {
+    const r = reconcile(deck(), J(nova5Fixture()))
+    const missing = semanticIssues(deck(), r.journey).filter((i) => i.path === '$.steps').map((i) => i.message).join('\n')
+    expect(missing).not.toContain('Incoming Call')
   })
 })

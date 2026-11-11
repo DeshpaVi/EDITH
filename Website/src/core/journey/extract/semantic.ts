@@ -63,7 +63,8 @@ export function semanticIssues(source: SourceInput, journey: Journey): Validatio
         if (slide.connectors.length === 0) continue
         for (const shape of slide.shapes) {
           const text = norm(shape.text)
-          if (text === '' || shape.textBox || shape.legendMember || text === title || narrative.includes(text)) continue
+          // A start marker ("Incoming Call") is not a step: reconcile removes it on purpose, so it counts as covered.
+          if (text === '' || shape.textBox || shape.legendMember || text === title || narrative.includes(text) || START_MARKER.test(text)) continue
           const covered = cited.some((c) => c.ids.includes(shape.id) && (c.slide === undefined || c.slide === slide.index))
           if (!covered) {
             issues.push({

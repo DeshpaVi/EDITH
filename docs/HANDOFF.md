@@ -354,3 +354,11 @@ Summary (extractor-v14, site-v18): 16 items, authentication lost (the model re-l
 - Next: (1) run and fix the tests; (2) treat start markers as covered in `semanticIssues`; (3) when a deck does not state intents or the data source, the app should say so and ask for notes before reading; (4) save an approved reading and reload it per customer instead of re-running the model; (5) package website v20 (extractor stays v14 unless contract.mjs changes); (6) compare the bundle from the extracted journey with the hand-made spec; (7) permanent `cqa-demo` stack update (provisioner v7, application name `CQA Demo`), ACXD Deployment to Development and alias id, Connect contact flow import and call test.
 - Deploy route for the site (CloudShell, Node 20): unzip, `cd Website && npm ci && VITE_AUTH=cognito npm run build`, `aws s3 sync dist/ s3://journeyforge-site-deploy-sitebucket-tl2szjrzbuz5/ --delete`, copy `index.html` with `--cache-control no-cache --content-type text/html`, `aws cloudfront create-invalidation --distribution-id E2XVPL1M8YVWFF --paths "/*"`.
 - Presentation files (one-pager and architecture) were made in the previous session's scratchpad and are not in the repo.
+
+## 0ai. Tests run, start markers covered, notes prompt, site-v20
+
+- `npm ci` worked; the 346 tests (including the unrun f363ba5 reconcile test) passed as they were and `tsc --noEmit` was clean. Nothing needed fixing.
+- `semanticIssues` now treats a start-marker shape ("Incoming Call") as covered, so no stale reader-check entry is left in `unmapped` (test in `semantic.test.ts`, fails without the change).
+- New `notesPrompts` in `implementation/extraction.ts`, shown on the read screen before reading: when neither the file nor the notes box mention intents or where records are looked up, the app asks for them in the notes. 349 tests. Site-v20 (extractor stays v14).
+- Still open: the deck title as steps[0] in reading 6, "fallback: 3x" labels in `unmapped`; then items 4, 6 and 7 of 0ah.
+

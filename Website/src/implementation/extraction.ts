@@ -1,4 +1,4 @@
-import { createHttpPort, extractJourney, readSource, SourceError, SUPPORTED_EXTENSIONS } from '../core/journey'
+import { createHttpPort, extractJourney, readSource, SourceError, sourceText, SUPPORTED_EXTENSIONS } from '../core/journey'
 import type { Journey } from '../core/journey'
 import { parseJourneyText } from './controller'
 import { BUILD_ID } from '../app/build'
@@ -30,6 +30,27 @@ export function validateExtractionForm(form: ExtractionForm): string[] {
   }
   if (form.token.trim() === '') errors.push('Enter the extractor access token.')
   return errors
+}
+
+/**
+ * Facts a deck usually leaves out and the reader cannot invent. Before reading, say which of them the file does not mention and the notes box
+ * does not supply, so the consultant adds them instead of getting a reading with empty intents or an unknown data source (HANDOFF 0ah).
+ * Deterministic; an image or PDF has no text to check, so it gets no prompt.
+ */
+export function notesPrompts(file: { fileName: string; bytes: Uint8Array }, notes: string): string[] {
+  if (file.fileName.toLowerCase().endsWith('.json')) return []
+  let text: string | undefined
+  try {
+    text = sourceText(readSource(file))
+  } catch {
+    return []
+  }
+  if (text === undefined) return []
+  const have = `${text}\n${notes}`
+  const prompts: string[] = []
+  if (!/\bintents?\b|\bfaq\b|\butterances?\b/i.test(have)) prompts.push('The file does not name the intents the caller can express (for example FAQ, a self-service request, an agent request). Add them to the notes.')
+  if (!/dynamo|database|\btables?\b|\bcrm\b|\bapi\b|data ?dip|lookup|look up|records?\b/i.test(have)) prompts.push('The file does not say where caller records are looked up (for example a DynamoDB table, an API, a CRM). Add it to the notes.')
+  return prompts
 }
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`
