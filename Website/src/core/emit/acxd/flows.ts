@@ -134,6 +134,7 @@ export function authenticationFlow(auth: AuthenticationStep, opts: Authenticatio
           prompt:
             `The caller has just been asked for their ${orList(auth.identifiers)}. Do not greet them and do not repeat the question. Wait for their answer.\n\n` +
             `Capture whichever one value the caller gives into ${slot}. One value is enough; do not ask for the others. Do not repeat the value back to the caller. ` +
+            'A value can mix letters and digits (for example A1B2C3D4). If the caller spells it out, join the characters into one value with no spaces or hyphens, write letters as capital letters and digits as digits ("A one B two" becomes A1B2), and never drop a letter. ' +
             'If the caller gives something that does not look like one of these, ask them once to try again.',
           exitConditions: [],
           tools: [],

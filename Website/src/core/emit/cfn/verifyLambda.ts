@@ -7,7 +7,9 @@
  *
  * Generic: the identifier fields come from the IDENTIFIER_FIELDS env var. The first field is the
  * table's partition key; each other field has a global secondary index named "<field>-index".
- * Request { authValue }, response { verified }. Verified when authValue matches ANY ONE field.
+ * Request { authValue }, response { verified }. Verified when authValue matches ANY ONE field. Identifiers may be alphanumeric (a Census ID such as
+ * "A1B2C3D4"): the value as given is tried first, then a compact form (spaces and hyphens removed, capital letters), because a spoken ID reaches
+ * us as "a1 b2-c3" more often than as the stored form. Stored values should therefore be written in capital letters without spaces.
  * No PII is logged and the response never says which field matched.
  */
 export const VERIFY_LAMBDA_SOURCE = [
@@ -43,8 +45,11 @@ export const VERIFY_LAMBDA_SOURCE = [
   '  try { input = parseBody(event); } catch { return reply(400, { error: "invalid JSON body" }); }',
   '  const value = String(input.authValue ?? "").trim();',
   '  if (!value) return reply(200, { verified: false });',
+  '  const compact = value.replace(/[\\s-]+/g, "").toUpperCase();',
   '  for (const field of FIELDS) {',
-  '    if (await exists(field, value)) return reply(200, { verified: true });',
+  '    for (const v of new Set([value, compact])) {',
+  '      if (v && (await exists(field, v))) return reply(200, { verified: true });',
+  '    }',
   '  }',
   '  return reply(200, { verified: false });',
   '};',
