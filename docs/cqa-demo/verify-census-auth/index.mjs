@@ -37,8 +37,13 @@ export const makeHandler = (exists, env = process.env) => async (event) => {
   const authValue = String(input.authValue ?? "").trim();
   if (!authValue) return reply(200, { verified: false });
 
+  // Identifiers may be alphanumeric (a Census ID such as A1B2C3D4). Try the value as given, then a compact form
+  // (spaces and hyphens removed, capital letters): a spoken ID can arrive as "a1b2-c3 d4". Store IDs in capitals, no spaces.
+  const compact = authValue.replace(/[\s-]+/g, "").toUpperCase();
   for (const field of FIELDS) {
-    if (await exists(field, authValue)) return reply(200, { verified: true });
+    for (const value of new Set([authValue, compact])) {
+      if (value && (await exists(field, value))) return reply(200, { verified: true });
+    }
   }
   return reply(200, { verified: false });
 };

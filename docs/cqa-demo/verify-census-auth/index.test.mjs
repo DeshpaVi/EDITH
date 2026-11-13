@@ -32,3 +32,13 @@ test("bad JSON -> 400; wrong API key -> 401", async () => {
   assert.equal((await handler({ body: "{", headers: { "x-api-key": "k" } })).statusCode, 400);
   assert.equal((await call({ authValue: "12345" }, {})).status, 401);
 });
+
+// Alphanumeric Census IDs: the value as spoken is matched against the stored capitals without spaces or hyphens.
+test("alphanumeric id: spaces, hyphens and lowercase still match", async () => {
+  const stored = new Set(["censusId:A1B2C3D4"]);
+  const h = makeHandler(async (f, v) => stored.has(`${f}:${v}`), {});
+  const verified = async (v) => JSON.parse((await h({ body: JSON.stringify({ authValue: v }) })).body).verified;
+  assert.equal(await verified("A1B2C3D4"), true);
+  assert.equal(await verified("a1b2-c3 d4"), true);
+  assert.equal(await verified("A1B2C3D5"), false);
+});
